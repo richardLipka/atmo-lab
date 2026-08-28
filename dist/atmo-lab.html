@@ -1055,12 +1055,6 @@ function createStore(initial = DEFAULT_STATE) {
    */
   function reconcile(changed) {
     const obs = state.observer;
-    if (obs.z < 0 && !obs.well.enabled) {
-      obs.well.enabled = true;
-      changed.add('observer.well.enabled');
-      changed.add('observer.well');
-      changed.add('observer');
-    }
     const maxDepth = obs.well.enabled ? obs.well.depth_m : 0;
     const clamped = Math.max(-maxDepth, Math.min(context.maxAltitude, obs.z));
     if (clamped !== obs.z) {
@@ -3872,6 +3866,15 @@ function createControls(root, { store, i18n, config }) {
         {
           id: 'ctl-well', type: 'checkbox', labelKey: 'controls.observer.wellEnabled',
           path: 'observer.well.enabled',
+          onChange: (enabled) => {
+            const state = store.state;
+            if (enabled) {
+              const depth = state.observer.well?.depth_m ?? 50;
+              const z = state.observer.z <= 0 ? -depth : state.observer.z;
+              return { observer: { well: { enabled: true }, z } };
+            }
+            return { observer: { well: { enabled: false }, z: Math.max(0, state.observer.z) } };
+          },
         },
         {
           id: 'ctl-well-radius', type: 'range', labelKey: 'controls.observer.wellRadius',

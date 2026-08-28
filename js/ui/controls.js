@@ -187,6 +187,15 @@ export function createControls(root, { store, i18n, config }) {
         {
           id: 'ctl-well', type: 'checkbox', labelKey: 'controls.observer.wellEnabled',
           path: 'observer.well.enabled',
+          onChange: (enabled) => {
+            const state = store.state;
+            if (enabled) {
+              const depth = state.observer.well?.depth_m ?? 50;
+              const z = state.observer.z <= 0 ? -depth : state.observer.z;
+              return { observer: { well: { enabled: true }, z } };
+            }
+            return { observer: { well: { enabled: false }, z: Math.max(0, state.observer.z) } };
+          },
         },
         {
           id: 'ctl-well-radius', type: 'range', labelKey: 'controls.observer.wellRadius',

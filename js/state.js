@@ -109,12 +109,6 @@ export function createStore(initial = DEFAULT_STATE) {
    */
   function reconcile(changed) {
     const obs = state.observer;
-    if (obs.z < 0 && !obs.well.enabled) {
-      obs.well.enabled = true;
-      changed.add('observer.well.enabled');
-      changed.add('observer.well');
-      changed.add('observer');
-    }
     const maxDepth = obs.well.enabled ? obs.well.depth_m : 0;
     const clamped = Math.max(-maxDepth, Math.min(context.maxAltitude, obs.z));
     if (clamped !== obs.z) {
