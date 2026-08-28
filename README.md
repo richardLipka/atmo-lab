@@ -1,5 +1,9 @@
 # Atmospheric Light Laboratory
 
+**▶ [Open the laboratory](https://richardlipka.github.io/atmo-lab/)** ·
+[run the test suite in your browser](https://richardlipka.github.io/atmo-lab/tests/test-runner.html) ·
+[single-file version to download](https://richardlipka.github.io/atmo-lab/dist/atmo-lab.html)
+
 An interactive physics laboratory for secondary-school students (roughly ages 15–19) that
 answers four questions with one engine:
 
