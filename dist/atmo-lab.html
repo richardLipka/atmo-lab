@@ -34,6 +34,7 @@
 }
 
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
@@ -795,20 +796,26 @@ function fromBundle(path) {
  * Returns maps keyed by id, ready for the UI to enumerate.
  */
 async function loadConfiguration() {
+  const isStandalone = typeof STANDALONE !== 'undefined' && STANDALONE;
+  const isFile = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
   let useBundle = false;
   let index;
 
-  try {
-    if (STANDALONE) throw new Error('standalone build');
-    index = await fetchJson('index.json');
-  } catch (err) {
-    if (!bundled()) {
-      throw new Error(
-        'Configuration could not be loaded. Serve the folder over http, ' +
-        'or run "npm run build" once so that config/bundle.js exists.');
-    }
+  if (isStandalone || (isFile && bundled())) {
     useBundle = true;
     index = fromBundle('index.json');
+  } else {
+    try {
+      index = await fetchJson('index.json');
+    } catch (err) {
+      if (!bundled()) {
+        throw new Error(
+          'Configuration could not be loaded. Serve the folder over http, ' +
+          'or run "npm run build" once so that config/bundle.js exists.');
+      }
+      useBundle = true;
+      index = fromBundle('index.json');
+    }
   }
 
   const get = async (path) => (useBundle ? fromBundle(path) : fetchJson(path));
@@ -1278,8 +1285,7 @@ function wavelengthToDisplayRgb(lambdaNm) {
  *      colour matching functions to get tristimulus values X, Y, Z;
  *   2. map XYZ into linear sRGB with the standard 3x3 matrix;
  *   3. bring the result into gamut, then apply the display transfer function.
- */
-
+ */
 
 /**
  * Build a colorimetry object from the CIE data file.
@@ -1449,8 +1455,7 @@ function createColorimetry(cieConfig) {
  * educational pair of an Angstrom power law and a Henyey-Greenstein phase
  * function, which reproduce the two features that matter: near-neutral colour
  * and strong forward peaking.
- */
-
+ */
 
 const REFERENCE_WAVELENGTH_NM = 550;
 
@@ -1664,10 +1669,7 @@ function raySphereNear(origin, dir, R) {
  * cross-section, and transmission follows from Beer-Lambert:
  *
  *     tau(lambda) = beta_0(lambda) * C        T(lambda) = exp(-tau(lambda))
- */
-
-
-
+ */
 
 /**
  * Build a ready-to-use atmosphere from a config file plus live UI overrides.
@@ -1936,11 +1938,7 @@ function wellShaftColumn(depth, scaleHeight) {
  * approximation. It is accurate while the optical depth stays below about one,
  * and it deliberately under-predicts the glow of deep twilight and of very
  * dense atmospheres, where photons bounce many times before arriving.
- */
-
-
-
-
+ */
 
 /**
  * Sampling density presets. `viewSteps` divides the viewing ray, `sunSteps`
@@ -2313,12 +2311,7 @@ function computeScatteringSource(scene, position, scatterCos = 0, quality = QUAL
  * beam, a sweep across the sky, the illumination budget and the derived
  * colours. Panels never call the physics themselves, so there is exactly one
  * place where the model is assembled.
- */
-
-
-
-
-
+ */
 
 const REFERENCE_LAMBDAS = [450, 550, 650];
 
@@ -2509,11 +2502,7 @@ function createSimulation({ config, colorimetry }) {
  * Nothing here invents a colour. The glow of the air is evaluated by the
  * scattering integrator on a coarse grid and then smoothed; the ground tint is
  * its albedo times the light actually falling on it.
- */
-
-
-
-
+ */
 
 const FIELD_COLUMNS = 26;
 const FIELD_ROWS = 34;
@@ -3212,8 +3201,7 @@ function createSkyStrip(canvas, { i18n }) {
  *
  * Read together they tell the whole story: the dip the direct beam loses at
  * short wavelengths is the hump the scattered curve gains.
- */
-
+ */
 
 const SERIES = [
   { key: 'source', color: '#e8e8ea', dash: [5, 4], width: 1.6 },
@@ -3497,9 +3485,7 @@ function createChromaticityPlot(canvas, { colorimetry, i18n }) {
  * The paths are drawn in a flat slab whose density depends only on altitude.
  * Over the width of the picture the curvature of the planet is invisible, and
  * the flat slab makes the geometry far easier to read.
- */
-
-
+ */
 
 /** A small deterministic generator, so a given setup always draws the same picture. */
 function makeRng(seed) {
@@ -3706,9 +3692,7 @@ function summarisePhotons(paths, splitNm = 520) {
  * Controls are declared as data rather than written out as markup, so adding a
  * new physical parameter is one entry in the list below. Each entry names the
  * state path it drives; nothing here knows anything about the physics.
- */
-
-
+ */
 
 function getPath(object, path) {
   return path.split('.').reduce((node, key) => (node == null ? node : node[key]), object);
@@ -4149,8 +4133,7 @@ function createControls(root, { store, i18n, config }) {
  * In comparison mode every quantity gains a second column, which is what makes
  * the well experiment convincing: two observers, one table, and the numbers
  * that differ are not the ones you would guess.
- */
-
+ */
 
 function createPanels(root, { i18n, store, spectrumChart, chromaticity }) {
   const legend = root.querySelector('#spectrum-legend');
@@ -4393,8 +4376,7 @@ function createPanels(root, { i18n, store, spectrumChart, chromaticity }) {
  * Order matters: the tests run from the most specific situation to the most
  * general, so standing at the bottom of a deep shaft is explained as a shaft
  * and not as "a slightly dark daytime sky".
- */
-
+ */
 
 const SPACE_COLUMN_FRACTION = 2e-3;
 const AIRLESS_TAU = 1e-6;
@@ -4633,21 +4615,7 @@ function createExperiments(root, { i18n, store, config, onHighlight }) {
  * and keep the two in step. The loop recomputes the model at most once per
  * frame and only when something actually changed, so dragging a slider stays
  * responsive while an idle page costs nothing.
- */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ */
 
 const boot = document.getElementById('boot');
 const bootMessage = document.getElementById('boot-message');
@@ -4932,6 +4900,7 @@ async function start() {
 
   document.getElementById('app').hidden = false;
   boot.hidden = true;
+  boot.style.display = 'none';
   requestAnimationFrame(frame);
 
   // Handy for exploring the model from the browser console, and for driving the
@@ -4961,6 +4930,25 @@ start().catch((error) => {
 });
 
 })();
+</script>
+<script>
+  if (window.location.protocol === 'file:') {
+    setTimeout(function () {
+      var app = document.getElementById('app');
+      if (app && app.hidden) {
+        var boot = document.getElementById('boot');
+        var msg = document.getElementById('boot-message');
+        if (boot) boot.classList.add('is-error');
+        if (msg) {
+          msg.innerHTML = 'Při otevírání přímo ze souboru (<code>file://</code>) moderní prohlížeče blokují ES moduly.<br><br>' +
+            '👉 Otevřete soubor <strong><a href="dist/atmo-lab.html" style="color:var(--accent);">dist/atmo-lab.html</a></strong> (samostatná offline verze)<br>' +
+            'nebo spusťte lokální HTTP server (např. <code>npm run serve</code> a otevřete <code>http://localhost:8080</code>).<br><br>' +
+            '<span style="font-size:0.9em;opacity:0.85">When opened directly from disk (<code>file://</code>), modern browsers block ES modules.<br>' +
+            '👉 Open <strong><a href="dist/atmo-lab.html" style="color:var(--accent);">dist/atmo-lab.html</a></strong> (standalone offline version) or run a local HTTP server (<code>npm run serve</code>).</span>';
+        }
+      }
+    }, 1500);
+  }
 </script>
 </body>
 </html>

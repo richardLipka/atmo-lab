@@ -37,19 +37,26 @@ function fromBundle(path) {
  * Returns maps keyed by id, ready for the UI to enumerate.
  */
 export async function loadConfiguration() {
+  const isStandalone = typeof STANDALONE !== 'undefined' && STANDALONE;
+  const isFile = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
   let useBundle = false;
   let index;
 
-  try {
-    index = await fetchJson('index.json');
-  } catch (err) {
-    if (!bundled()) {
-      throw new Error(
-        'Configuration could not be loaded. Serve the folder over http, ' +
-        'or run "npm run build" once so that config/bundle.js exists.');
-    }
+  if (isStandalone || (isFile && bundled())) {
     useBundle = true;
     index = fromBundle('index.json');
+  } else {
+    try {
+      index = await fetchJson('index.json');
+    } catch (err) {
+      if (!bundled()) {
+        throw new Error(
+          'Configuration could not be loaded. Serve the folder over http, ' +
+          'or run "npm run build" once so that config/bundle.js exists.');
+      }
+      useBundle = true;
+      index = fromBundle('index.json');
+    }
   }
 
   const get = async (path) => (useBundle ? fromBundle(path) : fetchJson(path));

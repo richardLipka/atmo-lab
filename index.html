@@ -174,5 +174,24 @@
 </div>
 
 <script type="module" src="js/main.js"></script>
+<script>
+  if (window.location.protocol === 'file:') {
+    setTimeout(function () {
+      var app = document.getElementById('app');
+      if (app && app.hidden) {
+        var boot = document.getElementById('boot');
+        var msg = document.getElementById('boot-message');
+        if (boot) boot.classList.add('is-error');
+        if (msg) {
+          msg.innerHTML = 'Při otevírání přímo ze souboru (<code>file://</code>) moderní prohlížeče blokují ES moduly.<br><br>' +
+            '👉 Otevřete soubor <strong><a href="dist/atmo-lab.html" style="color:var(--accent);">dist/atmo-lab.html</a></strong> (samostatná offline verze)<br>' +
+            'nebo spusťte lokální HTTP server (např. <code>npm run serve</code> a otevřete <code>http://localhost:8080</code>).<br><br>' +
+            '<span style="font-size:0.9em;opacity:0.85">When opened directly from disk (<code>file://</code>), modern browsers block ES modules.<br>' +
+            '👉 Open <strong><a href="dist/atmo-lab.html" style="color:var(--accent);">dist/atmo-lab.html</a></strong> (standalone offline version) or run a local HTTP server (<code>npm run serve</code>).</span>';
+        }
+      }
+    }, 1500);
+  }
+</script>
 </body>
 </html>

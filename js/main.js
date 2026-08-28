@@ -305,6 +305,7 @@ async function start() {
 
   document.getElementById('app').hidden = false;
   boot.hidden = true;
+  boot.style.display = 'none';
   requestAnimationFrame(frame);
 
   // Handy for exploring the model from the browser console, and for driving the

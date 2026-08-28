@@ -109,11 +109,8 @@ html = html
 // The standalone build has no server to fetch from; make that explicit rather
 // than letting every load spend time on requests that are certain to fail.
 html = html.replace(
-  "const BASE = 'config/';",
+  /const BASE = ['"]config\/['"];/,
   "const BASE = 'config/';\nconst STANDALONE = true;");
-html = html.replace(
-  '  try {\n    index = await fetchJson(\'index.json\');\n  } catch (err) {',
-  '  try {\n    if (STANDALONE) throw new Error(\'standalone build\');\n    index = await fetchJson(\'index.json\');\n  } catch (err) {');
 
 const distDir = path.join(root, 'dist');
 fs.mkdirSync(distDir, { recursive: true });
