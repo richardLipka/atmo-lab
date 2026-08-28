@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Atmospheric Light Laboratory - tests</title>
+<style>
+  body {
+    margin: 0; padding: 24px;
+    background: #070910; color: #e8ecf5;
+    font: 14px/1.5 system-ui, sans-serif;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: #6b7488; font-size: 12px; margin-bottom: 18px; }
+  .summary {
+    display: inline-block; padding: 8px 14px; border-radius: 8px;
+    font-weight: 600; margin-bottom: 18px;
+  }
+  .summary.ok { background: #12341f; color: #7ef0c0; }
+  .summary.bad { background: #3a1414; color: #ff8a8a; }
+  .summary.busy { background: #1b2131; color: #9aa5bb; }
+  h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+    color: #5aa9ff; margin: 18px 0 6px;
+    border-bottom: 1px solid #1c2333; padding-bottom: 4px;
+  }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { padding: 2px 0; font-size: 13px; }
+  .tag { display: inline-block; width: 42px; font-weight: 700; font-size: 11px; }
+  .pass .tag { color: #7ef0c0; }
+  .fail .tag { color: #ff6b6b; }
+  .why { color: #ff8a8a; font-family: ui-monospace, monospace; font-size: 11px; padding-left: 42px; }
+</style>
+</head>
+<body>
+<h1>Atmospheric Light Laboratory — physics tests</h1>
+<p class="sub">The same suite that <code>npm test</code> runs, executed in the browser engine that will actually run the simulator.</p>
+<div class="summary busy" id="summary">Running…</div>
+<div id="results"></div>
+
+<script type="module">
+import { createHarness } from './harness.js';
+import { registerTests } from './physics.test.js';
+
+const summaryEl = document.getElementById('summary');
+const resultsEl = document.getElementById('results');
+
+async function loadConfig() {
+  const get = async (path) => {
+    const response = await fetch('../config/' + path);
+    if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
+    return response.json();
+  };
+  const index = await get('index.json');
+  const collect = async (dir, ids) => Object.fromEntries(
+    await Promise.all(ids.map(async (id) => [id, await get(`${dir}/${id}.json`)])));
+
+  return {
+    index,
+    atmospheres: await collect('atmospheres', index.atmospheres),
+    stars: await collect('stars', index.stars),
+    scattering: await collect('scattering', index.scattering),
+    experiments: await collect('experiments', index.experiments),
+    localization: await collect('localization', index.localization),
+    color: await get(`color/${index.color[0]}.json`),
+  };
+}
+
+try {
+  const config = await loadConfig();
+  const harness = createHarness();
+  const started = performance.now();
+  registerTests(harness, config);
+  const elapsed = Math.round(performance.now() - started);
+  const { results, passed, failed, total } = harness.summary();
+
+  summaryEl.className = 'summary ' + (failed ? 'bad' : 'ok');
+  summaryEl.textContent = failed
+    ? `${passed}/${total} passed, ${failed} failed (${elapsed} ms)`
+    : `all ${total} tests passed (${elapsed} ms)`;
+
+  let currentGroup = null;
+  let list = null;
+  for (const result of results) {
+    if (result.group !== currentGroup) {
+      currentGroup = result.group;
+      const heading = document.createElement('h2');
+      heading.textContent = currentGroup;
+      resultsEl.appendChild(heading);
+      list = document.createElement('ul');
+      resultsEl.appendChild(list);
+    }
+    const li = document.createElement('li');
+    li.className = result.passed ? 'pass' : 'fail';
+    const tag = document.createElement('span');
+    tag.className = 'tag';
+    tag.textContent = result.passed ? 'pass' : 'FAIL';
+    li.append(tag, document.createTextNode(result.name));
+    list.appendChild(li);
+    if (!result.passed) {
+      const why = document.createElement('div');
+      why.className = 'why';
+      why.textContent = result.message;
+      list.appendChild(why);
+    }
+  }
+  document.title = failed
+    ? `${failed} failing - Atmospheric Light Laboratory tests`
+    : `All green - Atmospheric Light Laboratory tests`;
+} catch (error) {
+  summaryEl.className = 'summary bad';
+  summaryEl.textContent = 'Could not run: ' + error.message;
+  console.error(error);
+}
+</script>
+</body>
+</html>

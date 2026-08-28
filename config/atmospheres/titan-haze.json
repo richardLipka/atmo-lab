@@ -1,0 +1,60 @@
+{
+  "id": "titan-haze",
+  "name": {
+    "cs": "Titan (organický opar)",
+    "en": "Titan (organic haze)"
+  },
+  "planetRadius_m": 2574700,
+  "topAltitude_m": 600000,
+  "surfacePressure_kPa": 146.7,
+  "surfaceGravity_mps2": 1.35,
+  "insolationRelative": 0.011,
+  "groundAlbedo": 0.1,
+  "rayleigh": {
+    "beta550_perM": 0.000022,
+    "scaleHeight_m": 40000,
+    "wavelengthExponent": 4
+  },
+  "aerosol": {
+    "beta550_perM": 0.00009,
+    "scaleHeight_m": 60000,
+    "angstromExponent": 0.5,
+    "asymmetry_g": 0.55,
+    "singleScatteringAlbedo": {
+      "wavelengths_nm": [
+        380,
+        450,
+        500,
+        550,
+        600,
+        650,
+        700,
+        750
+      ],
+      "values": [
+        0.3,
+        0.42,
+        0.58,
+        0.72,
+        0.86,
+        0.93,
+        0.96,
+        0.97
+      ]
+    }
+  },
+  "composition": [
+    {
+      "gas": "n2",
+      "fraction": 0.95
+    },
+    {
+      "gas": "ch4",
+      "fraction": 0.05
+    }
+  ],
+  "description": {
+    "cs": "Hustá dusíková atmosféra s vrstvou organického oparu, který silně pohlcuje modrou. Z povrchu je vidět jen tlumené oranžové světlo.",
+    "en": "A dense nitrogen atmosphere with an organic haze layer that strongly absorbs blue. From the surface only a muted orange light gets through."
+  }
+}

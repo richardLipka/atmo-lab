@@ -1,0 +1,12 @@
+{
+  "name": "atmo-lab",
+  "version": "1.0.0",
+  "description": "Interactive Atmospheric Light Scattering Simulator - a client-side physics laboratory",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run-tests.js",
+    "build": "node tools/build-bundle.js && node tools/build-standalone.js",
+    "serve": "node tools/serve.js"
+  }
+}

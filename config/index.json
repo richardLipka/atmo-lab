@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "defaults": {
+    "language": "cs",
+    "atmosphere": "earth",
+    "star": "sun-5800k",
+    "level": "basic"
+  },
+  "atmospheres": ["earth", "mars", "thin-co2", "titan-haze", "venus-like", "airless-moon"],
+  "stars": ["sun-5800k", "orange-k-4200k", "red-dwarf-3000k", "white-a-9000k", "rigel-12000k"],
+  "scattering": ["rayleigh_gases", "aerosols"],
+  "experiments": ["blue-sky", "sunset", "flight-to-space", "well-vs-altitude", "alien-skies"],
+  "localization": ["cs", "en"],
+  "color": ["cie-1931-2deg"]
+}

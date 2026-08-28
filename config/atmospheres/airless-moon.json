@@ -1,0 +1,30 @@
+{
+  "id": "airless-moon",
+  "name": {
+    "cs": "Měsíc (bez atmosféry)",
+    "en": "Moon (airless)"
+  },
+  "planetRadius_m": 1737400,
+  "topAltitude_m": 100000,
+  "surfacePressure_kPa": 0,
+  "surfaceGravity_mps2": 1.62,
+  "insolationRelative": 1,
+  "groundAlbedo": 0.12,
+  "rayleigh": {
+    "beta550_perM": 1e-13,
+    "scaleHeight_m": 8500,
+    "wavelengthExponent": 4
+  },
+  "aerosol": {
+    "beta550_perM": 0,
+    "scaleHeight_m": 1000,
+    "angstromExponent": 1,
+    "asymmetry_g": 0.7,
+    "singleScatteringAlbedo": 0.9
+  },
+  "composition": [],
+  "description": {
+    "cs": "Prakticky dokonalé vakuum. Světlo hvězdy prolétá kolem pozorovatele, ale nemá se od čeho odrazit – obloha je černá i za plného dne. Důkaz, že černá obloha neznamená nedostatek světla, ale nedostatek prostředí.",
+    "en": "Essentially a perfect vacuum. Starlight streams past the observer but has nothing to scatter off, so the sky is black even in broad daylight. Proof that a black sky means no medium, not no light."
+  }
+}

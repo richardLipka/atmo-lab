@@ -1,0 +1,64 @@
+{
+  "id": "mars",
+  "name": {
+    "cs": "Mars",
+    "en": "Mars"
+  },
+  "planetRadius_m": 3389500,
+  "topAltitude_m": 120000,
+  "surfacePressure_kPa": 0.61,
+  "surfaceGravity_mps2": 3.72,
+  "insolationRelative": 0.431,
+  "groundAlbedo": 0.25,
+  "rayleigh": {
+    "beta550_perM": 7.4e-7,
+    "scaleHeight_m": 11100,
+    "wavelengthExponent": 4
+  },
+  "aerosol": {
+    "beta550_perM": 0.000045,
+    "scaleHeight_m": 11000,
+    "angstromExponent": 0.2,
+    "asymmetry_g": 0.63,
+    "singleScatteringAlbedo": {
+      "wavelengths_nm": [
+        380,
+        450,
+        500,
+        550,
+        600,
+        650,
+        700,
+        750
+      ],
+      "values": [
+        0.55,
+        0.62,
+        0.7,
+        0.78,
+        0.88,
+        0.92,
+        0.94,
+        0.94
+      ]
+    }
+  },
+  "composition": [
+    {
+      "gas": "co2",
+      "fraction": 0.953
+    },
+    {
+      "gas": "n2",
+      "fraction": 0.027
+    },
+    {
+      "gas": "ar",
+      "fraction": 0.016
+    }
+  ],
+  "description": {
+    "cs": "Řídká atmosféra z CO₂ s trvale rozptýleným prachem. Prachová zrna pohlcují modré světlo silněji než červené, proto je marsovská obloha máslově okrová.",
+    "en": "A thin CO2 atmosphere carrying permanently suspended dust. The dust grains absorb blue light more strongly than red, which is why the Martian sky is butterscotch."
+  }
+}

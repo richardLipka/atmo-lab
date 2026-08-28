@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Laboratoř atmosférického světla</title>
+<meta name="description" content="Interaktivní fyzikální laboratoř: rozptyl světla v atmosféře, barva oblohy, západ Slunce a geometrie studny.">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='14' fill='%234a8fd8'/><circle cx='16' cy='16' r='6' fill='%23ffd98a'/></svg>">
+<!-- Offline fallback: lets the page work when opened straight from disk,
+     where the browser blocks fetch(). Generated from the JSON by
+     tools/build-bundle.js; the JSON files remain the source of truth. -->
+<script src="config/bundle.js" onerror="window.__ATMO_BUNDLE_MISSING__=true"></script>
+</head>
+<body>
+
+<div id="boot" class="boot">
+  <div class="boot-inner">
+    <div class="boot-spinner"></div>
+    <p id="boot-message">Spouštím fyzikální jádro…</p>
+  </div>
+</div>
+
+<div class="app" id="app" hidden>
+
+  <header class="app-header">
+    <div class="brand">
+      <h1 data-i18n="app.title">Laboratoř atmosférického světla</h1>
+      <p data-i18n="app.subtitle"></p>
+    </div>
+
+    <div class="header-controls">
+      <div class="control-group">
+        <span class="group-label" data-i18n="header.language"></span>
+        <div class="segmented" id="lang-toggle" role="group">
+          <button type="button" data-lang="cs">CZ</button>
+          <button type="button" data-lang="en">EN</button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <span class="group-label" data-i18n="header.level"></span>
+        <div class="segmented" id="level-toggle" role="group">
+          <button type="button" data-level="basic" data-i18n="header.levelBasic"></button>
+          <button type="button" data-level="advanced" data-i18n="header.levelAdvanced"></button>
+        </div>
+      </div>
+
+      <div class="control-group">
+        <label class="group-label" for="experiment-select" data-i18n="header.experiment"></label>
+        <select id="experiment-select"></select>
+      </div>
+
+      <button type="button" id="reset-button" class="ghost-button"
+              data-i18n="header.reset" data-i18n-title="header.resetTitle"></button>
+    </div>
+  </header>
+
+  <main class="layout">
+
+    <aside class="panel panel-left">
+      <div class="panel-scroll" id="controls-root"></div>
+    </aside>
+
+    <section class="panel panel-center">
+      <div class="canvas-wrap">
+        <canvas id="scene-canvas"></canvas>
+        <p class="canvas-hint" data-i18n="canvas.clickRay"></p>
+      </div>
+
+      <div class="sky-wrap">
+        <div class="strip-header">
+          <span data-i18n="canvas.skyStrip"></span>
+          <span class="strip-help" data-i18n-title="canvas.skyStripHelp">?</span>
+        </div>
+        <canvas id="sky-canvas"></canvas>
+      </div>
+
+      <div class="ray-log" id="ray-log" hidden>
+        <div class="ray-log-head">
+          <strong data-i18n="canvas.rayLog"></strong>
+          <button type="button" id="ray-log-close" class="ghost-button small"
+                  data-i18n="canvas.rayLogClose"></button>
+        </div>
+        <div class="ray-log-body" id="ray-log-body"></div>
+      </div>
+
+      <p class="canvas-note" data-i18n="canvas.verticalExaggerated"></p>
+    </section>
+
+    <aside class="panel panel-right">
+      <div class="panel-scroll" id="right-panel">
+
+        <section class="panel-section">
+          <h2 data-i18n="spectrum.title"></h2>
+          <div class="chart-wrap">
+            <canvas id="spectrum-canvas"></canvas>
+          </div>
+          <div class="legend" id="spectrum-legend"></div>
+        </section>
+
+        <section class="panel-section">
+          <h2 data-i18n="color.title"></h2>
+          <div class="swatches">
+            <div class="swatch" id="swatch-sky">
+              <div class="swatch-chip"></div>
+              <div class="swatch-caption"></div>
+              <div class="swatch-detail"></div>
+            </div>
+            <div class="swatch" id="swatch-star">
+              <div class="swatch-chip"></div>
+              <div class="swatch-caption"></div>
+              <div class="swatch-detail"></div>
+            </div>
+          </div>
+          <p class="note" id="swatch-note"></p>
+          <p class="note note-tally" id="photon-tally" hidden></p>
+        </section>
+
+        <section class="panel-section" id="chroma-section" hidden>
+          <h2 data-i18n="color.chromaticity"></h2>
+          <div class="chroma-wrap">
+            <canvas id="chroma-canvas"></canvas>
+          </div>
+        </section>
+
+        <section class="panel-section" id="data-section">
+          <h2 data-i18n="data.title"></h2>
+          <table class="data-table">
+            <tbody id="data-rows"></tbody>
+          </table>
+        </section>
+
+      </div>
+    </aside>
+  </main>
+
+  <section class="experiment-bar" id="experiment-panel" hidden>
+    <div class="experiment-head">
+      <div>
+        <strong id="experiment-title"></strong>
+        <span class="experiment-step" id="experiment-step"></span>
+      </div>
+      <div class="experiment-progress" id="experiment-progress"></div>
+      <button type="button" id="experiment-exit" class="ghost-button small"></button>
+    </div>
+    <p class="experiment-body" id="experiment-body"></p>
+    <div class="experiment-hint" id="experiment-observe">
+      <span class="hint-label"></span>
+      <span class="hint-text"></span>
+    </div>
+    <div class="experiment-hint is-question" id="experiment-question">
+      <span class="hint-label"></span>
+      <span class="hint-text"></span>
+    </div>
+    <div class="experiment-actions">
+      <button type="button" id="experiment-prev" class="ghost-button"></button>
+      <button type="button" id="experiment-next" class="primary-button"></button>
+    </div>
+  </section>
+
+  <footer class="explain" id="explain-panel">
+    <div class="explain-column">
+      <h3 id="explain-see-title"></h3>
+      <p id="explain-see-body"></p>
+    </div>
+    <div class="explain-column is-why">
+      <h3 id="explain-why-title"></h3>
+      <p id="explain-why-body"></p>
+    </div>
+    <span class="explain-badge" id="explain-badge"></span>
+  </footer>
+
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

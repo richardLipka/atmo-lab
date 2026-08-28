@@ -1,0 +1,250 @@
+{
+  "meta": {
+    "code": "en",
+    "name": "English",
+    "nativeName": "English"
+  },
+  "app": {
+    "title": "Atmospheric Light Laboratory",
+    "subtitle": "Why the sky is blue, why sunsets are red, and why a well is dark",
+    "loading": "Loading physics engine...",
+    "error": "Could not start the simulation"
+  },
+  "header": {
+    "language": "Language",
+    "level": "Level",
+    "levelBasic": "Basic",
+    "levelAdvanced": "Advanced",
+    "experiment": "Experiment",
+    "experimentNone": "Free exploration",
+    "reset": "Reset",
+    "resetTitle": "Return every control to its starting value"
+  },
+  "controls": {
+    "star": {
+      "title": "Light source (star)",
+      "preset": "Preset",
+      "temperature": "Surface temperature",
+      "temperatureHelp": "Sets the emitted spectrum through Planck's law. Hotter stars emit relatively more short-wavelength light.",
+      "elevation": "Elevation above horizon",
+      "elevationHelp": "How high the star stands. Lowering it lengthens the path light takes through the air.",
+      "belowHorizon": "below horizon",
+      "realisticInsolation": "Realistic distance from star",
+      "realisticInsolationHelp": "Scales the incoming light by how far this world orbits from its star, so planets can be compared honestly.",
+      "peakWavelength": "Peak wavelength"
+    },
+    "atmosphere": {
+      "title": "Atmosphere",
+      "preset": "Preset",
+      "density": "Density",
+      "densityHelp": "Multiplies every scattering coefficient. Zero means vacuum.",
+      "scaleHeight": "Scale height H",
+      "scaleHeightHelp": "The height over which density falls by a factor of e. A larger H means a deeper, more gradual atmosphere.",
+      "aerosol": "Aerosol amount",
+      "aerosolHelp": "Dust and droplets. These scatter almost all colours equally and mostly forwards.",
+      "aerosolType": "Aerosol type",
+      "aerosolNative": "Native to this world",
+      "aerosolTypeHelp": "Swaps the suspended particles for a different mixture. Same gas, different grains: smog, desert dust or volcanic ash.",
+      "exponent": "Wavelength exponent n",
+      "exponentHelp": "The cross-section goes as 1/lambda^n. True Rayleigh scattering is n = 4. Drag it to 0 and the sky loses its colour.",
+      "surfacePressure": "Surface pressure",
+      "composition": "Composition"
+    },
+    "observer": {
+      "title": "Observer",
+      "position": "Vertical position z",
+      "positionHelp": "Above zero you climb through the atmosphere. Below zero you descend a shaft while the air above you stays exactly the same.",
+      "underground": "underground",
+      "altitude": "altitude",
+      "groundLevel": "ground level",
+      "viewDirection": "Viewing direction",
+      "viewDirectionHelp": "Measured from straight up. 0 degrees is the zenith, 90 degrees is the horizon.",
+      "zenith": "zenith",
+      "horizon": "horizon",
+      "well": "Well shaft",
+      "wellEnabled": "Shaft present",
+      "wellRadius": "Shaft radius",
+      "wellDepth": "Shaft depth",
+      "wellDepthHelp": "Also sets how far down the position slider can travel.",
+      "countShaftAir": "Count air inside the shaft",
+      "countShaftAirHelp": "Off by default, so that descending changes geometry only. Switch it on to add the denser air that would really fill a deep shaft."
+    },
+    "rays": {
+      "title": "Ray simulation",
+      "count": "Number of rays",
+      "showScattering": "Show scattering events",
+      "showScatteringHelp": "Follow individual photons as they are deflected out of the beam.",
+      "animate": "Animate",
+      "brightness": "Brightness boost",
+      "brightnessHelp": "Multiplies the displayed brightness only. It never changes the computed physics or the hue.",
+      "quality": "Simulation quality",
+      "qualityPreview": "Fast",
+      "qualityNormal": "Normal",
+      "qualityHigh": "Precise"
+    }
+  },
+  "canvas": {
+    "title": "Cross-section",
+    "observer": "Observer",
+    "ground": "Surface",
+    "space": "Space",
+    "star": "to the star",
+    "wellWall": "Shaft wall",
+    "skyStrip": "What the observer sees",
+    "skyStripHelp": "The sky from horizon to horizon through the observer's own eyes. Black wedges are directions stopped by the shaft wall.",
+    "altitudeAxis": "Altitude",
+    "blocked": "Blocked by shaft wall",
+    "clickRay": "Click a ray to trace its history",
+    "rayLog": "Photon history",
+    "rayLogEmpty": "No ray selected. Click any ray in the cross-section.",
+    "rayLogClose": "Close",
+    "verticalExaggerated": "Vertical scale is compressed so that both the shaft and the whole atmosphere fit on one picture.",
+    "scattered": "scattered",
+    "escaped": "escaped to space",
+    "absorbed": "absorbed",
+    "reachedGround": "reached the ground",
+    "event": "Event",
+    "altitude": "Altitude",
+    "wavelength": "Wavelength",
+    "energy": "Remaining energy",
+    "angle": "Deflection"
+  },
+  "spectrum": {
+    "title": "Spectrum",
+    "axisX": "Wavelength (nm)",
+    "axisY": "Relative spectral intensity",
+    "source": "Source (above the atmosphere)",
+    "direct": "Direct beam (after the air)",
+    "scatteredSky": "Scattered light (the sky)",
+    "observed": "Observed total",
+    "normalize": "Normalise curves",
+    "empty": "No light reaches the observer from this direction."
+  },
+  "color": {
+    "title": "Perceived colour",
+    "sky": "Sky in view direction",
+    "star": "Star as seen",
+    "computed": "Computed from the spectrum through CIE 1931 XYZ, never chosen by hand.",
+    "chromaticity": "Chromaticity diagram",
+    "blockedByWall": "The shaft wall blocks this direction, so no light arrives at all.",
+    "darkness": "Too little light to show a colour."
+  },
+  "data": {
+    "title": "Physical quantities",
+    "airColumn": "Air column above observer",
+    "airColumnMass": "Mass column",
+    "columnFraction": "Fraction of surface column",
+    "opticalDepth": "Optical depth tau",
+    "opticalDepthAt": "tau at {lambda} nm",
+    "transmission": "Transmission T",
+    "airMass": "Air mass along beam",
+    "pathLength": "Path length in view direction",
+    "apertureAngle": "Shaft aperture half-angle",
+    "apertureSolidAngle": "Visible solid angle",
+    "skyFraction": "Fraction of sky visible",
+    "illuminance": "Illuminance at observer",
+    "illuminanceOpen": "Illuminance with no shaft",
+    "illuminanceRatio": "Light remaining",
+    "skyLuminance": "Sky radiance in view direction",
+    "scaleHeight": "Scale height",
+    "peakWavelength": "Emission peak",
+    "scatteringAngle": "Scattering angle",
+    "hemisphere": "hemisphere",
+    "advancedOnly": "Switch to Advanced level to see the full readout."
+  },
+  "explain": {
+    "titleSee": "What do I see?",
+    "titleWhy": "Which physics governs this?",
+    "states": {
+      "daySky": {
+        "see": "The sky glows blue in every direction away from the star, while the star itself still looks close to white. Nothing here is painted blue: you are looking at sunlight that has been knocked sideways out of the beam by air molecules.",
+        "why": "Rayleigh scattering has a cross-section proportional to 1/lambda^4. At 450 nm it is {ratio} times stronger than at 650 nm, so blue light is redirected into your eye far more often than red. The remaining beam keeps almost all of its red, which is why the star stays warm-white."
+      },
+      "sunset": {
+        "see": "The star has dropped low and turned deep orange or red, and it has dimmed sharply. The colour change is not in the star, it is in the {airmass} times longer path its light now takes through the air.",
+        "why": "Beer-Lambert extinction gives T(lambda) = exp(-tau(lambda)). Along this path tau is {tau450} at 450 nm but only {tau650} at 650 nm, so blue is stripped out almost completely while red survives. What you see is the leftover of the beam, not new red light."
+      },
+      "twilight": {
+        "see": "The star is below the horizon. Direct light no longer reaches you, yet the sky is not black: it is lit only by air high above you that is still in sunlight.",
+        "why": "The shadow of the planet has swallowed the lower atmosphere, so the scattering integral collects light only from the illuminated layers higher up. Single scattering already shows the effect; real twilight is deeper and more purple because photons bounce several times before arriving."
+      },
+      "highAltitude": {
+        "see": "The sky above you has gone much darker and deeper in colour. The star has not changed and you have not left the atmosphere, but far less air remains overhead.",
+        "why": "The column above you falls exponentially, C(z) = C(0) exp(-z/H). At {z} with H = {scaleHeight} only {columnPercent} of the air is left above you, so there is proportionally less material to scatter light towards your eye."
+      },
+      "space": {
+        "see": "The sky is completely black although the star shines as brightly as ever, and it is now painfully sharp against the darkness. Light is streaming past you in enormous quantity; it simply has nothing to bounce off on its way to your eye.",
+        "why": "The scattering integral has collapsed to zero because rho -> 0. Brightness of the sky needs a medium, not a source. This is why astronauts in daylight see a black sky, and why the same is true on the airless Moon."
+      },
+      "airless": {
+        "see": "It is full daylight, the ground is brightly lit, and yet the sky directly overhead is black. Nothing is blocking the light - there is simply no air to scatter it.",
+        "why": "With rho = 0 every term in the scattering integral vanishes, while the direct transmission stays T = 1. A black sky proves the absence of a scattering medium, never the absence of light."
+      },
+      "thinAir": {
+        "see": "The sky is almost black with the faintest hint of deep blue, and yet it is daytime and the ground is brightly lit. There is air here, there is simply far too little of it.",
+        "why": "Rayleigh scattering behaves exactly as it does on Earth and still favours blue by 1/lambda^4. But the optical depth is only {tau550}, so barely a thousandth of the passing light is scattered. The colour stays blue; only the brightness goes."
+      },
+      "wellShallow": {
+        "see": "You have dropped into the shaft. The patch of sky through the mouth is exactly as bright and exactly as blue as it was outside - but it is now a small disc instead of the whole sky, and everything around you has darkened.",
+        "why": "The air above you has not changed at all: C_atm is still C_atm(0). What changed is geometry. A ray leaving at zenith angle theta escapes only while tan(theta) <= R/d. Here that limit is {aperture}, leaving {solidAngle} of sky out of a full hemisphere."
+      },
+      "wellDeep": {
+        "see": "Deep in the shaft it is nearly dark, yet the scrap of sky far above is still the same blue as at the surface. This is the key point: the darkness is not atmospheric, it is a hole you are looking through.",
+        "why": "Radiance in the open direction is unchanged, but the illuminance follows the visible solid angle: E/E_open = sin^2(theta_max) = {ratio}. Compare this with climbing: at {z} up, the sky itself would be dimmer because the air column really did shrink."
+      },
+      "dusty": {
+        "see": "The sky is pale ochre rather than blue, and the light is soft and diffuse. Larger particles are doing the scattering here, and they treat every colour almost alike.",
+        "why": "Aerosols scatter with only a weak wavelength dependence (roughly 1/lambda^0 to 1/lambda^1) and a strongly forward-peaked Henyey-Greenstein lobe with g = {g}. Where the dust also absorbs blue more than red, as on Mars, the sky turns warm."
+      },
+      "denseAtmosphere": {
+        "see": "The light down here is dim and heavily tinted. Very little of the original spectrum survives the journey to the surface.",
+        "why": "The optical depth is far above one, so exp(-tau) has extinguished the short wavelengths entirely. Note that a single-scattering model under-predicts the true brightness here: in reality photons scatter many times before arriving."
+      },
+      "coldStar": {
+        "see": "The star is orange-red and the sky above it is a muted, dusky blue rather than a vivid one.",
+        "why": "Rayleigh scattering still prefers short wavelengths by 1/lambda^4, but the star emits little short-wavelength light for it to work on. The sky colour is the product of the scattering law and the source spectrum, not the scattering law alone."
+      },
+      "hotStar": {
+        "see": "The star is blue-white and the sky is an intense deep blue, noticeably stronger than under a Sun-like star.",
+        "why": "A hot black body emits far more short-wavelength light, and the 1/lambda^4 law then amplifies that excess. Source spectrum and scattering law multiply together."
+      }
+    }
+  },
+  "experiment": {
+    "step": "Step {n} of {total}",
+    "next": "Next step",
+    "previous": "Back",
+    "finish": "Finish",
+    "exit": "Leave experiment",
+    "restart": "Start again",
+    "apply": "Show me this",
+    "question": "Think about it",
+    "observe": "What to watch"
+  },
+  "units": {
+    "km": "km",
+    "m": "m",
+    "nm": "nm",
+    "kelvin": "K",
+    "degree": "deg",
+    "steradian": "sr",
+    "kgPerM2": "kg/m2",
+    "percent": "%",
+    "times": "x",
+    "relative": "rel."
+  },
+  "compare": {
+    "title": "Side by side",
+    "left": "Left",
+    "right": "Right",
+    "altitude": "10 km above the ground",
+    "shaft": "10 km down a shaft",
+    "verdict": "Same air overhead, utterly different sky.",
+    "enable": "Compare two observers"
+  },
+  "footer": {
+    "model": "Single-scattering model",
+    "modelNote": "Light is followed from the star to one scattering event and then to the eye. Multiple scattering, refraction and ozone absorption are not modelled.",
+    "sourceData": "All physical data live in editable JSON files under /config."
+  }
+}

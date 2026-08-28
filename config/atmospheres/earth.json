@@ -1,0 +1,47 @@
+{
+  "id": "earth",
+  "name": {
+    "cs": "Země",
+    "en": "Earth"
+  },
+  "planetRadius_m": 6371000,
+  "topAltitude_m": 100000,
+  "surfacePressure_kPa": 101.3,
+  "surfaceGravity_mps2": 9.81,
+  "insolationRelative": 1,
+  "groundAlbedo": 0.15,
+  "rayleigh": {
+    "beta550_perM": 0.0000135,
+    "scaleHeight_m": 8500,
+    "wavelengthExponent": 4
+  },
+  "aerosol": {
+    "beta550_perM": 0.000021,
+    "scaleHeight_m": 1200,
+    "angstromExponent": 1,
+    "asymmetry_g": 0.76,
+    "singleScatteringAlbedo": 0.9
+  },
+  "composition": [
+    {
+      "gas": "n2",
+      "fraction": 0.781
+    },
+    {
+      "gas": "o2",
+      "fraction": 0.209
+    },
+    {
+      "gas": "ar",
+      "fraction": 0.009
+    },
+    {
+      "gas": "co2",
+      "fraction": 0.0004
+    }
+  ],
+  "description": {
+    "cs": "Dusíko-kyslíková atmosféra. Molekuly jsou mnohem menší než vlnová délka světla, takže dominuje Rayleighův rozptyl se závislostí 1/λ⁴.",
+    "en": "A nitrogen-oxygen atmosphere. The molecules are far smaller than the wavelength of light, so Rayleigh scattering with its 1/λ⁴ dependence dominates."
+  }
+}

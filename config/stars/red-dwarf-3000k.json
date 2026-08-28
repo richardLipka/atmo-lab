@@ -1,0 +1,12 @@
+{
+  "id": "red-dwarf-3000k",
+  "name": { "cs": "Červený trpaslík (M)", "en": "Red dwarf (M)" },
+  "temperature_K": 3000,
+  "angularRadius_deg": 0.75,
+  "spectralClass": "M3V",
+  "colorHint": { "cs": "oranžově červená", "en": "orange-red" },
+  "description": {
+    "cs": "Chladná hvězda. Ve viditelném oboru silně převažuje červená složka, modrého světla je málo – rozptylu proto chybí surovina.",
+    "en": "A cool star. Red strongly dominates the visible range and there is little blue light, so scattering has little to work with."
+  }
+}

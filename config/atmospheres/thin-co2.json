@@ -1,0 +1,35 @@
+{
+  "id": "thin-co2",
+  "name": {
+    "cs": "Řídký CO₂ (bez prachu)",
+    "en": "Thin CO2 (dust-free)"
+  },
+  "planetRadius_m": 3389500,
+  "topAltitude_m": 120000,
+  "surfacePressure_kPa": 0.61,
+  "surfaceGravity_mps2": 3.72,
+  "insolationRelative": 0.431,
+  "groundAlbedo": 0.25,
+  "rayleigh": {
+    "beta550_perM": 7.4e-7,
+    "scaleHeight_m": 11100,
+    "wavelengthExponent": 4
+  },
+  "aerosol": {
+    "beta550_perM": 0,
+    "scaleHeight_m": 11000,
+    "angstromExponent": 1,
+    "asymmetry_g": 0.7,
+    "singleScatteringAlbedo": 0.9
+  },
+  "composition": [
+    {
+      "gas": "co2",
+      "fraction": 1
+    }
+  ],
+  "description": {
+    "cs": "Stejně řídký plyn jako na Marsu, ale bez prachu. Rayleighův rozptyl zůstává modrý, jenže je ho asi 20× méně – obloha je proto tmavě modrá, skoro černá.",
+    "en": "The same thin gas as on Mars but with no dust. Rayleigh scattering is still blue, but there is roughly 20x less of it, so the sky is a very dark, near-black blue."
+  }
+}

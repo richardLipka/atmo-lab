@@ -1,0 +1,83 @@
+{
+  "id": "sunset",
+  "order": 2,
+  "icon": "sunset",
+  "title": { "cs": "Mechanika západu Slunce", "en": "Sunset mechanics" },
+  "summary": {
+    "cs": "Sniž Slunce k obzoru a sleduj, jak Beerův-Lambertův zákon ubírá ze svazku modrou složku.",
+    "en": "Lower the Sun to the horizon and watch Beer-Lambert extinction strip the blue out of the beam."
+  },
+  "steps": [
+    {
+      "title": { "cs": "Poledne", "en": "Noon" },
+      "text": {
+        "cs": "Slunce je vysoko. Jeho světlo prochází zhruba jednou tloušťkou atmosféry. Zapamatuj si barvu přímého svazku vpravo.",
+        "en": "The Sun is high. Its light passes through roughly one thickness of atmosphere. Remember the colour of the direct beam on the right."
+      },
+      "observe": {
+        "cs": "Vzdušná hmota je asi 1,15. Svazek je téměř bílý, jen nepatrně teplý.",
+        "en": "The air mass is about 1.15. The beam is nearly white, only slightly warm."
+      },
+      "state": {
+        "star": { "presetId": "sun-5800k", "temperatureK": 5800, "elevationDeg": 60 },
+        "atmosphere": { "presetId": "earth", "densityScale": 1, "aerosolScale": 1, "rayleighExponent": 4 },
+        "observer": { "z": 0, "viewZenithDeg": 30, "well": { "enabled": false } },
+        "level": "advanced"
+      }
+    },
+    {
+      "title": { "cs": "Odpoledne", "en": "Afternoon" },
+      "text": {
+        "cs": "Sniž Slunce na 20 stupňů. Dráha se prodloužila zhruba trojnásobně.",
+        "en": "Lower the Sun to 20 degrees. The path has lengthened roughly threefold."
+      },
+      "observe": {
+        "cs": "Ve výpisu vpravo sleduj τ při 450 nm a při 650 nm. Rostou obě, ale modrá mnohem rychleji.",
+        "en": "In the readout on the right, watch tau at 450 nm and at 650 nm. Both grow, but blue grows much faster."
+      },
+      "state": { "star": { "elevationDeg": 20 } },
+      "highlight": "ctl-elevation"
+    },
+    {
+      "title": { "cs": "Nízko nad obzorem", "en": "Low over the horizon" },
+      "text": {
+        "cs": "Pět stupňů nad obzorem. Vzdušná hmota je kolem deseti: světlo urazí desetkrát delší dráhu než v poledne.",
+        "en": "Five degrees above the horizon. The air mass is about ten: the light travels ten times the noon path."
+      },
+      "observe": {
+        "cs": "Svazek je sytě oranžový. Křivka přímého svazku má levou polovinu skoro sraženou k nule.",
+        "en": "The beam is deep orange. The left half of the direct beam curve has been crushed almost to zero."
+      },
+      "state": { "star": { "elevationDeg": 5 } }
+    },
+    {
+      "title": { "cs": "Dotek obzoru", "en": "Touching the horizon" },
+      "text": {
+        "cs": "Nula stupňů. Kvůli zakřivení planety je vzdušná hmota přes třicet, ne nekonečno.",
+        "en": "Zero degrees. Because the planet is curved the air mass is about thirty, not infinite."
+      },
+      "observe": {
+        "cs": "Zbývá tmavě červený svazek. Propustnost T = exp(−τ) při 450 nm klesla o několik řádů, zatímco při 650 nm je stále znatelná.",
+        "en": "A dark red beam is all that remains. The transmission T = exp(-tau) at 450 nm has fallen by orders of magnitude, while at 650 nm it is still appreciable."
+      },
+      "question": {
+        "cs": "Změnila se hvězda? Porovnej křivku zdroje s křivkou přímého svazku. Která z nich se během celého experimentu vůbec nehnula?",
+        "en": "Did the star change? Compare the source curve with the direct beam curve. Which of the two has not moved at all during this experiment?"
+      },
+      "state": { "star": { "elevationDeg": 0 } }
+    },
+    {
+      "title": { "cs": "Zkus to bez mocniny", "en": "Try it without the power law" },
+      "text": {
+        "cs": "Nech Slunce na obzoru a nastav mocninu n na 0. Rozptyl je teď pro všechny barvy stejný.",
+        "en": "Leave the Sun on the horizon and set the exponent n to 0. Scattering is now the same for every colour."
+      },
+      "observe": {
+        "cs": "Svazek pohasne, ale nezčervená. Zeslabení bez závislosti na vlnové délce dělá jen šedivo, ne západ Slunce.",
+        "en": "The beam dims but does not redden. Extinction without a wavelength dependence produces grey, not a sunset."
+      },
+      "state": { "atmosphere": { "rayleighExponent": 0 } },
+      "highlight": "ctl-exponent"
+    }
+  ]
+}

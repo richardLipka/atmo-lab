@@ -1,0 +1,12 @@
+{
+  "id": "orange-k-4200k",
+  "name": { "cs": "Oranžový trpaslík (K)", "en": "Orange dwarf (K)" },
+  "temperature_K": 4200,
+  "angularRadius_deg": 0.35,
+  "spectralClass": "K2V",
+  "colorHint": { "cs": "oranžově bílá", "en": "orange-white" },
+  "description": {
+    "cs": "Hvězda chladnější než Slunce; nejčastější typ hvězdy vhodné pro dlouhodobě stabilní obyvatelnou zónu.",
+    "en": "A star cooler than the Sun; a common host type for long-lived habitable zones."
+  }
+}

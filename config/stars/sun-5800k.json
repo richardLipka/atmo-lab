@@ -1,0 +1,12 @@
+{
+  "id": "sun-5800k",
+  "name": { "cs": "Slunce (G2V)", "en": "Sun (G2V)" },
+  "temperature_K": 5800,
+  "angularRadius_deg": 0.2665,
+  "spectralClass": "G2V",
+  "colorHint": { "cs": "teple bílá", "en": "warm white" },
+  "description": {
+    "cs": "Naše hvězda. Zářivé maximum leží podle Wienova zákona poblíž 500 nm, tedy uprostřed viditelného spektra.",
+    "en": "Our star. By Wien's law its emission peak lies near 500 nm, in the middle of the visible range."
+  }
+}

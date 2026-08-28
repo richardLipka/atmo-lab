@@ -1,0 +1,12 @@
+{
+  "id": "rigel-12000k",
+  "name": { "cs": "Rigel (modrý veleobr)", "en": "Rigel (blue supergiant)" },
+  "temperature_K": 12000,
+  "angularRadius_deg": 0.2,
+  "spectralClass": "B8Ia",
+  "colorHint": { "cs": "modrobílá", "en": "blue-white" },
+  "description": {
+    "cs": "Velmi horká hvězda. Ve viditelném oboru roste zářivý tok směrem ke krátkým vlnovým délkám.",
+    "en": "A very hot star. Across the visible range its flux rises toward short wavelengths."
+  }
+}

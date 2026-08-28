@@ -1,0 +1,42 @@
+{
+  "id": "aerosols",
+  "description": {
+    "cs": "Vzdělávací aproximace Mieova rozptylu na částicích srovnatelných s vlnovou délkou. Používá Henyeyovu-Greensteinovu fázovou funkci a mocninný (Ångströmův) zákon pro vlnovou délku.",
+    "en": "An educational approximation of Mie scattering on particles comparable to the wavelength. It uses a Henyey-Greenstein phase function and an Angstrom power law in wavelength."
+  },
+  "presets": {
+    "clean": {
+      "name": { "cs": "Čistý vzduch", "en": "Clean air" },
+      "beta550_perM": 4.0e-6, "scaleHeight_m": 1200, "angstromExponent": 1.3,
+      "asymmetry_g": 0.70, "singleScatteringAlbedo": 0.95
+    },
+    "rural": {
+      "name": { "cs": "Venkovský aerosol", "en": "Rural aerosol" },
+      "beta550_perM": 2.1e-5, "scaleHeight_m": 1200, "angstromExponent": 1.0,
+      "asymmetry_g": 0.76, "singleScatteringAlbedo": 0.90
+    },
+    "urban-haze": {
+      "name": { "cs": "Městský smog", "en": "Urban haze" },
+      "beta550_perM": 1.2e-4, "scaleHeight_m": 900, "angstromExponent": 0.8,
+      "asymmetry_g": 0.80, "singleScatteringAlbedo": 0.75
+    },
+    "desert-dust": {
+      "name": { "cs": "Pouštní prach", "en": "Desert dust" },
+      "beta550_perM": 8.0e-5, "scaleHeight_m": 2500, "angstromExponent": 0.2,
+      "asymmetry_g": 0.70,
+      "singleScatteringAlbedo": {
+        "wavelengths_nm": [380, 450, 500, 550, 600, 650, 700, 750],
+        "values": [0.72, 0.80, 0.87, 0.92, 0.95, 0.96, 0.97, 0.97]
+      }
+    },
+    "volcanic": {
+      "name": { "cs": "Sopečný popel", "en": "Volcanic ash" },
+      "beta550_perM": 3.0e-4, "scaleHeight_m": 6000, "angstromExponent": 0.5,
+      "asymmetry_g": 0.65, "singleScatteringAlbedo": 0.85
+    }
+  },
+  "notes": {
+    "cs": "Skutečný Mieův rozptyl vyžaduje řešení Maxwellových rovnic pro kulovou částici. Zde nahrazujeme výsledek dvěma parametry: mocninou vlnové délky a součinitelem asymetrie g.",
+    "en": "Real Mie scattering requires solving Maxwell's equations for a sphere. Here we replace the result with two parameters: a wavelength power law and the asymmetry factor g."
+  }
+}

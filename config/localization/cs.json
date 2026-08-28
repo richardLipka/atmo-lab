@@ -1,0 +1,250 @@
+{
+  "meta": {
+    "code": "cs",
+    "name": "Czech",
+    "nativeName": "Čeština"
+  },
+  "app": {
+    "title": "Laboratoř atmosférického světla",
+    "subtitle": "Proč je obloha modrá, proč je západ Slunce červený a proč je ve studni tma",
+    "loading": "Spouštím fyzikální jádro...",
+    "error": "Simulaci se nepodařilo spustit"
+  },
+  "header": {
+    "language": "Jazyk",
+    "level": "Úroveň",
+    "levelBasic": "Základní",
+    "levelAdvanced": "Pokročilá",
+    "experiment": "Experiment",
+    "experimentNone": "Volné zkoumání",
+    "reset": "Výchozí stav",
+    "resetTitle": "Vrátit všechny ovládací prvky na počáteční hodnoty"
+  },
+  "controls": {
+    "star": {
+      "title": "Zdroj světla (hvězda)",
+      "preset": "Předvolba",
+      "temperature": "Povrchová teplota",
+      "temperatureHelp": "Určuje vyzařované spektrum podle Planckova zákona. Teplejší hvězdy vyzařují poměrně více krátkovlnného světla.",
+      "elevation": "Výška nad obzorem",
+      "elevationHelp": "Jak vysoko hvězda stojí. Čím níž, tím delší dráhu musí světlo urazit atmosférou.",
+      "belowHorizon": "pod obzorem",
+      "realisticInsolation": "Skutečná vzdálenost od hvězdy",
+      "realisticInsolationHelp": "Přepočítá dopadající světlo podle toho, jak daleko planeta obíhá, aby bylo srovnání planet poctivé.",
+      "peakWavelength": "Maximum vyzařování"
+    },
+    "atmosphere": {
+      "title": "Atmosféra",
+      "preset": "Předvolba",
+      "density": "Hustota",
+      "densityHelp": "Násobí všechny rozptylové součinitele. Nula znamená vakuum.",
+      "scaleHeight": "Škálová výška H",
+      "scaleHeightHelp": "Výška, na které hustota klesne e-krát. Větší H znamená hlubší a pozvolnější atmosféru.",
+      "aerosol": "Množství aerosolů",
+      "aerosolHelp": "Prach a kapičky. Rozptylují téměř všechny barvy stejně a hlavně dopředu.",
+      "aerosolType": "Druh aerosolu",
+      "aerosolNative": "Vlastní pro tento svět",
+      "aerosolTypeHelp": "Vymění vznášející se částice za jinou směs. Stejný plyn, jiná zrna: smog, pouštní prach nebo sopečný popel.",
+      "exponent": "Mocnina vlnové délky n",
+      "exponentHelp": "Účinný průřez je úměrný 1/λⁿ. Skutečný Rayleighův rozptyl má n = 4. Nastav n = 0 a obloha ztratí barvu.",
+      "surfacePressure": "Tlak u povrchu",
+      "composition": "Složení"
+    },
+    "observer": {
+      "title": "Pozorovatel",
+      "position": "Svislá poloha z",
+      "positionHelp": "Nad nulou stoupáš atmosférou. Pod nulou sestupuješ šachtou, přičemž vzduch nad tebou zůstává úplně stejný.",
+      "underground": "pod povrchem",
+      "altitude": "výška",
+      "groundLevel": "úroveň povrchu",
+      "viewDirection": "Směr pohledu",
+      "viewDirectionHelp": "Měří se od svislice. 0 stupňů je zenit, 90 stupňů je obzor.",
+      "zenith": "zenit",
+      "horizon": "obzor",
+      "well": "Šachta (studna)",
+      "wellEnabled": "Šachta je přítomna",
+      "wellRadius": "Poloměr šachty",
+      "wellDepth": "Hloubka šachty",
+      "wellDepthHelp": "Zároveň určuje, jak hluboko může sjet posuvník polohy.",
+      "countShaftAir": "Počítat vzduch uvnitř šachty",
+      "countShaftAirHelp": "Standardně vypnuto, aby sestup měnil pouze geometrii. Zapnutím přidáš hustší vzduch, který by hlubokou šachtu ve skutečnosti vyplňoval."
+    },
+    "rays": {
+      "title": "Simulace paprsků",
+      "count": "Počet paprsků",
+      "showScattering": "Zobrazit rozptylové události",
+      "showScatteringHelp": "Sleduj jednotlivé fotony, jak jsou vychylovány ze svazku.",
+      "animate": "Animovat",
+      "brightness": "Zesílení jasu",
+      "brightnessHelp": "Násobí pouze zobrazený jas. Nemění vypočtenou fyziku ani barevný odstín.",
+      "quality": "Kvalita výpočtu",
+      "qualityPreview": "Rychlá",
+      "qualityNormal": "Běžná",
+      "qualityHigh": "Přesná"
+    }
+  },
+  "canvas": {
+    "title": "Řez atmosférou",
+    "observer": "Pozorovatel",
+    "ground": "Povrch",
+    "space": "Vesmír",
+    "star": "ke hvězdě",
+    "wellWall": "Stěna šachty",
+    "skyStrip": "Co pozorovatel vidí",
+    "skyStripHelp": "Obloha od obzoru k obzoru očima pozorovatele. Černé klíny jsou směry zastavené stěnou šachty.",
+    "altitudeAxis": "Výška",
+    "blocked": "Zastaveno stěnou šachty",
+    "clickRay": "Klikni na paprsek a zobrazí se jeho historie",
+    "rayLog": "Historie fotonu",
+    "rayLogEmpty": "Není vybrán žádný paprsek. Klikni na libovolný paprsek v řezu.",
+    "rayLogClose": "Zavřít",
+    "verticalExaggerated": "Svislé měřítko je stlačené, aby se do jednoho obrázku vešla šachta i celá atmosféra.",
+    "scattered": "rozptýlen",
+    "escaped": "unikl do vesmíru",
+    "absorbed": "pohlcen",
+    "reachedGround": "dopadl na povrch",
+    "event": "Událost",
+    "altitude": "Výška",
+    "wavelength": "Vlnová délka",
+    "energy": "Zbývající energie",
+    "angle": "Vychýlení"
+  },
+  "spectrum": {
+    "title": "Spektrum",
+    "axisX": "Vlnová délka (nm)",
+    "axisY": "Relativní spektrální intenzita",
+    "source": "Zdroj (nad atmosférou)",
+    "direct": "Přímý svazek (po průchodu vzduchem)",
+    "scatteredSky": "Rozptýlené světlo (obloha)",
+    "observed": "Pozorovaný součet",
+    "normalize": "Normalizovat křivky",
+    "empty": "Z tohoto směru k pozorovateli nedorazí žádné světlo."
+  },
+  "color": {
+    "title": "Vnímaná barva",
+    "sky": "Obloha ve směru pohledu",
+    "star": "Hvězda, jak ji vidíme",
+    "computed": "Spočítáno ze spektra přes CIE 1931 XYZ, nikdy nevybráno ručně.",
+    "chromaticity": "Diagram chromatičnosti",
+    "blockedByWall": "Stěna šachty tento směr zakrývá, nedorazí odsud žádné světlo.",
+    "darkness": "Příliš málo světla na zobrazení barvy."
+  },
+  "data": {
+    "title": "Fyzikální veličiny",
+    "airColumn": "Sloupec vzduchu nad pozorovatelem",
+    "airColumnMass": "Hmotnost sloupce",
+    "columnFraction": "Podíl přízemního sloupce",
+    "opticalDepth": "Optická tloušťka τ",
+    "opticalDepthAt": "τ při {lambda} nm",
+    "transmission": "Propustnost T",
+    "airMass": "Vzdušná hmota podél svazku",
+    "pathLength": "Délka dráhy ve směru pohledu",
+    "apertureAngle": "Poloviční úhel otvoru šachty",
+    "apertureSolidAngle": "Viditelný prostorový úhel",
+    "skyFraction": "Viditelný podíl oblohy",
+    "illuminance": "Osvětlenost u pozorovatele",
+    "illuminanceOpen": "Osvětlenost bez šachty",
+    "illuminanceRatio": "Zbývající světlo",
+    "skyLuminance": "Zář oblohy ve směru pohledu",
+    "scaleHeight": "Škálová výška",
+    "peakWavelength": "Maximum vyzařování",
+    "scatteringAngle": "Rozptylový úhel",
+    "hemisphere": "polokoule",
+    "advancedOnly": "Přepni na pokročilou úroveň a uvidíš úplný výpis."
+  },
+  "explain": {
+    "titleSee": "Co vidím?",
+    "titleWhy": "Jaká fyzika za tím stojí?",
+    "states": {
+      "daySky": {
+        "see": "Obloha svítí modře ve všech směrech mimo hvězdu, zatímco hvězda sama vypadá stále skoro bílá. Nic tu není namalované modře: díváš se na sluneční světlo, které molekuly vzduchu vyrazily bokem ze svazku.",
+        "why": "Rayleighův rozptyl má účinný průřez úměrný 1/λ⁴. Při 450 nm je {ratio}krát silnější než při 650 nm, takže modré světlo je do tvého oka odkláněno mnohem častěji než červené. Zbylý svazek si téměř všechnu červenou ponechá, a proto hvězda zůstává teple bílá."
+      },
+      "sunset": {
+        "see": "Hvězda klesla nízko, zezlátla až zčervenala a výrazně pohasla. Změna barvy není ve hvězdě, ale v {airmass}krát delší dráze, kterou teď její světlo urazí vzduchem.",
+        "why": "Beerův-Lambertův zákon dává T(λ) = exp(−τ(λ)). Podél této dráhy je τ rovno {tau450} při 450 nm, ale jen {tau650} při 650 nm, takže modrá se odfiltruje téměř úplně, kdežto červená projde. Vidíš zbytek svazku, ne nově vzniklé červené světlo."
+      },
+      "twilight": {
+        "see": "Hvězda je pod obzorem. Přímé světlo už k tobě nedorazí, a přesto obloha není černá: osvětluje ji jen vzduch vysoko nad tebou, který ještě na slunci je.",
+        "why": "Stín planety pohltil spodní atmosféru, takže rozptylový integrál sbírá světlo pouze z osvětlených vrstev výše. Jednonásobný rozptyl efekt ukáže, ale skutečný soumrak je temnější a fialovější, protože fotony se před příchodem několikrát odrazí."
+      },
+      "highAltitude": {
+        "see": "Obloha nad tebou výrazně ztmavla a prohloubila barvu. Hvězda se nezměnila a atmosféru jsi neopustil, jenom je nad tebou mnohem méně vzduchu.",
+        "why": "Sloupec nad tebou klesá exponenciálně, C(z) = C(0)·exp(−z/H). Ve výšce {z} při H = {scaleHeight} zbývá nad tebou jen {columnPercent} vzduchu, takže je úměrně méně látky, která by k tvému oku rozptýlila světlo."
+      },
+      "space": {
+        "see": "Obloha je úplně černá, přestože hvězda svítí stejně jasně jako dřív a proti tmě je až ostře zřetelná. Světlo kolem tebe proudí v obrovském množství, jen se cestou k tvému oku nemá od čeho odrazit.",
+        "why": "Rozptylový integrál se zhroutil na nulu, protože ρ → 0. Jas oblohy potřebuje prostředí, ne zdroj. Proto kosmonauti vidí i za plného dne černou oblohu a totéž platí na bezvzduchém Měsíci."
+      },
+      "airless": {
+        "see": "Je jasný den, povrch je ostře osvětlený, a přesto je obloha přímo nad hlavou černá. Nic světlo neblokuje, jen tu není vzduch, který by ho rozptýlil.",
+        "why": "Při ρ = 0 zmizí každý člen rozptylového integrálu, zatímco přímá propustnost zůstává T = 1. Černá obloha dokazuje nepřítomnost rozptylujícího prostředí, nikdy ne nepřítomnost světla."
+      },
+      "thinAir": {
+        "see": "Obloha je skoro černá, jen s náznakem tmavé modři, a přesto je den a povrch je jasně osvětlený. Vzduch tu je, jen je ho zoufale málo.",
+        "why": "Rayleighův rozptyl funguje úplně stejně jako na Zemi a modrou pořád upřednostňuje poměrem 1/λ⁴. Jenže optická tloušťka je jen {tau550}, takže se rozptýlí sotva promile procházejícího světla. Barva zůstává modrá, mizí jen jas."
+      },
+      "wellShallow": {
+        "see": "Sestoupil jsi do šachty. Kus oblohy v ústí je přesně tak jasný a přesně tak modrý jako venku, jenže je z něj malý kotouč místo celé oblohy a všude kolem ztmavlo.",
+        "why": "Vzduch nad tebou se vůbec nezměnil: C_atm je stále C_atm(0). Změnila se geometrie. Paprsek vycházející pod zenitovým úhlem θ unikne jen tehdy, když tg(θ) ≤ R/d. Tady je ta mez {aperture}, takže z celé polokoule zbývá {solidAngle} oblohy."
+      },
+      "wellDeep": {
+        "see": "Hluboko v šachtě je téměř tma, a přece je ten útržek oblohy vysoko nahoře pořád stejně modrý jako na povrchu. To je ten klíčový bod: tma není atmosférická, díváš se dírou.",
+        "why": "Zář v nezakrytém směru se nezměnila, ale osvětlenost sleduje viditelný prostorový úhel: E/E_volné = sin²(θ_max) = {ratio}. Porovnej to se stoupáním: ve výšce {z} by byla tmavší sama obloha, protože sloupec vzduchu se opravdu zmenšil."
+      },
+      "dusty": {
+        "see": "Obloha je bledě okrová místo modré a světlo je měkké a rozptýlené. Rozptyl tu obstarávají větší částice a ty zacházejí se všemi barvami skoro stejně.",
+        "why": "Aerosoly rozptylují jen se slabou závislostí na vlnové délce (přibližně 1/λ⁰ až 1/λ¹) a s výrazně dopředu vytaženou Henyeyovou-Greensteinovou fázovou funkcí s g = {g}. Tam, kde prach navíc pohlcuje modrou víc než červenou, jako na Marsu, obloha zteplá."
+      },
+      "denseAtmosphere": {
+        "see": "Světlo je tady dole slabé a silně zbarvené. K povrchu se z původního spektra dostane jen málo.",
+        "why": "Optická tloušťka je hluboko nad jedničkou, takže exp(−τ) zcela pohltilo krátké vlnové délky. Pozor: model s jednonásobným rozptylem tady jas podhodnocuje, ve skutečnosti se fotony před dopadem mnohokrát rozptýlí."
+      },
+      "coldStar": {
+        "see": "Hvězda je oranžově červená a obloha nad ní je tlumeně kalně modrá, ne sytá.",
+        "why": "Rayleighův rozptyl stále upřednostňuje krátké vlnové délky poměrem 1/λ⁴, jenže hvězda krátkovlnného světla vyzařuje málo, takže není z čeho brát. Barva oblohy je součinem rozptylového zákona a spektra zdroje, ne rozptylového zákona samotného."
+      },
+      "hotStar": {
+        "see": "Hvězda je modrobílá a obloha sytě tmavě modrá, znatelně výrazněji než pod hvězdou slunečního typu.",
+        "why": "Horké černé těleso vyzařuje mnohem více krátkovlnného světla a zákon 1/λ⁴ tento přebytek ještě zesílí. Spektrum zdroje a rozptylový zákon se násobí."
+      }
+    }
+  },
+  "experiment": {
+    "step": "Krok {n} z {total}",
+    "next": "Další krok",
+    "previous": "Zpět",
+    "finish": "Dokončit",
+    "exit": "Opustit experiment",
+    "restart": "Začít znovu",
+    "apply": "Ukaž mi to",
+    "question": "Zamysli se",
+    "observe": "Čeho si všímat"
+  },
+  "units": {
+    "km": "km",
+    "m": "m",
+    "nm": "nm",
+    "kelvin": "K",
+    "degree": "°",
+    "steradian": "sr",
+    "kgPerM2": "kg/m²",
+    "percent": "%",
+    "times": "×",
+    "relative": "rel."
+  },
+  "compare": {
+    "title": "Vedle sebe",
+    "left": "Vlevo",
+    "right": "Vpravo",
+    "altitude": "10 km nad povrchem",
+    "shaft": "10 km hluboko v šachtě",
+    "verdict": "Stejný vzduch nad hlavou, naprosto odlišná obloha.",
+    "enable": "Porovnat dva pozorovatele"
+  },
+  "footer": {
+    "model": "Model s jednonásobným rozptylem",
+    "modelNote": "Světlo se sleduje od hvězdy k jedné rozptylové události a odtud do oka. Vícenásobný rozptyl, lom světla ani pohlcování ozonem nejsou zahrnuty.",
+    "sourceData": "Všechna fyzikální data jsou v editovatelných souborech JSON ve složce /config."
+  }
+}

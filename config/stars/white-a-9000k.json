@@ -1,0 +1,12 @@
+{
+  "id": "white-a-9000k",
+  "name": { "cs": "Bílá hvězda (A)", "en": "White star (A)" },
+  "temperature_K": 9000,
+  "angularRadius_deg": 0.24,
+  "spectralClass": "A2V",
+  "colorHint": { "cs": "bílá", "en": "white" },
+  "description": {
+    "cs": "Horká bílá hvězda. Modré fotony jsou hojné, obloha pod takovou hvězdou je sytě modrá až fialová.",
+    "en": "A hot white star. Blue photons are abundant, so the sky beneath it is a deep blue to violet."
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "id": "rayleigh_gases",
+  "description": {
+    "cs": "Relativní Rayleighovy účinné průřezy běžných atmosférických plynů vztažené k suchému vzduchu při 550 nm. Zahrnují index lomu i Kingův depolarizační faktor.",
+    "en": "Relative Rayleigh cross-sections of common atmospheric gases, referenced to dry air at 550 nm. They fold in refractive index and the King depolarisation factor."
+  },
+  "referenceGas": "air",
+  "referenceCrossSection_m2": 4.56e-31,
+  "gases": {
+    "air":  { "name": { "cs": "vzduch", "en": "air" },      "relativeCrossSection": 1.00, "depolarization": 0.0279, "molarMass_gpmol": 28.96 },
+    "n2":   { "name": { "cs": "dusík", "en": "nitrogen" },   "relativeCrossSection": 1.02, "depolarization": 0.0305, "molarMass_gpmol": 28.01 },
+    "o2":   { "name": { "cs": "kyslík", "en": "oxygen" },    "relativeCrossSection": 0.85, "depolarization": 0.0540, "molarMass_gpmol": 32.00 },
+    "ar":   { "name": { "cs": "argon", "en": "argon" },      "relativeCrossSection": 0.87, "depolarization": 0.0000, "molarMass_gpmol": 39.95 },
+    "co2":  { "name": { "cs": "oxid uhličitý", "en": "carbon dioxide" }, "relativeCrossSection": 2.45, "depolarization": 0.0805, "molarMass_gpmol": 44.01 },
+    "ch4":  { "name": { "cs": "metan", "en": "methane" },    "relativeCrossSection": 2.30, "depolarization": 0.0000, "molarMass_gpmol": 16.04 },
+    "h2":   { "name": { "cs": "vodík", "en": "hydrogen" },   "relativeCrossSection": 0.21, "depolarization": 0.0221, "molarMass_gpmol": 2.02 },
+    "he":   { "name": { "cs": "helium", "en": "helium" },    "relativeCrossSection": 0.014, "depolarization": 0.0000, "molarMass_gpmol": 4.00 }
+  }
+}

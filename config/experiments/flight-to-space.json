@@ -1,0 +1,85 @@
+{
+  "id": "flight-to-space",
+  "order": 3,
+  "icon": "rocket",
+  "title": { "cs": "Let do vesmíru", "en": "Flight into space" },
+  "summary": {
+    "cs": "Stoupej od povrchu až na 100 km a sleduj, jak jas oblohy plynule klesá k nule.",
+    "en": "Climb from the surface to 100 km and watch the sky brightness fall continuously to zero."
+  },
+  "steps": [
+    {
+      "title": { "cs": "Na povrchu", "en": "At the surface" },
+      "text": {
+        "cs": "Celý sloupec vzduchu je nad tebou. To je 100 % dostupné rozptylující látky.",
+        "en": "The entire air column is above you. That is 100 percent of the available scattering material."
+      },
+      "observe": {
+        "cs": "Zapamatuj si zář oblohy ve výpisu vpravo. Budeme ji porovnávat.",
+        "en": "Note the sky radiance in the readout on the right. We will keep comparing against it."
+      },
+      "state": {
+        "star": { "presetId": "sun-5800k", "temperatureK": 5800, "elevationDeg": 60 },
+        "atmosphere": { "presetId": "earth", "densityScale": 1, "aerosolScale": 1, "rayleighExponent": 4 },
+        "observer": { "z": 0, "viewZenithDeg": 0, "well": { "enabled": false } },
+        "level": "advanced"
+      }
+    },
+    {
+      "title": { "cs": "Pět kilometrů", "en": "Five kilometres" },
+      "text": {
+        "cs": "Vystoupal jsi zhruba na vrchol Mont Blancu a o něco výš. Nad tebou zbývá už jen 56 % vzduchu.",
+        "en": "You are above the summit of Mont Blanc. Only 56 percent of the air is left above you."
+      },
+      "observe": {
+        "cs": "Obloha je znatelně tmavší a sytější. Horolezci to znají.",
+        "en": "The sky is noticeably darker and deeper in colour. Mountaineers know this well."
+      },
+      "state": { "observer": { "z": 5000 } },
+      "highlight": "ctl-position"
+    },
+    {
+      "title": { "cs": "Dvacet kilometrů", "en": "Twenty kilometres" },
+      "text": {
+        "cs": "Výška stratosférického balonu. Nad tebou zbývá necelých 10 % atmosféry.",
+        "en": "The altitude of a stratospheric balloon. Just under 10 percent of the atmosphere remains above you."
+      },
+      "observe": {
+        "cs": "Obloha je temně modrá až téměř černá, ale Slunce svítí pořád stejně. Dokonce o něco jasněji, protože svazek už není tolik zeslabený.",
+        "en": "The sky is a deep, almost black blue, yet the Sun shines just as brightly. Slightly brighter, in fact, because the beam is less attenuated."
+      },
+      "state": { "observer": { "z": 20000 } }
+    },
+    {
+      "title": { "cs": "Sto kilometrů", "en": "One hundred kilometres" },
+      "text": {
+        "cs": "Kármánova hranice. Nad tebou zbývá řádově miliontina původního sloupce.",
+        "en": "The Karman line. What remains above you is of order one millionth of the original column."
+      },
+      "observe": {
+        "cs": "Obloha je černá. Hvězda je oslnivá a ostrá, bez jakéhokoli závoje kolem sebe.",
+        "en": "The sky is black. The star is dazzling and razor-sharp, with no veil around it at all."
+      },
+      "question": {
+        "cs": "Je obloha černá proto, že tu není světlo? Podívej se na osvětlenost od přímého svazku ve výpisu, než odpovíš.",
+        "en": "Is the sky black because there is no light? Look at the direct beam illuminance in the readout before you answer."
+      },
+      "state": { "observer": { "z": 100000 } }
+    },
+    {
+      "title": { "cs": "Kontrolní pokus: bezvzduchý svět", "en": "Control experiment: an airless world" },
+      "text": {
+        "cs": "Vrať se na povrch, ale přepni na Měsíc. Stojíš na zemi za plného dne a nad tebou není nic.",
+        "en": "Return to the surface, but switch to the Moon. You are standing on the ground in full daylight with nothing above you."
+      },
+      "observe": {
+        "cs": "Černá obloha v poledne. Není to tím, že by chybělo světlo, ale tím, že chybí prostředí, které by ho rozptýlilo.",
+        "en": "A black sky at noon. Not because light is missing, but because the medium that would scatter it is missing."
+      },
+      "state": {
+        "atmosphere": { "presetId": "airless-moon", "densityScale": 1, "aerosolScale": 1 },
+        "observer": { "z": 0 }
+      }
+    }
+  ]
+}

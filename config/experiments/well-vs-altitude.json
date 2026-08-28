@@ -1,0 +1,85 @@
+{
+  "id": "well-vs-altitude",
+  "order": 4,
+  "icon": "well",
+  "title": { "cs": "Paradox studny", "en": "The well paradox" },
+  "summary": {
+    "cs": "Deset kilometrů nahoru a deset kilometrů dolů. Obojí ztmavne, ale z úplně jiného důvodu.",
+    "en": "Ten kilometres up and ten kilometres down. Both go dark, for completely different reasons."
+  },
+  "steps": [
+    {
+      "title": { "cs": "Referenční stav na povrchu", "en": "Surface reference" },
+      "text": {
+        "cs": "Začni na povrchu s otevřenou oblohou. Zapiš si dvě čísla z výpisu: zář oblohy ve směru pohledu a osvětlenost u pozorovatele.",
+        "en": "Start at the surface under an open sky. Note two numbers from the readout: the sky radiance in the view direction and the illuminance at the observer."
+      },
+      "observe": {
+        "cs": "Zář popisuje, jak jasný je kousek oblohy. Osvětlenost popisuje, kolik světla celkem na tebe dopadá ze všech směrů.",
+        "en": "Radiance describes how bright a patch of sky is. Illuminance describes how much light reaches you in total from every direction."
+      },
+      "state": {
+        "star": { "presetId": "sun-5800k", "temperatureK": 5800, "elevationDeg": 70 },
+        "atmosphere": { "presetId": "earth", "densityScale": 1, "aerosolScale": 1, "rayleighExponent": 4 },
+        "observer": { "z": 0, "viewZenithDeg": 0, "countShaftAir": false, "well": { "enabled": false, "radius_m": 2, "depth_m": 10000 } },
+        "level": "advanced",
+        "compare": { "enabled": false }
+      }
+    },
+    {
+      "title": { "cs": "Deset kilometrů vzhůru", "en": "Ten kilometres up" },
+      "text": {
+        "cs": "Vystoupej do výšky 10 km. Nad tebou zůstala jen zhruba třetina vzduchu.",
+        "en": "Climb to 10 km. Only about a third of the air is left above you."
+      },
+      "observe": {
+        "cs": "Zář oblohy klesla asi na čtvrtinu a barva ztmavla. Osvětlenost se skoro nezměnila, protože přímý svazek zesílil.",
+        "en": "The sky radiance has fallen to roughly a quarter and the colour has darkened. The illuminance barely moved, because the direct beam got stronger."
+      },
+      "state": { "observer": { "z": 10000, "well": { "enabled": false } } },
+      "highlight": "ctl-position"
+    },
+    {
+      "title": { "cs": "Deset kilometrů dolů", "en": "Ten kilometres down" },
+      "text": {
+        "cs": "Teď zapni šachtu o poloměru 2 m a sjeď do hloubky 10 km. Vzduch nad tebou je přesně stejný jako na povrchu.",
+        "en": "Now switch on a shaft of radius 2 m and descend to a depth of 10 km. The air above you is exactly the same as it was at the surface."
+      },
+      "observe": {
+        "cs": "Zář toho kousku oblohy nad ústím se nezměnila ani o promile. Osvětlenost se zhroutila o osm řádů. Kolem tebe je tma, a přece je obloha nad tebou stejně modrá.",
+        "en": "The radiance of the patch of sky above the mouth has not changed by even a thousandth. The illuminance has collapsed by eight orders of magnitude. It is dark around you, and yet the sky above you is exactly as blue."
+      },
+      "question": {
+        "cs": "Proč ztmavlo při stoupání a proč ztmavlo při sestupu? Jsou to tytéž důvody?",
+        "en": "Why did it darken when you climbed, and why did it darken when you descended? Are those the same reason?"
+      },
+      "state": { "observer": { "z": -10000, "well": { "enabled": true, "radius_m": 2, "depth_m": 10000 } } },
+      "highlight": "ctl-well"
+    },
+    {
+      "title": { "cs": "Vedle sebe", "en": "Side by side" },
+      "text": {
+        "cs": "Zapni porovnání dvou pozorovatelů. Vlevo je pozorovatel 10 km nad povrchem, vpravo 10 km pod povrchem v šachtě.",
+        "en": "Switch on the two-observer comparison. On the left is an observer 10 km above the surface, on the right one 10 km below it in the shaft."
+      },
+      "observe": {
+        "cs": "Vlevo: sloupec vzduchu se zmenšil, obloha zeslábla a ztmavla po celé polokouli. Vpravo: sloupec je nedotčený, obloha si podržela svou zář i barvu, jen z ní zbyl nepatrný kotouček.",
+        "en": "Left: the air column shrank, so the sky weakened and darkened across the whole hemisphere. Right: the column is untouched, the sky kept its radiance and its colour, and all that changed is that a tiny disc of it remains."
+      },
+      "state": { "compare": { "enabled": true, "leftZ": 10000, "rightZ": -10000 } }
+    },
+    {
+      "title": { "cs": "Závěr", "en": "The conclusion" },
+      "text": {
+        "cs": "Stoupání mění fyziku: klesá sloupec, klesá optická tloušťka, ubývá rozptylu. Sestup do šachty nemění na atmosféře vůbec nic, mění jen to, kolik oblohy na tebe vidí. Podmínka tg(θ) ≤ R/d je geometrická, nevystupuje v ní ani vlnová délka, ani hustota.",
+        "en": "Climbing changes the physics: the column falls, the optical depth falls, there is less scattering. Descending the shaft changes nothing about the atmosphere at all; it only changes how much of the sky can see you. The condition tan(theta) <= R/d is geometry, and neither wavelength nor density appears in it."
+      },
+      "observe": {
+        "cs": "Vyzkoušej ještě přepínač Počítat vzduch uvnitř šachty. Ten teprve přidá do šachty skutečný hustší vzduch, a tehdy se sestup konečně stane i atmosférickým jevem.",
+        "en": "Try the Count air inside the shaft switch as well. Only that adds the real, denser air to the shaft, and only then does descending finally become an atmospheric effect too."
+      },
+      "state": { "compare": { "enabled": true } },
+      "highlight": "ctl-shaft-air"
+    }
+  ]
+}
