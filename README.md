@@ -221,25 +221,33 @@ is what one photon does. The *measurement* keeps each ray's whole spectrum,
 because throwing 37 of 38 numbers away left the estimate visibly noisy with only
 a few dozen rays in the cone.
 
-That estimate also sets how much of the arriving bundle is drawn at all. The same
-fixed number of rays is traced at every altitude, so without this the fan
-converging on the observer looked exactly as bright at 30 km as at sea level —
-the picture saying nothing had changed while the physics said the sky had gone
-out. The total ink spent on the bundle is now proportional to the light it
-delivers, split evenly between **how many** rays are drawn and how strongly:
-thinning matters as much as dimming, because three hundred rays at five per cent
-opacity still read as a fan of three hundred rays.
+That estimate also sets **how many** arriving rays are drawn — and only how many.
+A ray either reaches the observer or it does not; the ones that do are perfectly
+ordinary rays, drawn at full strength. What changes with altitude is their
+number, so that is the only thing that changes on screen. Dimming them as well
+would say something different and wrong: that the light which does arrive
+somehow arrives weakened.
 
-There is no floor. A ray that delivers nothing is drawn as nothing, because above
-the air the *absence* of rays is the lesson. Measured on the canvas, the ink the
-arriving bundle spends falls from 1 394 at the ground to 545 at 12 km to about 28
-at 30 km, and above roughly 50 km the fan is simply not there; at 100 km no
-arriving ray is traced at all, because there is no air above the observer to
-scatter one. The sky reads `rgb(0,0,0)` and the panel says so in words.
+The fraction drawn is linear in the delivered radiance, with no floor, and the
+survivors are chosen by a fixed hash of the ray index so none blinks in and out
+as unrelated things change. Above roughly 50 km the fan is simply not there; at
+100 km no arriving ray is traced at all, because there is no air above the
+observer to scatter one. The sky reads `rgb(0,0,0)`, the histogram reads 0 %, and
+the panel says in words that no scattered light reaches the observer.
 
-The events *below* the observer do not fade, and that asymmetry is the point of
-the altitude experiment: the air is still there, still lit, still scattering. It
-is merely no longer above you.
+Only the drawing thins. The histogram and the measured colour still use every
+traced ray, so the measurement is exactly as precise as before.
+
+The events *below* the observer do not thin out, and that asymmetry is the point
+of the altitude experiment: the air is still there, still lit, still scattering.
+It is merely no longer above you.
+
+**Nothing is drawn inside the planet.** Every drawn segment is clipped at the
+surface as well as at the frame, including the degenerate case of a scattering
+event *on* the ground leaving in a downward direction — where both roots of the
+surface intersection are zero, so the usual near-root test misses it. Zoomed out,
+where the ground curves away and much of the frame is rock, this used to collect
+the stubs of everything scattered downwards near the limb.
 
 ### The beam histogram
 
@@ -348,7 +356,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **89 tests** covering:
+`node tests/run-tests.js` runs **91 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
@@ -387,6 +395,8 @@ lesson:
   three very different states, that the arriving energy falls by more than 16× when the
   observer climbs four and a half scale heights, and that the histogram measures energy
   rather than counting rays;
+- that no drawn point lies inside the planet, at either zoom, and that an event on the
+  ground sends nothing downwards — both fail if the surface clip is removed;
 - performance: that a full interactive recompute fits inside 33 ms, and that tracing five
   thousand rays fits inside 25 ms.
 

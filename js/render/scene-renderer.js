@@ -481,20 +481,18 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       && Math.abs(p.arrivalAngleRad - axis) <= half;
 
     /**
-     * How bright the arriving bundle should be drawn.
+     * How many of the arriving rays get drawn.
      *
-     * A fixed number of rays is traced whatever the state, so without this the
-     * fan converging on the observer looks exactly as bright at 30 km as at the
-     * ground - the picture would say nothing changed while the physics says the
-     * sky went out. Each ray carries an unbiased estimate of what it delivers;
-     * the mean of those, against the brightest bundle seen so far, is how much
-     * light there actually is. The power is a display gamma, so the fade is
-     * gradual rather than a cliff, and it stops short of zero, because a ray
-     * you cannot see teaches nothing.
+     * A fixed number is traced whatever the state, so without this the fan
+     * converging on the observer looks the same at 30 km as at the ground - the
+     * picture saying nothing changed while the physics says the sky went out.
+     * Each ray carries an unbiased estimate of what it delivers; the mean of
+     * those, against the most this configuration has ever delivered, is how
+     * much light there actually is.
      *
-     * Only the arriving families fade. The events below - light thrown where it
-     * misses you, light crossing unscattered - happen in air the observer has
-     * climbed above, and they do not dim just because you left.
+     * Only the arriving families thin out. The events below - light thrown
+     * where it misses you, light crossing unscattered - happen in air the
+     * observer has climbed above, and they do not stop just because you left.
      */
     let radianceSum = 0, arrivingCount = 0;
     for (const p of paths) {
@@ -505,13 +503,15 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const meanArriving = arrivingCount > 0 ? radianceSum / arrivingCount : 0;
     if (meanArriving > rayReference) rayReference = meanArriving;
     // How much light arrives, as a fraction of the most this configuration has
-    // ever delivered. The total ink spent on the arriving bundle is made
-    // proportional to it, split evenly between HOW MANY rays are drawn and how
-    // strongly - so their product is linear in the light. Thinning matters as
-    // much as dimming: three hundred rays at five per cent opacity still read
-    // as a fan of three hundred rays, which is the thing that was wrong.
+    // ever delivered - and the fraction of the arriving rays that get drawn.
+    //
+    // Count alone, not opacity. A ray either reaches the observer or it does
+    // not; the ones that do are perfectly ordinary rays and there is no reason
+    // to draw them faintly. What changes with altitude is how many there are,
+    // so that is what changes on screen. Dimming them as well said something
+    // different and wrong: that the light which does arrive somehow arrives
+    // weakened.
     const share = rayReference > 0 ? Math.min(1, meanArriving / rayReference) : 1;
-    const fade = Math.sqrt(share);
 
     /**
      * Which arriving rays survive the thinning.
@@ -524,14 +524,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
      * claiming light that is not there.
      */
     const drawnArriving = (index) => {
-      if (fade >= 1) return true;
-      return (((index * 2654435761) >>> 0) / 4294967296) < fade;
+      if (share >= 1) return true;
+      return (((index * 2654435761) >>> 0) / 4294967296) < share;
     };
 
     const GREY = '#8a93a6';
     // Grey, but not invisible: zoomed out, the long chord an unscattered beam
     // has to cross IS the demonstration, so it gets the strongest of the greys.
-    const contextAlpha = { through: 0.30, missed: 0.16, arriving: 0.13 * fade };
+    const contextAlpha = { through: 0.30, missed: 0.16, arriving: 0.13 };
     const contextWidth = { through: 1.2, missed: 1, arriving: 1 };
 
     /**
@@ -570,7 +570,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     for (let i = 0; i < paths.length; i++) {
       const p = paths[i];
       if (p.scatterCount === 0 || !asContext(p, i)) continue;
-      ctx.globalAlpha = p.kind === 'arriving' ? 0.22 * fade : 0.22;
+      ctx.globalAlpha = 0.22;
       if (i === selectedPath || i === hoveredPath) continue;
       const e = project(p.events[1]);
       ctx.beginPath();
@@ -603,7 +603,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
     ctx.save();
     ctx.lineWidth = 1.3;
-    ctx.globalAlpha = 0.85 * fade;
+    ctx.globalAlpha = 0.85;
     for (const [lambda, indices] of buckets) {
       const [r, g, b] = wavelengthToDisplayRgb(lambda);
       ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
@@ -617,7 +617,6 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     // or the incoming stubs swamp the convergence.
     if (phase >= 1) {
       ctx.save();
-      ctx.globalAlpha = fade;
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       for (const [lambda, indices] of buckets) {
@@ -636,7 +635,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
 
     ctx.save();
-    ctx.globalAlpha = 0.95 * fade;
+    ctx.globalAlpha = 0.95;
     ctx.fillStyle = '#ffffff';
     for (const indices of buckets.values()) {
       for (const index of indices) {

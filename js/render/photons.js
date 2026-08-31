@@ -315,9 +315,35 @@ export function tracePhotons(options) {
   const columnScale = HR * (Math.exp(-observerAltitude / HR)
     - Math.exp(-atmosphere.topAltitude / HR));
 
-  /** Walk from a point along a direction to the edge of the drawn frame. */
+  /**
+   * How far a ray gets before it meets the ground.
+   *
+   * Written out rather than reusing raySphere because the case that matters is
+   * the one that function cannot answer: a scattering event AT the surface,
+   * leaving in a downward direction. Both roots are then zero to within
+   * rounding, and a ray that starts on the ground pointing into it travels no
+   * distance at all.
+   */
+  function groundLimit(from, dir) {
+    const b = from.x * dir.x + from.y * dir.y;
+    const radius = Math.sqrt(from.x * from.x + from.y * from.y);
+    if (radius - R <= 0.5) return b < 0 ? 0 : Infinity;
+    const c = radius * radius - R * R;
+    const disc = b * b - c;
+    if (disc < 0) return Infinity;
+    const t = -b - Math.sqrt(disc);
+    return t > 0 ? t : Infinity;
+  }
+
+  /**
+   * Walk from a point along a direction to the edge of the drawn frame, or to
+   * the ground, whichever comes first. Light does not travel through rock, so
+   * nothing is ever drawn below the surface - which at a wide zoom is a large
+   * part of the picture, and used to collect the stubs of everything scattered
+   * downwards near the limb.
+   */
   function clipToFrame(from, dir, maxLength = Infinity) {
-    let t = maxLength;
+    let t = Math.min(maxLength, groundLimit(from, dir));
     const yTop = R + skyExtent_m;
     const yBottom = R + skyExtent_m - span_m;
     if (dir.y > 1e-9) t = Math.min(t, (yTop - from.y) / dir.y);

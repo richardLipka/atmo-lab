@@ -696,6 +696,35 @@ export function registerTests({ group, test, assert }, config) {
       }
     });
 
+    test('no drawn point is inside the planet', () => {
+      // Light does not travel through rock. At a wide zoom the ground curves
+      // away and a large part of the frame is below the surface, which used to
+      // collect the stubs of everything scattered downwards near the limb.
+      const R = earth.planetRadius;
+      for (const wide of [trace(), trace({ span_m: 2e6, skyExtent_m: 8.4e5, halfWidth_m: 1.7e6 })]) {
+        for (const path of wide) {
+          for (const point of path.points) {
+            const altitude = Math.hypot(point.x, point.y) - R;
+            assert.greater(altitude, -0.6, `${path.kind} reached ${altitude.toFixed(1)} m`);
+          }
+        }
+      }
+    });
+
+    test('a scattering event on the ground sends nothing downwards', () => {
+      // The degenerate case: both roots of the surface intersection are zero,
+      // so the usual near-root test misses it and the stub is drawn into the
+      // ground at full length.
+      const R = earth.planetRadius;
+      const low = trace({ count: 8000 })
+        .filter((p) => p.kind === 'missed' && Math.hypot(p.points[1].x, p.points[1].y) - R < 30);
+      assert.greater(low.length, 5, 'some events happen right at the surface');
+      for (const path of low) {
+        const end = path.points[2];
+        assert.greater(Math.hypot(end.x, end.y) - R, -0.6);
+      }
+    });
+
     test('the geometry is spherical, so altitude follows the radius', () => {
       // Every scattering vertex should sit at a sensible altitude measured from
       // the planet centre, not from a flat datum. The two differ by kilometres
