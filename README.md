@@ -337,6 +337,38 @@ mouth. Without it the picture is honestly puzzling — the air above is bright b
 nothing arrives — and the reason is only implied by the stopped rays. The blue you can
 actually have is the blue inside that cone; the rock has taken the rest.
 
+### Radiance is not brightness
+
+The radiance of a patch of sky is the same whether or not there is a shaft in the way. That
+is the well paradox, and it is why the "sky in the viewing direction" swatch stays blue.
+But quoting it alone left the bottom of a fifty-metre well reading as a bright blue sky,
+which is not what anyone standing there would say.
+
+An eye does not measure one direction; it collects a field of view, and what a shaft changes
+is how much of that field has any sky in it. A second swatch — **how bright it looks here**
+— is the mean radiance over the observer's 12° field of view, with the directions the rock
+has taken counted as the nothing they deliver. Its hue comes from the rays that get through
+and its intensity from how many there are:
+
+| observer | rays arriving | sky left in view | how bright it looks |
+|---|---|---|---|
+| open sky | 360 | 100 % | `rgb(136,166,214)` |
+| 5 m down, looking up | 70 | 100 % | `rgb(154,187,242)` |
+| 20 m down, looking up | 21 | 13 % | `rgb(57,71,95)` |
+| 50 m down, looking up | 5 | 2 % | `rgb(19,26,37)` |
+| 50 m down, looking 35° off | 5 | 0 % | `rgb(0,0,0)` |
+
+At 5 m the aperture is 16.7° — wider than the field of view — so looking up there is nothing
+but sky in front of you and it is as bright as the open sky. Below that the share falls as
+the square of the aperture, because that is how solid angle behaves.
+
+**The sky strip is on a true linear angular axis.** It was not: the dome is sampled with
+extra samples packed inside a shaft's aperture, so that a sliver of sky a degree wide is
+computed at all rather than falling between samples, and the strip drew one equal-width
+column per sample. That handed a third of the strip to an aperture worth two per cent of the
+sky. Sampling density is a numerical concern and must not decide how wide anything looks;
+the aperture is now marked, not widened.
+
 An **advanced toggle, "count air inside the shaft"**, is off by default so that descending
 is purely geometric, as specified. Switching it on adds the denser air that would really
 fill a deep shaft (C = H(e^(d/H) − 1)) — and only then does descending finally become an
@@ -382,7 +414,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **97 tests** covering:
+`node tests/run-tests.js` runs **98 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
@@ -407,6 +439,9 @@ lesson:
   ray ends on the wall carrying nothing, and that widening the shaft lets more sky back in;
 - that the zoom reaches far enough in to see a shaft — the limits were written down twice
   and drifted, so the store was undoing zooms the interface offered;
+- that the share of a field of view which still has sky in it never exceeds one, falls
+  monotonically with depth, vanishes when you look away from the shaft, and goes as the
+  square of the aperture once it is narrow;
 - config integrity, including CZ/EN key parity and bilingual completeness of every
   experiment step;
 - the drawn light paths: that arriving light is measurably bluer than its source and than

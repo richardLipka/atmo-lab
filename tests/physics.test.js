@@ -19,7 +19,7 @@ import { createAtmosphere } from '../js/physics/atmosphere.js';
 import { createColorimetry } from '../js/physics/color.js';
 import {
   wellApertureHalfAngle, wellIsBlocked, wellSolidAngle,
-  wellIlluminanceFraction, wellShaftColumn,
+  wellIlluminanceFraction, wellShaftColumn, fieldOfViewSkyShare,
 } from '../js/physics/well.js';
 import {
   buildScene, computeViewRadiance, computeDirectBeam, computeIllumination,
@@ -979,6 +979,54 @@ export function registerTests({ group, test, assert }, config) {
       store.patch({ observer: { well: { enabled: false } } });
       store.patch({ observer: { z: 5000 } });
       assert.equal(store.state.observer.z, 5000);
+    });
+
+    test('how bright a shaft looks follows how much sky is left in view', () => {
+      // The complaint this answers: at the bottom of a deep well the interface
+      // still showed a light blue sky, because the radiance of the patch you
+      // can still see is unchanged - that is the paradox. What an eye reports
+      // is not that radiance but the average over its whole field of view, and
+      // that collapses with the fraction of the view which has any sky in it.
+      const field = 12 * Math.PI / 180;
+      const deg = (d) => d * Math.PI / 180;
+
+      // Looking straight up, an aperture wider than the field of view leaves
+      // nothing but sky, and it is as bright as the open sky.
+      assert.equal(fieldOfViewSkyShare(deg(37), field, 0), 1);
+      assert.equal(fieldOfViewSkyShare(Math.PI / 2, field, deg(35)), 1);
+
+      // A narrow one leaves the ratio of the two solid angles, and nothing
+      // may ever exceed one - a wide shallow shaft used to report 166 %.
+      const narrow = fieldOfViewSkyShare(deg(1.72), field, 0);
+      assert.close(narrow, (1 - Math.cos(deg(1.72))) / (1 - Math.cos(field)), 1e-9);
+      assert.less(narrow, 0.03);
+      for (const aperture of [0.5, 5, 11, 12, 13, 20, 45, 89]) {
+        assert.between(fieldOfViewSkyShare(deg(aperture), field, 0), 0, 1);
+      }
+
+      // Look away from the shaft and there is no sky in view at all.
+      assert.equal(fieldOfViewSkyShare(deg(1.72), field, deg(35)), 0);
+
+      // Deeper is always darker, never brighter.
+      let previous = 1;
+      for (const depth of [1, 2, 5, 10, 20, 50, 200]) {
+        const share = fieldOfViewSkyShare(
+          wellApertureHalfAngle(depth, 1.5), field, 0);
+        assert.less(share, previous + 1e-12, `depth ${depth} must not brighten`);
+        previous = share;
+      }
+
+      // And once the aperture is small it falls as its square, because that is
+      // how solid angle behaves: halving the aperture quarters the light. A
+      // hundred-fold shaft is a hundred-thousand-fold darkening.
+      for (const depth of [200, 1000]) {
+        const half = wellApertureHalfAngle(depth, 1.5);
+        const share = fieldOfViewSkyShare(half, field, 0);
+        assert.close(share, Math.pow(half / field, 2), 0.01,
+          `depth ${depth}: ${share.toExponential(3)}`);
+      }
+      assert.less(fieldOfViewSkyShare(wellApertureHalfAngle(200, 1.5), field, 0), 2e-3,
+        'two hundred metres down is essentially dark');
     });
 
     test('the zoom reaches far enough in to see a shaft', () => {

@@ -11,11 +11,17 @@
 import { createAtmosphere } from './physics/atmosphere.js';
 import { makeBlackbodySpectrum, wienPeakNm, specNew, SPECTRUM_BINS } from './physics/spectrum.js';
 import { sunDirectionFromElevation, directionFromAngles, DEG } from './physics/geometry.js';
+// The observer's field of view. One definition, shared with the ray tracer
+// that colours the rays inside it.
+import { VIEW_CONE_HALF_DEG } from './render/photons.js';
 import {
   buildScene, computeViewRadiance, computeDirectBeam, computeSkyDome,
   computeIllumination, QUALITY_PRESETS, DISPLAY_EXPOSURE,
 } from './physics/radiance.js';
-import { wellApertureHalfAngle, wellSolidAngle, wellIlluminanceFraction } from './physics/well.js';
+import {
+  wellApertureHalfAngle, wellSolidAngle, wellIlluminanceFraction,
+  fieldOfViewSkyShare,
+} from './physics/well.js';
 
 const REFERENCE_LAMBDAS = [450, 550, 650];
 
@@ -99,6 +105,9 @@ export function createSimulation({ config, colorimetry }) {
     const illumination = computeIllumination(scene, colorimetry, { quality: QUALITY_PRESETS.preview });
 
     const skyColor = colorimetry.spectrumToSrgb(view.observed, exposure);
+    const perceived = perceivedSky(
+      dome, scene, view.observed, state.observer.viewZenithDeg * DEG);
+    const perceivedColor = colorimetry.spectrumToSrgb(perceived.spectrum, exposure);
     const scatterColor = colorimetry.spectrumToSrgb(view.scattered, exposure);
     // The star is shown at its own exposure: it is a direct source, not a dim
     // patch of sky, and normalising it to the sky would make it pure white.
@@ -123,7 +132,11 @@ export function createSimulation({ config, colorimetry }) {
 
     return {
       scene, view, beam, dome: domeColors, illumination,
-      colors: { sky: skyColor, scatter: scatterColor, star: starColor, source: sourceColor },
+      perceived: perceived.spectrum,
+      colors: {
+        sky: skyColor, perceived: perceivedColor, scatter: scatterColor,
+        star: starColor, source: sourceColor,
+      },
       metrics: {
         z: scene.observerZ,
         atmosphericAltitude: atmosphericZ,
@@ -139,6 +152,9 @@ export function createSimulation({ config, colorimetry }) {
         apertureHalfAngleDeg: half / DEG,
         apertureSolidAngle: scene.wellActive ? wellSolidAngle(half) : 2 * Math.PI,
         skyFraction: scene.wellActive ? wellSolidAngle(half) / (2 * Math.PI) : 1,
+        // How much of the observer's own field of view still has sky in it,
+        // which is what sets how bright the place looks.
+        fieldOfViewShare: perceived.share,
         analyticIlluminanceFraction: scene.wellActive
           ? wellIlluminanceFraction(depth, scene.wellRadius) : 1,
         skyLuminance: colorimetry.luminance(view.scattered),
@@ -148,6 +164,48 @@ export function createSimulation({ config, colorimetry }) {
         blocked: view.blocked,
       },
     };
+  }
+
+  /**
+   * How bright the sky looks from here, rather than how bright one direction is.
+   *
+   * The radiance of a patch of sky is the same whether or not there is a shaft
+   * in the way - that is the whole point of the well - so quoting it alone left
+   * the bottom of a fifty-metre well reading as a bright blue sky. An eye does
+   * not measure one direction. It collects a field of view, and what a shaft
+   * changes is how much of that field has any sky in it at all.
+   *
+   * So this is the mean radiance over the observer's field of view, with the
+   * directions the rock has taken counted as the nothing they deliver. In the
+   * open it is simply the sky in that direction; down a shaft the aperture is a
+   * small disc inside a much larger cone and the mean falls with the ratio of
+   * their solid angles - which is to say with how many rays get through, while
+   * the hue stays that of the ones that do.
+   */
+  function perceivedSky(dome, scene, viewObserved, viewZenithRad) {
+    if (!scene.wellActive) return { spectrum: viewObserved, share: 1 };
+
+    const share = fieldOfViewSkyShare(
+      scene.apertureHalfAngle, VIEW_CONE_HALF_DEG * DEG, viewZenithRad);
+
+    // The sky that shows through an aperture is the sky about the zenith, since
+    // that is where a vertical shaft points.
+    const zenith = nearestSample(dome, 0);
+    const out = specNew();
+    if (!zenith || share <= 0) return { spectrum: out, share: 0 };
+    for (let i = 0; i < SPECTRUM_BINS; i++) {
+      out[i] = zenith.result.observed[i] * share;
+    }
+    return { spectrum: out, share };
+  }
+
+  function nearestSample(dome, signedAngleDeg) {
+    let best = null, bestDelta = Infinity;
+    for (const sample of dome) {
+      const delta = Math.abs(sample.signedAngleDeg - signedAngleDeg);
+      if (delta < bestDelta) { bestDelta = delta; best = sample; }
+    }
+    return best;
   }
 
   function sampleAt(spectrum, lambdas) {

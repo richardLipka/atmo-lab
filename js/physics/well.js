@@ -90,3 +90,43 @@ export function wellShaftColumn(depth, scaleHeight) {
   if (depth <= 0) return 0;
   return scaleHeight * (Math.exp(depth / scaleHeight) - 1);
 }
+
+/**
+ * What share of an observer's field of view still has sky in it.
+ *
+ * An eye does not measure one direction; it collects a cone. A shaft leaves a
+ * cap of sky of half-angle `apertureHalf` about the zenith, and the observer is
+ * looking down a cone of half-angle `fieldHalf` whose axis is `offAxis` from
+ * the zenith. What is wanted is the fraction of that cone's solid angle which
+ * falls inside the cap - and with it, since radiance is what it is, how bright
+ * the place looks.
+ *
+ * The overlap of two spherical caps has a closed form, but not a short one.
+ * Three cases can be answered exactly: they do not meet, the aperture swallows
+ * the field of view, and the aperture sits wholly inside it. In practice a
+ * shaft is one of those three, because an aperture is either far narrower than
+ * a field of view or wide enough to contain it. Only partial overlap is
+ * interpolated, and the result is clamped: a wide shallow shaft must never
+ * report more sky than a field of view can hold.
+ *
+ * @param {number} apertureHalf  half-angle of the sky the shaft leaves, radians
+ * @param {number} fieldHalf     half-angle of the field of view, radians
+ * @param {number} offAxis       angle from the zenith to the view axis, radians
+ */
+export function fieldOfViewSkyShare(apertureHalf, fieldHalf, offAxis) {
+  if (!(fieldHalf > 0)) return 0;
+  if (!(apertureHalf > 0)) return 0;
+  if (apertureHalf >= Math.PI / 2) return 1;
+
+  const away = Math.abs(offAxis);
+  let overlap;
+  if (away >= fieldHalf + apertureHalf) overlap = 0;
+  else if (away + fieldHalf <= apertureHalf) overlap = 1 - Math.cos(fieldHalf);
+  else if (away + apertureHalf <= fieldHalf) overlap = 1 - Math.cos(apertureHalf);
+  else {
+    const smaller = Math.min(apertureHalf, fieldHalf);
+    const t = (fieldHalf + apertureHalf - away) / (2 * smaller);
+    overlap = (1 - Math.cos(smaller)) * Math.max(0, Math.min(1, t));
+  }
+  return Math.max(0, Math.min(1, overlap / (1 - Math.cos(fieldHalf))));
+}

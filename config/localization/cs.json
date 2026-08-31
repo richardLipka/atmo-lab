@@ -144,7 +144,9 @@
     "blockedByWall": "Stěna šachty tento směr zakrývá, nedorazí odsud žádné světlo.",
     "darkness": "Příliš málo světla na zobrazení barvy.",
     "measured": "Změřeno z nakreslených paprsků",
-    "fromRays": "z"
+    "fromRays": "z",
+    "perceived": "Jak je tu jasno",
+    "skyShare": "ze zorného pole:"
   },
   "data": {
     "title": "Fyzikální veličiny",

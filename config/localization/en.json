@@ -144,7 +144,9 @@
     "blockedByWall": "The shaft wall blocks this direction, so no light arrives at all.",
     "darkness": "Too little light to show a colour.",
     "measured": "Measured from the drawn rays",
-    "fromRays": "from"
+    "fromRays": "from",
+    "perceived": "How bright it looks here",
+    "skyShare": "of your view:"
   },
   "data": {
     "title": "Physical quantities",

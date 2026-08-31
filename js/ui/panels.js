@@ -12,6 +12,7 @@ import { formatAltitude, formatAngle } from '../render/scene-renderer.js';
 export function createPanels(root, { i18n, store, spectrumChart, chromaticity, colorimetry }) {
   const legend = root.querySelector('#spectrum-legend');
   const swatchSky = root.querySelector('#swatch-sky');
+  const swatchPerceived = root.querySelector('#swatch-perceived');
   const swatchMeasured = root.querySelector('#swatch-measured');
   const swatchStar = root.querySelector('#swatch-star');
   const swatchNote = root.querySelector('#swatch-note');
@@ -177,6 +178,17 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
       ? i18n.t('color.blockedByWall')
       : `${sky.css}  ·  x=${sky.chromaticity[0].toFixed(3)} y=${sky.chromaticity[1].toFixed(3)}`;
 
+    // What the whole field of view amounts to, which is what "how bright is it
+    // here" means. In the open these two agree closely; down a shaft the first
+    // stays the colour of the patch you can still see and this one collapses
+    // with how much of the sky is left.
+    const perceived = primary.colors.perceived;
+    swatchPerceived.querySelector('.swatch-chip').style.background = perceived.css;
+    swatchPerceived.querySelector('.swatch-caption').textContent = i18n.t('color.perceived');
+    swatchPerceived.querySelector('.swatch-detail').textContent =
+      `${perceived.css}  ·  ${i18n.t('color.skyShare')} `
+      + formatShare(primary.metrics.fieldOfViewShare);
+
     swatchStar.querySelector('.swatch-chip').style.background = star.css;
     swatchStar.querySelector('.swatch-caption').textContent = i18n.t('color.star');
     swatchStar.querySelector('.swatch-detail').textContent = primary.beam.visible
@@ -219,6 +231,15 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     const distance = Math.hypot(dx, dy);
     detail.textContent = `${measured.css}  ·  ${i18n.t('color.fromRays')} `
       + `${histogram.coneRays}  ·  Δxy = ${distance.toFixed(3)}`;
+  }
+
+  /** A fraction as a percentage, down to the very small ones a shaft produces. */
+  function formatShare(fraction) {
+    if (!(fraction > 0)) return '0 %';
+    const pct = fraction * 100;
+    if (pct >= 1) return `${pct.toFixed(0)} %`;
+    if (pct >= 0.01) return `${pct.toFixed(2)} %`;
+    return `${pct.toExponential(1)} %`;
   }
 
   /** Share of a spectrum's energy below the blue/red split. */

@@ -47,67 +47,73 @@ export function createSkyStrip(canvas, { i18n }) {
   }
 
   /**
-   * Where a viewing angle lands on the strip. The angular axis is not always
-   * linear: inside a shaft the middle of the strip is magnified so the sliver
-   * of visible sky can be seen at all, so positions are found by walking the
-   * samples rather than by scaling the angle.
+   * Where a viewing angle lands on the strip: a plain linear axis, horizon to
+   * horizon.
+   *
+   * It used to be non-linear. The sky dome is sampled with extra samples packed
+   * inside a shaft's aperture, so that a sliver of sky a degree wide is
+   * computed at all rather than falling between samples, and the strip drew one
+   * equal-width column per sample. That handed a third of the strip to an
+   * aperture worth two per cent of the sky, and the bottom of a fifty-metre
+   * well came out looking like a bright blue window. Sampling density is a
+   * numerical concern; it must not decide how wide anything looks.
    */
-  function angleToX(dome, signedAngle, x, w) {
-    const n = dome.length;
-    if (signedAngle <= dome[0].signedAngleDeg) return x;
-    if (signedAngle >= dome[n - 1].signedAngleDeg) return x + w;
-    for (let i = 1; i < n; i++) {
-      if (dome[i].signedAngleDeg >= signedAngle) {
-        const span = dome[i].signedAngleDeg - dome[i - 1].signedAngleDeg;
-        const t = span > 0 ? (signedAngle - dome[i - 1].signedAngleDeg) / span : 0;
-        return x + ((i - 1 + t) / (n - 1)) * w;
-      }
+  function angleToX(signedAngle, x, w) {
+    return x + ((Math.max(-90, Math.min(90, signedAngle)) + 90) / 180) * w;
+  }
+
+  /** The dome sample nearest a viewing angle. */
+  function sampleAt(dome, signedAngle) {
+    let best = dome[0], bestDelta = Infinity;
+    for (const sample of dome) {
+      const delta = Math.abs(sample.signedAngleDeg - signedAngle);
+      if (delta < bestDelta) { bestDelta = delta; best = sample; }
     }
-    return x + w;
+    return best;
   }
 
   function drawBand(evaluation, x, y, w, h, label) {
     const dome = evaluation.dome;
-    const n = dome.length;
-    for (let i = 0; i < n; i++) {
-      // The band runs left to right from the horizon away from the star,
-      // through the zenith, to the horizon beneath it.
-      const cellX = x + (i / n) * w;
-      ctx.fillStyle = dome[i].color.css;
-      ctx.fillRect(cellX, y, w / n + 1, h);
+
+    // One column of pixels per viewing direction, on the true angular axis, so
+    // the visible sky occupies exactly the share of the strip it occupies of
+    // the sky. From the horizon away from the star, through the zenith, to the
+    // horizon beneath it.
+    const columns = Math.max(1, Math.round(w));
+    for (let i = 0; i < columns; i++) {
+      const angle = -90 + (180 * (i + 0.5)) / columns;
+      ctx.fillStyle = sampleAt(dome, angle).color.css;
+      ctx.fillRect(x + (i * w) / columns, y, w / columns + 1, h);
     }
 
-    // Mark the magnified span, so nobody reads it as a wide patch of sky.
-    const firstMagnified = dome.findIndex((s) => s.magnified);
-    if (firstMagnified >= 0) {
-      const lastMagnified = dome.length - 1 - [...dome].reverse().findIndex((s) => s.magnified);
-      const x1 = x + (firstMagnified / n) * w;
-      const x2 = x + ((lastMagnified + 1) / n) * w;
+    // A shaft's aperture can be far narrower than one column, so mark it
+    // rather than let it disappear - but mark it, do not widen it.
+    const half = evaluation.metrics.apertureHalfAngleDeg;
+    if (half < 89.9) {
+      const x1 = angleToX(-half, x, w);
+      const x2 = angleToX(half, x, w);
       ctx.save();
-      ctx.strokeStyle = 'rgba(255,200,120,0.85)';
-      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = 'rgba(255,200,120,0.9)';
       ctx.lineWidth = 1;
-      for (const edge of [x1, x2]) {
-        ctx.beginPath();
-        ctx.moveTo(edge, y);
-        ctx.lineTo(edge, y + h);
-        ctx.stroke();
-      }
-      ctx.setLineDash([]);
-      ctx.fillStyle = 'rgba(255,200,120,0.9)';
+      ctx.beginPath();
+      ctx.moveTo(Math.max(x1, x + 0.5), y);
+      ctx.lineTo(Math.max(x1, x + 0.5), y + h);
+      ctx.moveTo(Math.min(x2, x + w - 0.5), y);
+      ctx.lineTo(Math.min(x2, x + w - 0.5), y + h);
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,200,120,0.95)';
       ctx.font = '9px system-ui, sans-serif';
       ctx.textAlign = 'center';
-      const half = dome[lastMagnified].signedAngleDeg;
-      const text = (i18n.getLanguage() === 'cs' ? 'otvor ±' : 'aperture ±') +
-        (half >= 1 ? half.toFixed(1) + '°' : half.toExponential(1) + '°');
-      ctx.fillText(text, (x1 + x2) / 2, y + h - 4);
+      const text = (i18n.getLanguage() === 'cs' ? 'otvor ±' : 'aperture ±')
+        + (half >= 1 ? half.toFixed(1) + '°' : half.toExponential(1) + '°');
+      ctx.fillText(text, Math.min(x + w - 34, Math.max(x + 34, (x1 + x2) / 2)), y + h - 4);
       ctx.restore();
     }
 
     // Where the star sits in this view.
     const elevation = data.state.star.elevationDeg;
     if (elevation >= 0) {
-      const sx = angleToX(dome, 90 - elevation, x, w);
+      const sx = angleToX(90 - elevation, x, w);
       const blocked = evaluation.beam.visible === false;
       ctx.save();
       ctx.globalAlpha = blocked ? 0.25 : 1;
@@ -121,7 +127,7 @@ export function createSkyStrip(canvas, { i18n }) {
     // Where the observer is currently looking.
     const viewSigned = data.state.observer.viewZenithDeg *
       (Math.cos(data.state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1);
-    const vx = angleToX(dome, viewSigned, x, w);
+    const vx = angleToX(viewSigned, x, w);
     ctx.save();
     ctx.strokeStyle = 'rgba(255,255,255,0.9)';
     ctx.lineWidth = 2;
