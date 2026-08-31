@@ -75,12 +75,14 @@ async function start() {
       atmosphere,
       source: result.source,
       sunElevationDeg: state.star.elevationDeg,
+      observerZ: state.observer.z,
+      viewZenithDeg: state.observer.viewZenithDeg,
       count: state.rays.showScattering ? state.rays.count : 0,
       halfWidth_m: atmosphere.topAltitude * 1.5,
       top_m: atmosphere.topAltitude,
       seed: 20260828,
     });
-    photonTally = summarisePhotons(photons);
+    photonTally = summarisePhotons(photons, { source: result.source });
     needsPhotons = false;
   }
 
@@ -102,7 +104,8 @@ async function start() {
     needsPhysics = true;
     needsPaint = true;
     if (touches(changed, 'atmosphere', 'star.elevationDeg', 'star.temperatureK',
-      'star.presetId', 'star.realisticInsolation', 'rays.count', 'rays.showScattering')) {
+      'star.presetId', 'star.realisticInsolation', 'rays.count', 'rays.showScattering',
+      'observer.z', 'observer.viewZenithDeg')) {
       needsPhotons = true;
     }
     if (touches(changed, 'atmosphere.presetId')) {
@@ -246,8 +249,9 @@ async function start() {
   }
 
   function outcomeKey(outcome) {
+    if (outcome === 'observed') return 'observed';
+    if (outcome === 'missed') return 'missedObserver';
     if (outcome === 'ground') return 'reachedGround';
-    if (outcome === 'escape') return 'escaped';
     if (outcome === 'absorb') return 'absorbed';
     return 'escaped';
   }
@@ -258,6 +262,8 @@ async function start() {
       case 'scatter': return i18n.t('canvas.scattered');
       case 'absorb': return i18n.t('canvas.absorbed');
       case 'ground': return i18n.t('canvas.reachedGround');
+      case 'observed': return i18n.t('canvas.observed');
+      case 'missed': return i18n.t('canvas.missedObserver');
       case 'escape': return i18n.t('canvas.escaped');
       default: return event.type;
     }

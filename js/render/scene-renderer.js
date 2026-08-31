@@ -199,27 +199,13 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     layout = allowInteraction ? { plot, toX, toY, mode: 'atmosphere' } : layout;
   }
 
+  /**
+   * A marker showing where the star sits. The beams themselves are no longer
+   * drawn here: the traced paths carry the real, spectrally weighted version of
+   * the same light, and a second set of decorative rays only competed with it.
+   */
   function drawStarBeams(plot, toX, toY, topAltitude, halfWidth, evaluation) {
-    const elevation = data.state.star.elevationDeg * Math.PI / 180;
-    const dir = { x: -Math.cos(elevation), y: -Math.sin(elevation) };
     const color = data.result.primary.colors.source.css;
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.globalAlpha = 0.5;
-    ctx.lineWidth = 1.4;
-    ctx.setLineDash([7, 6]);
-    for (let i = 0; i < 7; i++) {
-      const aim = (-1 + 2 * (i + 0.5) / 7) * halfWidth * 0.92;
-      const backoff = topAltitude / Math.max(0.08, Math.abs(dir.y));
-      const sx = aim - dir.x * backoff;
-      ctx.beginPath();
-      ctx.moveTo(toX(sx), toY(topAltitude));
-      ctx.lineTo(toX(aim), toY(0));
-      ctx.stroke();
-    }
-    ctx.restore();
-
-    // A marker showing where the star sits.
     const label = i18n.t('canvas.star');
     ctx.save();
     ctx.globalAlpha = 0.9;
@@ -239,30 +225,98 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   function drawPhotons(plot, toX, toY, timeMs, allowInteraction) {
     const paths = data.photons;
     const animate = data.state.rays.animate;
-    // Group by wavelength bucket so the whole cloud costs a handful of strokes.
-    const buckets = new Map();
-    for (let i = 0; i < paths.length; i++) {
-      const p = paths[i];
-      const key = Math.round(p.lambda / 20) * 20;
-      if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key).push(i);
-    }
-
     const phase = animate ? (timeMs / 2600) % 1 : 1;
-    ctx.save();
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = 0.55;
-    for (const [lambda, indices] of buckets) {
-      const [r, g, b] = wavelengthToDisplayRgb(lambda);
-      ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-      ctx.beginPath();
-      for (const index of indices) {
-        if (index === selectedPath || index === hoveredPath) continue;
-        strokePath(paths[index], toX, toY, phase);
+
+    const style = {
+      through: { alpha: 0.22, width: 1.0, dash: [] },
+      missed: { alpha: 0.34, width: 1.0, dash: [] },
+      arriving: { alpha: 0.30, width: 1.0, dash: [] },
+    };
+
+    for (const kind of ['through', 'missed', 'arriving']) {
+      // Group by wavelength bucket so the whole cloud costs a handful of strokes.
+      const buckets = new Map();
+      for (let i = 0; i < paths.length; i++) {
+        if (paths[i].kind !== kind) continue;
+        if (i === selectedPath || i === hoveredPath) continue;
+        const key = Math.round(paths[i].lambda / 20) * 20;
+        if (!buckets.has(key)) buckets.set(key, []);
+        buckets.get(key).push(i);
       }
-      ctx.stroke();
+      const s = style[kind];
+      ctx.save();
+      ctx.lineWidth = s.width;
+      ctx.globalAlpha = s.alpha;
+      ctx.setLineDash(s.dash);
+      for (const [lambda, indices] of buckets) {
+        const [r, g, b] = wavelengthToDisplayRgb(lambda);
+        ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+        ctx.beginPath();
+        for (const index of indices) strokePath(paths[index], toX, toY, phase);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // The last leg of an arriving path - the one that actually enters the
+      // eye - is redrawn heavier. Without it the fan of incoming sunlight
+      // dominates and the convergence, which is the subject of the picture,
+      // is the one thing you cannot see.
+      if (kind === 'arriving' && phase >= 1) {
+        ctx.save();
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        for (const [lambda, indices] of buckets) {
+          const [r, g, b] = wavelengthToDisplayRgb(lambda);
+          ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+          ctx.beginPath();
+          for (const index of indices) {
+            const pts = paths[index].points;
+            const a = pts[pts.length - 2], c = pts[pts.length - 1];
+            ctx.moveTo(toX(a.x), toY(a.y));
+            ctx.lineTo(toX(c.x), toY(c.y));
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      // Scattering vertices. Every one of them is a photon being taken out of
+      // the beam; only the ones on arriving paths were turned towards the eye,
+      // so those get a bright marker and the rest a faint one.
+      ctx.save();
+      ctx.globalAlpha = kind === 'arriving' ? 0.95 : 0.30;
+      for (const indices of buckets.values()) {
+        for (const index of indices) {
+          const p = paths[index];
+          if (p.scatterCount === 0) continue;
+          const e = p.events[1];
+          const [r, g, b] = wavelengthToDisplayRgb(p.lambda);
+          ctx.fillStyle = kind === 'arriving' ? '#ffffff' : `rgb(${r}, ${g}, ${b})`;
+          ctx.beginPath();
+          ctx.arc(toX(e.x), toY(e.y), kind === 'arriving' ? 2.2 : 1.4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.restore();
+
+      // An arrowhead on the paths that leave: without it a stub reads as a
+      // line rather than as light departing in a direction that misses you.
+      if (kind === 'missed') {
+        ctx.save();
+        ctx.globalAlpha = 0.42;
+        for (const indices of buckets.values()) {
+          for (const index of indices) {
+            const p = paths[index];
+            const [r, g, b] = wavelengthToDisplayRgb(p.lambda);
+            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+            const a = p.points[p.points.length - 2];
+            const bpt = p.points[p.points.length - 1];
+            drawArrowHead(toX(a.x), toY(a.y), toX(bpt.x), toY(bpt.y), 4.5);
+          }
+        }
+        ctx.restore();
+      }
     }
-    ctx.restore();
 
     for (const index of [hoveredPath, selectedPath]) {
       if (index < 0 || index >= paths.length) continue;
@@ -286,6 +340,54 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       }
       ctx.restore();
     }
+
+    drawPathLegend(plot);
+  }
+
+  function drawArrowHead(x1, y1, x2, y2, size) {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - size * Math.cos(angle - 0.42), y2 - size * Math.sin(angle - 0.42));
+    ctx.lineTo(x2 - size * Math.cos(angle + 0.42), y2 - size * Math.sin(angle + 0.42));
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /** Say what the three brightnesses mean, otherwise the picture is a puzzle. */
+  function drawPathLegend(plot) {
+    const rows = [
+      { key: 'canvas.legendArriving', alpha: 0.95 },
+      { key: 'canvas.legendMissed', alpha: 0.42 },
+      { key: 'canvas.legendThrough', alpha: 0.32 },
+    ];
+    ctx.save();
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    let width = 0;
+    const labels = rows.map((row) => i18n.t(row.key));
+    for (const label of labels) width = Math.max(width, ctx.measureText(label).width);
+    const boxW = width + 30;
+    const boxH = rows.length * 15 + 8;
+    const x = plot.x + 8;
+    const y = plot.y + 8;
+    ctx.fillStyle = 'rgba(5, 7, 13, 0.62)';
+    ctx.fillRect(x, y, boxW, boxH);
+    for (let i = 0; i < rows.length; i++) {
+      const cy = y + 12 + i * 15;
+      ctx.globalAlpha = rows[i].alpha;
+      ctx.strokeStyle = '#cfd8ff';
+      ctx.lineWidth = i === 0 ? 1.8 : 1;
+      ctx.beginPath();
+      ctx.moveTo(x + 6, cy);
+      ctx.lineTo(x + 20, cy);
+      ctx.stroke();
+      ctx.globalAlpha = i === 0 ? 0.92 : 0.6;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(labels[i], x + 25, cy);
+    }
+    ctx.restore();
   }
 
   function strokePath(path, toX, toY, phase) {

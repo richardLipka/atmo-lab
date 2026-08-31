@@ -94,7 +94,7 @@
     "skyStripHelp": "The sky from horizon to horizon through the observer's own eyes. Black wedges are directions stopped by the shaft wall.",
     "altitudeAxis": "Altitude",
     "blocked": "Blocked by shaft wall",
-    "clickRay": "Click a ray to trace its history",
+    "clickRay": "Click any path to trace it step by step",
     "rayLog": "Photon history",
     "rayLogEmpty": "No ray selected. Click any ray in the cross-section.",
     "rayLogClose": "Close",
@@ -107,7 +107,12 @@
     "altitude": "Altitude",
     "wavelength": "Wavelength",
     "energy": "Remaining energy",
-    "angle": "Deflection"
+    "angle": "Deflection",
+    "legendArriving": "reaches the observer",
+    "legendMissed": "scattered away, never reaches the observer",
+    "legendThrough": "crosses unscattered, reaches the ground",
+    "observed": "arrived at the observer",
+    "missedObserver": "leaves in another direction"
   },
   "spectrum": {
     "title": "Spectrum",

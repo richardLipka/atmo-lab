@@ -194,11 +194,21 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity })
     photonTally.hidden = false;
     const pct = (a, b) => (b > 0 ? Math.round((100 * a) / b) : 0);
     const cs = i18n.getLanguage() === 'cs';
-    const blue = pct(tally.blue.scattered, tally.blue.total);
-    const red = pct(tally.red.scattered, tally.red.total);
+    // The comparison, not the bare percentage, is the lesson: the light that
+    // arrives is bluer than the light the star sent, and what got through to
+    // the ground unscattered is redder. Both numbers come from the same draw.
+    const arriving = pct(tally.arriving.blue, tally.arriving.total);
+    const through = pct(tally.through.blue, tally.through.total);
+    const emitted = tally.sourceBlueFraction != null
+      ? Math.round(tally.sourceBlueFraction * 100) : null;
+    const emittedPart = emitted == null ? ''
+      : (cs ? ` Hvězda přitom vyzářila ${emitted} % modré.`
+        : ` The star itself emitted ${emitted}% blue.`);
     photonTally.textContent = cs
-      ? `Z vystřelených fotonů se rozptýlilo ${blue} % modrých (< 520 nm), ale jen ${red} % červených.`
-      : `Of the photons launched, ${blue}% of the blue ones (< 520 nm) were scattered, but only ${red}% of the red.`;
+      ? `Ze světla, které dopadá k pozorovateli, je ${arriving} % modré (< 520 nm); `
+        + `ze světla, které projde bez rozptylu až k zemi, jen ${through} %.${emittedPart}`
+      : `Of the light arriving at the observer, ${arriving}% is blue (< 520 nm); `
+        + `of the light that crosses unscattered to the ground, only ${through}%.${emittedPart}`;
   }
 
   function update(result, tally) {

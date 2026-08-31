@@ -94,7 +94,7 @@
     "skyStripHelp": "Obloha od obzoru k obzoru očima pozorovatele. Černé klíny jsou směry zastavené stěnou šachty.",
     "altitudeAxis": "Výška",
     "blocked": "Zastaveno stěnou šachty",
-    "clickRay": "Klikni na paprsek a zobrazí se jeho historie",
+    "clickRay": "Klikni na paprsek a projdi jeho cestu krok za krokem",
     "rayLog": "Historie fotonu",
     "rayLogEmpty": "Není vybrán žádný paprsek. Klikni na libovolný paprsek v řezu.",
     "rayLogClose": "Zavřít",
@@ -107,7 +107,12 @@
     "altitude": "Výška",
     "wavelength": "Vlnová délka",
     "energy": "Zbývající energie",
-    "angle": "Vychýlení"
+    "angle": "Vychýlení",
+    "legendArriving": "dopadá k pozorovateli",
+    "legendMissed": "rozptýleno jinam, k pozorovateli nedorazí",
+    "legendThrough": "prochází bez rozptylu až k zemi",
+    "observed": "dorazil k pozorovateli",
+    "missedObserver": "odchází jiným směrem"
   },
   "spectrum": {
     "title": "Spektrum",

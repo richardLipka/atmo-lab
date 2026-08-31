@@ -81,7 +81,7 @@ js/
     sky-strip.js           the observer's own horizon-to-horizon view
     spectrum-chart.js      the four-curve spectrum plot
     chromaticity.js        CIE diagram (Advanced level)
-    photons.js             Monte Carlo photon paths, for the picture
+    photons.js             the light paths drawn in the cross-section
   ui/
     controls.js  panels.js  explanation.js  experiments.js
 config/
@@ -147,6 +147,29 @@ The planet is a **sphere**, not a slab. This is not polish: a flat atmosphere ha
 infinite path at the horizon and the sunset experiment would never terminate. On the
 sphere, the air mass emerges correctly — 1.00 at the zenith, 1.99 at 60°, about 34 at the
 horizon (the classic figure is ~38).
+
+### What the cross-section draws
+
+The picture is built **backwards from the observer**, because the question a student is
+asking is "why is the light that reaches *me* blue?" Every path shown is one of three:
+
+| | what it is | how it is drawn |
+|---|---|---|
+| **arriving** | sunlight that came down, scattered once, and turned into the eye | full incoming leg, then a heavy final leg into the observer |
+| **missed** | sunlight that scattered somewhere else and left in some other direction | a short kink with an arrowhead, deliberately not aimed at you |
+| **through** | light that crossed the whole atmosphere without scattering and hit the ground | one faint straight line, top to bottom |
+
+The wavelength of each arriving path is drawn from the true single-scattering weight
+β(λ)ρ·P(θ)·T_sun(λ)·T_view(λ)·I₀(λ) — the same product the integrator forms — so the
+arriving bundle comes out blue for the reason the physics says, not because it was tinted.
+Each arriving path has exactly one scattering vertex, which is not a shortcut: it is
+precisely the single-scattering approximation the engine integrates, so the picture and the
+numbers describe the same model.
+
+The panel states the measured outcome: at a 55° Sun, **62 % of the light arriving at the
+observer is blue (< 520 nm), against 28 % of the light that got through unscattered, from a
+star that emitted 39 % blue**. On an airless world every path is a `through` path and no
+scattering vertex is drawn at all.
 
 ### Radiative transfer
 
@@ -215,9 +238,13 @@ lesson:
 - **Mie scattering is approximated**, not solved. Real Mie theory needs Maxwell's equations
   on a sphere; here it is a power law plus an asymmetry parameter, which reproduces the two
   features that matter pedagogically (near-neutral colour, forward peaking).
-- The Monte Carlo photon paths are drawn in a **flat slab** — over the width of the picture
-  the curvature is invisible and the flat geometry is far easier to read. The numbers and
-  colours always come from the spherical integrator, never from the photons.
+- The drawn light paths use a **flat slab** — over the width of the picture the curvature is
+  invisible and the flat geometry is far easier to read. The numbers and colours always come
+  from the spherical integrator, never from the paths.
+- The three families of path are **not drawn in their true proportion**. In reality about
+  85 % of the sunlight crossing Earth's air is never scattered at all; drawing that
+  faithfully would leave too few arriving paths to read. The true fraction is computed from
+  the optical depth and stated in the panel beside the picture.
 - The cross-section uses a **compressed vertical axis**, and where a shaft aperture is too
   narrow to draw it is widened and explicitly labelled "cone exaggerated for clarity" with
   the true angle shown next to it.
@@ -226,7 +253,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **71 tests** covering:
+`node tests/run-tests.js` runs **76 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
@@ -247,6 +274,10 @@ lesson:
   at every depth, while illuminance follows the solid angle;
 - config integrity, including CZ/EN key parity and bilingual completeness of every
   experiment step;
+- the drawn light paths: that arriving light is measurably bluer than its source and than
+  the light that got through, that every arriving path really ends at the observer with a
+  single scattering vertex, that every missed path genuinely leaves in a direction that is
+  not the observer, and that a vacuum produces no scattering vertex at all;
 - a performance budget assertion that a full interactive recompute fits inside 33 ms.
 
 ## Performance

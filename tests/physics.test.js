@@ -599,34 +599,94 @@ export function registerTests({ group, test, assert }, config) {
 
   /* ---------------------------------------------------------------- */
 
-  group('photon transport', () => {
-    test('blue photons are scattered far more often than red ones', () => {
-      const paths = tracePhotons({
-        atmosphere: earth, source: sunSpectrum, sunElevationDeg: 40,
-        count: 3000, halfWidth_m: 150000, top_m: earth.topAltitude, seed: 42,
-      });
-      const tally = summarisePhotons(paths);
-      const blueRate = tally.blue.scattered / tally.blue.total;
-      const redRate = tally.red.scattered / tally.red.total;
-      assert.greater(blueRate, redRate * 1.8);
+  group('light paths drawn in the cross-section', () => {
+    /** Fraction of the drawn paths of one kind that are short-wavelength. */
+    function blueFraction(paths, kind) {
+      const set = paths.filter((p) => p.kind === kind);
+      if (set.length === 0) return null;
+      return set.filter((p) => p.lambda < 520).length / set.length;
+    }
+
+    /** Blue share of the source itself, for comparison. */
+    function sourceBlue(spectrum) {
+      let all = 0, blue = 0;
+      for (let i = 0; i < spectrum.length; i++) {
+        all += spectrum[i];
+        if (380 + i * 10 < 520) blue += spectrum[i];
+      }
+      return blue / all;
+    }
+
+    const earthPaths = tracePhotons({
+      atmosphere: earth, source: sunSpectrum, sunElevationDeg: 40, observerZ: 0,
+      viewZenithDeg: 35, count: 3000, halfWidth_m: 150000,
+      top_m: earth.topAltitude, seed: 42,
     });
 
-    test('no photon is scattered at all in a vacuum', () => {
+    test('the light that arrives at the observer is far bluer than the star it came from', () => {
+      const arriving = blueFraction(earthPaths, 'arriving');
+      assert.greater(arriving, sourceBlue(sunSpectrum) * 1.45);
+    });
+
+    test('the light that crosses unscattered is redder than the star it came from', () => {
+      assert.less(blueFraction(earthPaths, 'through'), sourceBlue(sunSpectrum));
+    });
+
+    test('arriving light is bluer than the light that got through, by a wide margin', () => {
+      assert.greater(blueFraction(earthPaths, 'arriving'),
+        blueFraction(earthPaths, 'through') * 1.7);
+    });
+
+    test('every arriving path really ends at the observer', () => {
+      const arriving = earthPaths.filter((p) => p.kind === 'arriving');
+      assert.greater(arriving.length, 100);
+      for (const path of arriving) {
+        const end = path.points[path.points.length - 1];
+        assert.equal(end.x, 0);
+        assert.equal(end.y, 0);
+        assert.equal(path.scatterCount, 1, 'single scattering, as the integrator assumes');
+      }
+    });
+
+    test('every missed path leaves in a direction that is not the observer', () => {
+      const missed = earthPaths.filter((p) => p.kind === 'missed');
+      assert.greater(missed.length, 100);
+      for (const path of missed) {
+        const vertex = path.points[1];
+        const end = path.points[2];
+        const outX = end.x - vertex.x, outY = end.y - vertex.y;
+        const toObsX = 0 - vertex.x, toObsY = 0 - vertex.y;
+        const cos = (outX * toObsX + outY * toObsY)
+          / (Math.hypot(outX, outY) * Math.hypot(toObsX, toObsY));
+        assert.less(cos, Math.cos(0.1), 'it must genuinely miss the eye');
+      }
+    });
+
+    test('a vacuum produces no scattering events at all', () => {
       const moon = createAtmosphere(config.atmospheres['airless-moon']);
       const paths = tracePhotons({
-        atmosphere: moon, source: sunSpectrum, sunElevationDeg: 40,
+        atmosphere: moon, source: sunSpectrum, sunElevationDeg: 40, observerZ: 0,
         count: 400, halfWidth_m: 150000, top_m: moon.topAltitude, seed: 9,
       });
-      assert.equal(summarisePhotons(paths).blue.scattered, 0);
-      assert.equal(summarisePhotons(paths).red.scattered, 0);
+      assert.greater(paths.length, 0);
+      for (const path of paths) {
+        assert.equal(path.scatterCount, 0);
+        assert.equal(path.kind === 'through', true, 'nothing but light streaming past');
+      }
     });
 
-    test('every traced path is a well-formed polyline', () => {
+    test('the reported scattered fraction follows the optical depth', () => {
+      // Earth's vertical scattering optical depth is about 0.115, so about a
+      // ninth of the light crossing the air is scattered at all.
+      assert.between(summarisePhotons(earthPaths).scatteredFraction, 0.05, 0.2);
+    });
+
+    test('every drawn path is a well-formed polyline', () => {
       const paths = tracePhotons({
-        atmosphere: earth, source: sunSpectrum, sunElevationDeg: 25,
+        atmosphere: earth, source: sunSpectrum, sunElevationDeg: 25, observerZ: 0,
         count: 300, halfWidth_m: 150000, top_m: earth.topAltitude, seed: 5,
       });
-      assert.equal(paths.length, 300);
+      assert.greater(paths.length, 250);
       for (const path of paths) {
         assert.greater(path.points.length, 1);
         assert.between(path.lambda, SPECTRUM_MIN_NM, SPECTRUM_MAX_NM);
