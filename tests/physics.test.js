@@ -619,18 +619,16 @@ export function registerTests({ group, test, assert }, config) {
 
     const trace = (options = {}) => tracePhotons({
       atmosphere: earth, source: sunSpectrum, sunElevationDeg: 40, observerZ: 0,
-      viewZenithDeg: 35, viewAzimuthDeg: 180, count: 3000, halfWidth_m: 150000,
-      top_m: earth.topAltitude, seed: 42, ...options,
+      count: 3000, halfWidth_m: 150000, top_m: earth.topAltitude,
+      frameTop_m: 34000, seed: 42, ...options,
     });
 
     const earthPaths = trace();
-    // The tally counts only the paths inside the viewing cone, which is what
-    // the spectrum panel and the colour swatch describe.
     const earthTally = summarisePhotons(earthPaths, { source: sunSpectrum });
     const arrivingBlue = earthTally.arriving.blue / earthTally.arriving.total;
     const throughBlue = earthTally.through.blue / earthTally.through.total;
 
-    test('the light arriving from the viewing cone is far bluer than the star it came from', () => {
+    test('the light that arrives at the observer is far bluer than the star it came from', () => {
       assert.greater(arrivingBlue, sourceBlue(sunSpectrum) * 1.4);
     });
 
@@ -642,68 +640,58 @@ export function registerTests({ group, test, assert }, config) {
       assert.greater(arrivingBlue, throughBlue * 1.6);
     });
 
-    test('most arriving paths lie inside the cone the observer is looking down', () => {
-      const arriving = earthPaths.filter((p) => p.kind === 'arriving');
-      const inView = arriving.filter((p) => p.inView);
-      assert.greater(inView.length / arriving.length, 0.7);
-      // Every one of them must actually be in the cone: the drawn wedge and the
-      // rays it is supposed to contain are computed from the same angle. The
-      // trace looks away from the star (azimuth 180), which is the negative
-      // side of the cross-section, so the signed angle is about -35 degrees.
-      for (const path of inView) {
-        const vertex = path.points[1];
-        const angle = Math.atan2(vertex.x, vertex.y) * 180 / Math.PI;
-        assert.between(angle, -35 - VIEW_CONE_HALF_DEG - 1e-6, -35 + VIEW_CONE_HALF_DEG + 1e-6);
+    test('the traced paths do not depend on where the observer is looking', () => {
+      // The whole point of tracing independently of the view: turning the head
+      // must restyle the existing rays, never reshuffle the scene. If this ever
+      // fails, the picture will jump every time the view slider moves.
+      const a = trace();
+      const b = trace();
+      assert.equal(a.length, b.length);
+      for (let i = 0; i < a.length; i++) {
+        assert.equal(a[i].lambda, b[i].lambda);
+        assert.equal(a[i].points[1].x, b[i].points[1].x);
       }
     });
 
-    test('the cone follows the azimuth, not just the zenith angle', () => {
-      // Azimuth 0 looks towards the star, 180 away from it. In the cross-section
-      // that is a mirror image, and the sampled cone must swap sides with it -
-      // an earlier version ignored the azimuth and flipped at random.
-      const away = trace({ viewAzimuthDeg: 180 }).filter((p) => p.kind === 'arriving' && p.inView);
-      const towards = trace({ viewAzimuthDeg: 0 }).filter((p) => p.kind === 'arriving' && p.inView);
-      // The star sits on the positive side of the cross-section.
-      assert.less(Math.max(...away.map((p) => p.points[1].x)), 0);
-      assert.greater(Math.min(...towards.map((p) => p.points[1].x)), 0);
-      // Looking towards the star collects the aerosol forward lobe, which is
-      // nearly colourless and dilutes the blue. Looking away leaves Rayleigh to
-      // dominate, so that is the bluer half of the sky.
-      const blue = (set) => set.filter((p) => p.lambda < 520).length / set.length;
-      assert.greater(blue(away), blue(towards));
-    });
-
-    test('every arriving path really ends at the observer', () => {
+    test('arriving rays cover the whole sky, so any viewing cone has rays in it', () => {
       const arriving = earthPaths.filter((p) => p.kind === 'arriving');
-      assert.greater(arriving.length, 100);
-      for (const path of arriving) {
-        const end = path.points[path.points.length - 1];
-        assert.equal(end.x, 0);
-        assert.equal(end.y, 0);
-        assert.equal(path.scatterCount, 1, 'single scattering, as the integrator assumes');
+      const angles = arriving.map((p) => p.arrivalAngleRad * 180 / Math.PI);
+      assert.less(Math.min(...angles), -70, 'rays from one horizon');
+      assert.greater(Math.max(...angles), 70, 'and from the other');
+      // Every 24-degree cone the interface can point at must contain a usable
+      // bundle, or the emphasised direction would be drawn by a handful of rays.
+      for (let axis = -80; axis <= 80; axis += 10) {
+        const inCone = angles.filter(
+          (a) => Math.abs(a - axis) <= VIEW_CONE_HALF_DEG).length;
+        assert.greater(inCone, 25, `cone at ${axis} degrees`);
       }
     });
 
-    test('every missed path leaves in a direction that is not the observer', () => {
-      const missed = earthPaths.filter((p) => p.kind === 'missed');
-      assert.greater(missed.length, 100);
-      for (const path of missed) {
+    test('the arrival angle really is the direction the ray comes from', () => {
+      // The renderer selects rays by this angle alone, so it must agree with
+      // the geometry of the drawn polyline.
+      for (const path of earthPaths.filter((p) => p.kind === 'arriving')) {
         const vertex = path.points[1];
         const end = path.points[2];
-        const outX = end.x - vertex.x, outY = end.y - vertex.y;
-        const toObsX = 0 - vertex.x, toObsY = 0 - vertex.y;
-        const cos = (outX * toObsX + outY * toObsY)
-          / (Math.hypot(outX, outY) * Math.hypot(toObsX, toObsY));
-        assert.less(cos, Math.cos(0.1), 'it must genuinely miss the eye');
+        const measured = Math.atan2(vertex.x - end.x, vertex.y - end.y);
+        assert.close(measured, path.arrivalAngleRad, 1e-9);
+      }
+    });
+
+    test('every leg is a straight line between its endpoints', () => {
+      // The altitude axis is linear precisely so this stays true on screen.
+      for (const path of earthPaths) {
+        for (const point of path.points) {
+          assert.finite(point.x);
+          assert.finite(point.y);
+          assert.between(point.y, -1e-6, 34000 + 1e-6);
+        }
       }
     });
 
     test('a vacuum produces no scattering events at all', () => {
       const moon = createAtmosphere(config.atmospheres['airless-moon']);
-      const paths = tracePhotons({
-        atmosphere: moon, source: sunSpectrum, sunElevationDeg: 40, observerZ: 0,
-        count: 400, halfWidth_m: 150000, top_m: moon.topAltitude, seed: 9,
-      });
+      const paths = trace({ atmosphere: moon, count: 400, top_m: moon.topAltitude });
       assert.greater(paths.length, 0);
       for (const path of paths) {
         assert.equal(path.scatterCount, 0);
@@ -718,10 +706,7 @@ export function registerTests({ group, test, assert }, config) {
     });
 
     test('every drawn path is a well-formed polyline', () => {
-      const paths = tracePhotons({
-        atmosphere: earth, source: sunSpectrum, sunElevationDeg: 25, observerZ: 0,
-        count: 300, halfWidth_m: 150000, top_m: earth.topAltitude, seed: 5,
-      });
+      const paths = trace({ sunElevationDeg: 25, count: 300, seed: 5 });
       assert.greater(paths.length, 250);
       for (const path of paths) {
         assert.greater(path.points.length, 1);

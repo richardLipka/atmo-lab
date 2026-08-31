@@ -47,6 +47,12 @@ import {
  */
 export const VIEW_CONE_HALF_DEG = 12;
 
+/** How far from the zenith arriving rays are sampled, short of the horizon. */
+const MAX_SKY_ANGLE_DEG = 85;
+
+/** Length of the drawn sunward stub, as a fraction of the frame half-width. */
+const ARRIVING_STUB = 0.30;
+
 /** A small deterministic generator, so a given setup always draws the same picture. */
 function makeRng(seed) {
   let s = seed >>> 0 || 1;
@@ -92,9 +98,8 @@ function slabColumn(y0, y1, dy, H) {
  *   sunElevationDeg   elevation of the star above the horizon
  *   observerZ         observer altitude in metres (negative is handled by the
  *                     shaft view, which draws no paths)
- *   viewZenithDeg     where the observer is looking; most arriving paths fill
- *                     a cone of VIEW_CONE_HALF_DEG about this direction
- *   viewAzimuthDeg    which side of the observer that direction is on
+ *   frameTop_m        top of the DRAWN region, which is lower than top_m: the
+ *                     legs are clipped to it, never bent by it
  *   count             total number of paths to draw
  *   halfWidth_m       half the width of the drawn domain
  *   top_m             top of the drawn domain
@@ -103,8 +108,7 @@ function slabColumn(y0, y1, dy, H) {
 export function tracePhotons(options) {
   const {
     atmosphere, source, sunElevationDeg, observerZ = 0,
-    viewZenithDeg = 0, viewAzimuthDeg = 0,
-    count, halfWidth_m, top_m, seed = 12345,
+    count, halfWidth_m, top_m, frameTop_m = top_m, seed = 12345,
   } = options;
 
   const paths = [];
@@ -152,11 +156,27 @@ export function tracePhotons(options) {
   // unscattered light outnumbers the scattered by roughly eight to one, and
   // drawing that faithfully would leave too few arriving paths to read. The
   // true fraction is returned in the tally and stated in the panel instead.
-  const nArriving = scatters ? Math.max(1, Math.round(count * 0.46)) : 0;
-  const nMissed = scatters ? Math.max(1, Math.round(count * 0.39)) : 0;
+  const nArriving = scatters ? Math.max(1, Math.round(count * 0.60)) : 0;
+  const nMissed = scatters ? Math.max(1, Math.round(count * 0.28)) : 0;
   const nThrough = Math.max(1, count - nArriving - nMissed);
 
   const weights = new Float64Array(SPECTRUM_BINS);
+
+  /**
+   * Walk from a point along a direction until the edge of the drawn frame.
+   * Clipping, not bending: the result is still a point on the same straight
+   * ray, so the drawn line has the direction the physics gave it.
+   */
+  function clipToFrame(from, dir, maxLength = Infinity) {
+    let t = maxLength;
+    if (dir.y > 1e-9) t = Math.min(t, (frameTop_m - from.y) / dir.y);
+    else if (dir.y < -1e-9) t = Math.min(t, from.y / -dir.y);
+    if (Math.abs(dir.x) > 1e-9) {
+      t = Math.min(t, (Math.sign(dir.x) * halfWidth_m - from.x) / dir.x);
+    }
+    if (!Number.isFinite(t) || t < 0) t = 0;
+    return { x: from.x + dir.x * t, y: from.y + dir.y * t };
+  }
 
   /** Transmission of the vertical-ish path from P out to space, towards the star. */
   function sunTransmission(bin, y) {
@@ -198,45 +218,30 @@ export function tracePhotons(options) {
 
   /* ---- 1. paths that arrive at the observer ---- */
 
-  // The signed in-plane viewing angle. The cross-section is a plane containing
-  // the star, so an azimuth on the far side of the observer appears mirrored;
-  // this is the same convention the renderer draws the sight line with, and the
-  // two must agree or the drawn cone would point somewhere the panels do not
-  // describe.
-  const viewSign = Math.cos(viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
-  const viewAngle = viewSign * viewZenithDeg * Math.PI / 180;
-  const coneHalf = VIEW_CONE_HALF_DEG * Math.PI / 180;
-
+  // Sampled uniformly over the sky and deliberately independent of where the
+  // observer is looking. Turning the view must not reshuffle the picture: the
+  // scattering events are a property of the air and the star, not of the
+  // direction someone happens to face. The renderer decides at draw time which
+  // of these rays fall inside the current viewing cone and colours only those.
   for (let n = 0; n < nArriving; n++) {
-    // Most of the arriving paths fill the cone the observer is actually looking
-    // down, because that is the direction the spectrum and the colour swatch
-    // report. The remainder are spread over the rest of the sky: light really
-    // does reach you from every direction, and that is what lights the ground -
-    // but it is context, and the renderer draws it fainter.
-    const inView = n % 5 !== 0;
-    let angle;
-    if (inView) {
-      angle = viewAngle + (rng() * 2 - 1) * coneHalf;
-    } else {
-      // Keep the two populations disjoint, so a faint ray inside the cone can
-      // never be mistaken for one of the rays the panels are describing.
-      let tries = 0;
-      do { angle = (rng() * 2 - 1) * 1.48; tries++; }
-      while (Math.abs(angle - viewAngle) < coneHalf && tries < 8);
-      if (Math.abs(angle - viewAngle) < coneHalf) continue;
-    }
-
+    const angle = (rng() * 2 - 1) * MAX_SKY_ANGLE_DEG * Math.PI / 180;
     const d = { x: Math.sin(angle), y: Math.cos(angle) };
     if (d.y <= 0.02) continue;
 
     // How far up the view ray did the scattering happen? Sample the depth from
     // the density profile itself, so vertices cluster in the dense air near the
-    // ground exactly as the real scattering does.
-    const eTop = Math.exp(-top_m / HR);
-    const eObs = Math.exp(-observer.y / HR);
-    const yScatter = -HR * Math.log(eObs + rng() * (eTop - eObs));
+    // ground exactly as the real scattering does. The draw is truncated at the
+    // top of the frame, which for Earth leaves out under 2 % of the column.
+    // Keep the vertex a little way off the observer. Sampled straight from the
+    // density, a good fraction of them land within a few hundred metres and
+    // collapse the drawn ray to a dot; the floor costs a sliver of the lowest
+    // air and is the difference between a readable fan and a smudge.
+    const floor = observer.y + (frameTop_m - observer.y) * 0.045;
+    const eTop = Math.exp(-frameTop_m / HR);
+    const eFloor = Math.exp(-floor / HR);
+    const yScatter = -HR * Math.log(eFloor + rng() * (eTop - eFloor));
     // Shorten the ray rather than discarding it when the vertex would fall off
-    // the side of the picture: dropping those paths thinned the cone at exactly
+    // the side of the picture: dropping those paths thinned the sky at exactly
     // the shallow angles where it is most visible.
     const maxDist = Math.abs(d.x) > 1e-6
       ? (halfWidth_m * 0.98) / Math.abs(d.x) : Infinity;
@@ -255,16 +260,24 @@ export function tracePhotons(options) {
     const bin = sampleWeighted(weights, total, rng());
     const lambda = WAVELENGTHS_NM[bin];
 
-    // Where the sunlight entered the picture on its way to P.
-    const tEntry = (top_m - P.y) / Math.max(0.05, toStar.y);
-    const entry = { x: P.x + toStar.x * tEntry, y: top_m };
+    // The incoming leg is a stub, not the whole journey down from space.
+    // Drawn full length, several hundred of them cross the entire frame at the
+    // solar angle and scatter the colour everywhere except the cone it is
+    // supposed to mark. The unscattered `through` rays already show where the
+    // sunlight comes from, at full length and in the same direction; this leg
+    // only has to say that THIS photon came from there too. It is clipped,
+    // never bent, so it stays a piece of the true straight ray, and the event
+    // still records the altitude at which the photon entered the atmosphere.
+    const entry = clipToFrame(P, toStar, halfWidth_m * ARRIVING_STUB);
 
     paths.push({
       kind: 'arriving',
-      inView,
       lambda, bin,
       weight: total,
       points: [entry, P, observer],
+      // Signed in-plane direction the light arrives from, so the renderer can
+      // ask whether this ray is inside the cone the observer is looking down.
+      arrivalAngleRad: angle,
       events: [
         { type: 'enter', x: entry.x, y: entry.y, altitude: top_m, lambda },
         {
@@ -285,7 +298,7 @@ export function tracePhotons(options) {
     const x = (rng() * 2 - 1) * halfWidth_m;
     // Altitude drawn from the density profile: this is where scattering really
     // happens, so the drawn events crowd the lower air on their own.
-    const y = Math.min(top_m * 0.98, -HR * Math.log(Math.max(1e-9, rng())));
+    const y = Math.min(frameTop_m * 0.98, -HR * Math.log(Math.max(1e-9, rng())));
     const P = { x, y };
 
     const rhoR = atmosphere.densityRayleigh(y);
@@ -332,7 +345,7 @@ export function tracePhotons(options) {
     const clip = (dx, dy, wanted) => {
       let t = wanted;
       if (dy < 0) t = Math.min(t, P.y / -dy);
-      else if (dy > 0) t = Math.min(t, (top_m - P.y) / dy);
+      else if (dy > 0) t = Math.min(t, (frameTop_m - P.y) / dy);
       if (Math.abs(dx) > 1e-9) {
         t = Math.min(t, (Math.sign(dx) * halfWidth_m * 1.02 - P.x) / dx);
       }
@@ -366,8 +379,7 @@ export function tracePhotons(options) {
 
   for (let n = 0; n < nThrough; n++) {
     const aim = (rng() * 2 - 1) * halfWidth_m * 0.94;
-    const tEntry = top_m / Math.max(0.05, toStar.y);
-    const entry = { x: aim + toStar.x * tEntry, y: top_m };
+    const entry = clipToFrame({ x: aim, y: 0 }, toStar);
 
     // Survival is Beer-Lambert along the whole slant path, so this bundle is
     // reddened by exactly the transmittance the spectrum panel plots.
@@ -402,9 +414,12 @@ export function tracePhotons(options) {
 }
 
 /**
- * Tally the drawn paths. The headline number is the one the picture is making:
- * the light that actually arrives at the eye is far bluer than the light the
- * star sent, and the light that reaches the ground unscattered is far redder.
+ * Tally the drawn paths - how many of each kind, and how blue each family came
+ * out. These are properties of the drawing. The percentages the panel quotes are
+ * NOT taken from here: they are integrated straight off the spectra the engine
+ * computed, which is exact and free of sampling noise. What this does carry
+ * that the spectra do not is `scatteredFraction`, the true share of the light
+ * that is scattered at all, which the picture deliberately over-represents.
  */
 export function summarisePhotons(paths, options = {}) {
   const { source = null, splitNm = 520 } = options;
@@ -422,12 +437,7 @@ export function summarisePhotons(paths, options = {}) {
 
   for (const p of paths) {
     const isBlue = p.lambda < splitNm;
-    // Only the paths inside the viewing cone are counted as arriving. Sampling
-    // is deliberately concentrated there, so including the sparse rest-of-sky
-    // paths would mix two different sampling densities into one percentage.
-    // As counted, this is the light arriving from the direction the spectrum
-    // panel and the colour swatch describe.
-    const bucket = p.kind === 'arriving' && !p.inView ? null : tally[p.kind];
+    const bucket = tally[p.kind];
     if (bucket) { bucket.total++; if (isBlue) bucket.blue++; }
     const legacy = isBlue ? tally.blue : tally.red;
     legacy.total++;

@@ -108,13 +108,13 @@
     "wavelength": "Wavelength",
     "energy": "Remaining energy",
     "angle": "Deflection",
-    "legendArriving": "reaches the observer from the viewing cone",
-    "legendMissed": "scattered away, never reaches the observer",
+    "legendArriving": "reaches you from where you are looking",
+    "legendMissed": "scattered away, never reaches you",
     "legendThrough": "crosses unscattered, reaches the ground",
     "observed": "arrived at the observer",
     "missedObserver": "leaves in another direction",
-    "viewCone": "the observer's field of view",
-    "legendOffView": "reaches the observer from elsewhere in the sky"
+    "viewCone": "your field of view",
+    "legendOffView": "reaches you from elsewhere in the sky"
   },
   "spectrum": {
     "title": "Spectrum",

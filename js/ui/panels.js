@@ -186,29 +186,54 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity })
     swatchNote.textContent = i18n.t('color.computed');
   }
 
-  function renderPhotonTally(tally, state) {
+  /** Share of a spectrum's energy below the blue/red split. */
+  function blueShare(spectrum, splitNm = 520) {
+    let all = 0, blue = 0;
+    for (let i = 0; i < spectrum.length; i++) {
+      all += spectrum[i];
+      if (380 + i * 10 < splitNm) blue += spectrum[i];
+    }
+    return all > 0 ? blue / all : null;
+  }
+
+  /**
+   * The sentence that makes the picture quantitative.
+   *
+   * The percentages are integrated off the spectra the engine already computed,
+   * not counted from the drawn rays: the drawing samples a few hundred paths and
+   * would wobble by a few percent as you move a slider, while these numbers are
+   * exact and agree with the spectrum plot immediately above them.
+   */
+  function renderPhotonTally(result, tally, state) {
     if (!tally || !state.rays.showScattering) {
       photonTally.hidden = true;
       return;
     }
     photonTally.hidden = false;
-    const pct = (a, b) => (b > 0 ? Math.round((100 * a) / b) : 0);
     const cs = i18n.getLanguage() === 'cs';
-    // The comparison, not the bare percentage, is the lesson: the light that
-    // arrives is bluer than the light the star sent, and what got through to
-    // the ground unscattered is redder. Both numbers come from the same draw.
-    const arriving = pct(tally.arriving.blue, tally.arriving.total);
-    const through = pct(tally.through.blue, tally.through.total);
-    const emitted = tally.sourceBlueFraction != null
-      ? Math.round(tally.sourceBlueFraction * 100) : null;
-    const emittedPart = emitted == null ? ''
-      : (cs ? ` Hvězda přitom vyzářila ${emitted} % modré.`
-        : ` The star itself emitted ${emitted}% blue.`);
+    const pct = (v) => (v == null ? null : Math.round(v * 100));
+    const arriving = pct(blueShare(result.primary.view.scattered));
+    const through = pct(blueShare(result.primary.beam.spectrum));
+    const emitted = pct(blueShare(result.source));
+
+    if (arriving == null || through == null) {
+      photonTally.textContent = cs
+        ? 'Z tohoto směru k pozorovateli nedopadá žádné rozptýlené světlo.'
+        : 'No scattered light reaches the observer from this direction.';
+      return;
+    }
+    const scattered = tally.scatteredFraction != null
+      ? Math.round(tally.scatteredFraction * 100) : null;
+    const scatteredPart = scattered == null ? ''
+      : (cs ? ` Rozptýlí se přitom jen ${scattered} % světla, které vzduchem prochází.`
+        : ` Only ${scattered}% of the light crossing the air is scattered at all.`);
     photonTally.textContent = cs
-      ? `Ze světla, které dopadá k pozorovateli, je ${arriving} % modré (< 520 nm); `
-        + `ze světla, které projde bez rozptylu až k zemi, jen ${through} %.${emittedPart}`
-      : `Of the light arriving at the observer, ${arriving}% is blue (< 520 nm); `
-        + `of the light that crosses unscattered to the ground, only ${through}%.${emittedPart}`;
+      ? `Ze světla, které dopadá k pozorovateli ze zorného kužele, je ${arriving} % modré `
+        + `(< 520 nm); ze světla, které projde bez rozptylu až k zemi, jen ${through} %. `
+        + `Hvězda přitom vyzářila ${emitted} % modré.${scatteredPart}`
+      : `Of the light arriving at the observer from the viewing cone, ${arriving}% is blue `
+        + `(< 520 nm); of the light that crosses unscattered to the ground, only ${through}%. `
+        + `The star itself emitted ${emitted}% blue.${scatteredPart}`;
   }
 
   function update(result, tally) {
@@ -227,7 +252,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity })
     spectrumChart.draw();
 
     renderSwatches(result, state);
-    renderPhotonTally(tally, state);
+    renderPhotonTally(result, tally, state);
 
     dataSection.hidden = false;
     const columns = state.compare.enabled && result.compare

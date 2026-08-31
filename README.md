@@ -153,38 +153,43 @@ horizon (the classic figure is ~38).
 The picture is built **backwards from the observer**, because the question a student is
 asking is "why is the light that reaches *me* blue?"
 
-A dashed wedge marks the **observer's field of view** — a cone of half-angle 12° about the
-viewing direction, following both the zenith angle and the azimuth. That cone is not
-decoration: the radiance, the spectrum and the colour swatch on the right are all
-properties of it, so four fifths of the arriving rays are sampled inside it and drawn as
-the subject of the picture. Turning the view slider swings the cone and the rays with it.
-
-Every path shown is one of four kinds:
+The scattering events are traced **independently of where the observer is looking** — they
+are a property of the air and the star, not of which way someone happens to face. Turning
+the view never reshuffles the scene. What moves is the emphasis: a dashed wedge marks the
+**observer's field of view**, a cone of half-angle 12° following both the zenith angle and
+the azimuth, and the rays arriving from inside it are drawn **in their own wavelength
+colours** while everything else goes **grey**. The rule is one sentence and it is the whole
+legend: *coloured means this light enters your eye from the direction you are facing.*
+Turning the view is a repaint, 0.8 ms, not a retrace.
 
 | | what it is | how it is drawn |
 |---|---|---|
-| **arriving, in view** | scattered once and turned into the eye from inside the viewing cone | full incoming leg, then a heavy final leg into the observer |
-| **arriving, elsewhere** | reaches the eye from the rest of the sky — real, and what lights the ground | the same, but faint: context, not the measurement |
-| **missed** | scattered somewhere else and left in some other direction | a short kink with an arrowhead, rejection-sampled away from the eye |
-| **through** | crossed the whole atmosphere without scattering and hit the ground | one faint line, top to bottom |
+| **in the cone** | scattered once and turned into the eye from where you are looking | wavelength colour; heavy final leg into the observer, white vertex where it turned |
+| **elsewhere in the sky** | also reaches the eye, from every other direction — this is what lights the ground | grey |
+| **missed** | scattered somewhere else and left in another direction | grey kink with an arrowhead, rejection-sampled away from the eye |
+| **through** | crossed the whole atmosphere without scattering and hit the ground | grey line, top to bottom |
 
-Because the vertical axis is compressed by a power law, a ray that is straight in the world
-is a curve on screen; every leg and every cone edge is subdivided so the drawn rays really
-do lie inside the drawn cone.
+**The altitude axis is linear, so a straight ray is a straight line.** An earlier version
+compressed it by a power law to give the dense lower air more room, at the cost of bending
+every ray on screen — precisely the wrong lesson in a picture about light travelling in
+straight lines. The room is bought differently: the frame is cropped to three scale
+heights, which holds 95 % of the column, and always stretches far enough to contain the
+observer. Legs are clipped to that frame, never bent by it.
 
-The wavelength of each arriving path is drawn from the true single-scattering weight
+The wavelength of each arriving ray is drawn from the true single-scattering weight
 β(λ)ρ·P(θ)·T_sun(λ)·T_view(λ)·I₀(λ) — the same product the integrator forms — so the
-arriving bundle comes out blue for the reason the physics says, not because it was tinted.
-Each arriving path has exactly one scattering vertex, which is not a shortcut: it is
+coloured bundle comes out blue for the reason the physics says, not because it was tinted.
+Each arriving ray has exactly one scattering vertex, which is not a shortcut: it is
 precisely the single-scattering approximation the engine integrates, so the picture and the
 numbers describe the same model.
 
-The panel states the measured outcome for the cone being looked at: at a 55° Sun, looking
-35° from the zenith away from it, **60 % of the light arriving at the observer is blue
-(< 520 nm), against 32 % of the light that got through unscattered, from a star that
-emitted 39 % blue**. Turning to look towards the Sun instead drops the arriving figure,
-because the aerosol forward lobe is nearly colourless and dilutes the Rayleigh blue. On an airless world every path is a `through` path and no
-scattering vertex is drawn at all.
+The panel beside it states the outcome, and those percentages are **integrated off the
+spectra, not counted from the drawn rays**, so they are exact and agree with the plot
+above them: at a 55° Sun, looking 35° from the zenith away from it, **63 % of the light
+arriving from the viewing cone is blue (< 520 nm), against 33 % of the light that crosses
+unscattered to the ground, from a star that emitted 39 % blue** — and only 16 % of the
+light crossing the air is scattered at all. On an airless world every path is a `through`
+path and no scattering vertex is drawn anywhere.
 
 ### Radiative transfer
 
@@ -256,10 +261,17 @@ lesson:
 - The drawn light paths use a **flat slab** — over the width of the picture the curvature is
   invisible and the flat geometry is far easier to read. The numbers and colours always come
   from the spherical integrator, never from the paths.
-- The three families of path are **not drawn in their true proportion**. In reality about
-  85 % of the sunlight crossing Earth's air is never scattered at all; drawing that
-  faithfully would leave too few arriving paths to read. The true fraction is computed from
-  the optical depth and stated in the panel beside the picture.
+- The families of path are **not drawn in their true proportion**. In reality about 84 % of
+  the sunlight crossing Earth's air is never scattered at all; drawing that faithfully
+  would leave too few arriving rays to read. The true fraction is computed from the optical
+  depth and stated in the panel beside the picture. For the same reason only every third
+  out-of-cone arriving ray is drawn: in full they make a grey starburst on top of the very
+  convergence the cone exists to show.
+- The sunward leg of an arriving ray is drawn as a **stub, not the whole journey from
+  space**. At full length several hundred of them cross the entire frame at the solar angle
+  and scatter the colour everywhere except the cone it is meant to mark; the unscattered
+  `through` rays already show that journey at full length. The stub is clipped, never bent,
+  so it stays a piece of the true straight ray.
 - The cross-section uses a **compressed vertical axis**, and where a shaft aperture is too
   narrow to draw it is widened and explicitly labelled "cone exaggerated for clarity" with
   the true angle shown next to it.
@@ -293,8 +305,11 @@ lesson:
   the light that got through, that every arriving path really ends at the observer with a
   single scattering vertex, that every missed path genuinely leaves in a direction that is
   not the observer, and that a vacuum produces no scattering vertex at all;
-- the viewing cone: that the sampled rays lie inside it, that it follows the azimuth and
-  not merely the zenith angle, and that looking away from the star is the bluer half;
+- the drawn rays being independent of the viewing direction, so turning the view restyles
+  the picture rather than reshuffling it; that arriving rays cover the whole sky densely
+  enough that every cone the interface can point at contains a usable bundle; and that the
+  stored arrival angle agrees with the geometry of the drawn polyline, since the renderer
+  selects rays by that angle alone;
 - a performance budget assertion that a full interactive recompute fits inside 33 ms.
 
 ## Performance

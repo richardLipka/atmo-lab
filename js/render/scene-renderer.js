@@ -70,7 +70,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       // Rows are spaced by the same power curve the vertical axis uses, so the
       // dense lower air gets the resolution it deserves.
       const tv = 1 - (row + 0.5) / FIELD_ROWS;
-      const altitude = Math.pow(tv, 1 / ALTITUDE_POWER) * topAltitude;
+      const altitude = tv * topAltitude;
       for (let col = 0; col < FIELD_COLUMNS; col++) {
         const x = (-1 + 2 * (col + 0.5) / FIELD_COLUMNS) * halfWidth;
         const point = v3(x, atm.planetRadius + altitude, 0);
@@ -109,8 +109,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     // of traced photons invalidates the choice.
     if (!options.keepSelection) selectedPath = -1;
     if (data && data.result && data.state.observer.z >= 0) {
-      const topAltitude = data.result.atmosphere.topAltitude;
-      field = buildField(data.result, topAltitude * HALF_WIDTH_FACTOR, topAltitude);
+      const top = frameTopFor(data.result.atmosphere, data.state.observer.z);
+      field = buildField(data.result, top * HALF_WIDTH_FACTOR, top);
     }
   }
 
@@ -161,7 +161,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   function drawAtmosphereView(w, h, evaluation, z, timeMs, allowInteraction) {
     const atm = data.result.atmosphere;
-    const topAltitude = atm.topAltitude;
+    const topAltitude = frameTopFor(atm, z);
     const halfWidth = topAltitude * HALF_WIDTH_FACTOR;
 
     const padLeft = 46, padRight = 12, padTop = 10, padBottom = 26;
@@ -169,8 +169,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const groundY = plot.y + plot.h;
 
     const toX = (metres) => plot.x + ((metres + halfWidth) / (2 * halfWidth)) * plot.w;
-    const toY = (altitude) => groundY - Math.pow(
-      Math.max(0, Math.min(1, altitude / topAltitude)), ALTITUDE_POWER) * plot.h;
+    const toY = (altitude) => groundY
+      - Math.max(0, Math.min(1, altitude / topAltitude)) * plot.h;
 
     // Sky glow, painted from the computed field.
     if (field) {
@@ -239,47 +239,40 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const half = VIEW_CONE_HALF_DEG * Math.PI / 180;
     const oy = Math.max(0, z);
 
-    // Follow each edge in world space and map point by point, for the same
-    // reason the ray legs are subdivided: a straight screen edge would not lie
-    // along the straight rays it is meant to bound.
+    // One straight segment per edge; the axis is linear, so that is exact.
     const edge = (angle) => {
       const dx = Math.sin(angle), dy = Math.cos(angle);
-      const out = [];
-      if (dy <= 0.02) return out;
+      if (dy <= 0.02) return null;
       let reach = (topAltitude - oy) / dy;
       if (Math.abs(dx) > 1e-6) reach = Math.min(reach, (halfWidth * 0.98) / Math.abs(dx));
-      for (let i = 1; i <= 24; i++) {
-        const t = (i / 24) * reach;
-        out.push({ x: dx * t, y: oy + dy * t });
-      }
-      return out;
+      return { x: dx * reach, y: oy + dy * reach };
     };
 
     const left = edge(axis - half);
     const right = edge(axis + half);
-    if (left.length === 0 || right.length === 0) return;
+    if (!left || !right) return;
 
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(toX(0), toY(oy));
-    for (const q of left) ctx.lineTo(toX(q.x), toY(q.y));
-    for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(toX(right[i].x), toY(right[i].y));
+    ctx.lineTo(toX(left.x), toY(left.y));
+    ctx.lineTo(toX(right.x), toY(right.y));
     ctx.closePath();
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.055)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.075)';
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
     for (const side of [left, right]) {
       ctx.beginPath();
       ctx.moveTo(toX(0), toY(oy));
-      for (const q of side) ctx.lineTo(toX(q.x), toY(q.y));
+      ctx.lineTo(toX(side.x), toY(side.y));
       ctx.stroke();
     }
     ctx.setLineDash([]);
 
-    const a = left[left.length - 1], b = right[right.length - 1];
+    const a = left, b = right;
     ctx.font = '10px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.72)';
     ctx.textAlign = 'center';
@@ -301,103 +294,140 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const animate = data.state.rays.animate;
     const phase = animate ? (timeMs / 2600) % 1 : 1;
 
-    // Four layers, painted back to front. The arriving paths are split in two:
-    // the ones inside the viewing cone are the subject of the picture, the ones
-    // from the rest of the sky are context and stay faint.
-    const style = {
-      through: { alpha: 0.20, width: 1.0 },
-      missed: { alpha: 0.30, width: 1.0 },
-      offView: { alpha: 0.16, width: 1.0 },
-      arriving: { alpha: 0.42, width: 1.1 },
-    };
-    const belongs = (p, layer) => (
-      layer === 'arriving' ? p.kind === 'arriving' && p.inView
-        : layer === 'offView' ? p.kind === 'arriving' && !p.inView
-          : p.kind === layer);
+    const state = data.state;
+    const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
+    const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
+    const half = VIEW_CONE_HALF_DEG * Math.PI / 180;
 
-    for (const kind of ['through', 'missed', 'offView', 'arriving']) {
-      // Group by wavelength bucket so the whole cloud costs a handful of strokes.
-      const buckets = new Map();
-      for (let i = 0; i < paths.length; i++) {
-        if (!belongs(paths[i], kind)) continue;
-        if (i === selectedPath || i === hoveredPath) continue;
-        const key = Math.round(paths[i].lambda / 20) * 20;
-        if (!buckets.has(key)) buckets.set(key, []);
-        buckets.get(key).push(i);
-      }
-      const s = style[kind];
+    /**
+     * Is this ray part of what the observer is currently looking at?
+     *
+     * Colour is reserved for exactly these. Everything else - light arriving
+     * from the rest of the sky, light thrown in directions that miss the eye,
+     * light that crossed without ever interacting - is drawn grey. The rule is
+     * one sentence long and it is the whole legend: coloured means this light
+     * enters your eye from the direction you are facing.
+     */
+    const involved = (p) => p.kind === 'arriving'
+      && Math.abs(p.arrivalAngleRad - axis) <= half;
+
+    const GREY = '#8a93a6';
+    const contextAlpha = { through: 0.10, missed: 0.16, arriving: 0.13 };
+
+    /**
+     * Every arriving ray outside the cone also ends at the observer, so drawn
+     * in full they make a grey starburst on top of the very convergence the
+     * cone exists to show. Only every third is drawn. It is a drawing density,
+     * chosen by index so it stays put as the view turns, and it changes nothing
+     * the panels report.
+     */
+    const GREY_ARRIVING_STRIDE = 3;
+    const asContext = (p, i) => !involved(p)
+      && (p.kind !== 'arriving' || i % GREY_ARRIVING_STRIDE === 0);
+
+    /* ---- everything outside the cone, in grey ---- */
+
+    for (const kind of ['through', 'missed', 'arriving']) {
       ctx.save();
-      ctx.lineWidth = s.width;
-      ctx.globalAlpha = s.alpha;
+      ctx.strokeStyle = GREY;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = contextAlpha[kind];
+      ctx.beginPath();
+      for (let i = 0; i < paths.length; i++) {
+        const p = paths[i];
+        if (p.kind !== kind || !asContext(p, i)) continue;
+        if (i === selectedPath || i === hoveredPath) continue;
+        strokePath(p, toX, toY, phase);
+      }
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.save();
+    // Scattering vertices outside the cone: every one is still a photon taken
+    // out of the beam, so they are drawn - just not celebrated.
+    ctx.globalAlpha = 0.22;
+    ctx.fillStyle = GREY;
+    for (let i = 0; i < paths.length; i++) {
+      const p = paths[i];
+      if (p.scatterCount === 0 || !asContext(p, i)) continue;
+      if (i === selectedPath || i === hoveredPath) continue;
+      const e = p.events[1];
+      ctx.beginPath();
+      ctx.arc(toX(e.x), toY(e.y), 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Arrowheads on the paths that leave: without them a stub reads as a line
+    // rather than as light departing in a direction that misses you.
+    ctx.globalAlpha = 0.3;
+    for (let i = 0; i < paths.length; i++) {
+      const p = paths[i];
+      if (p.kind !== 'missed' || !asContext(p, i)) continue;
+      if (i === selectedPath || i === hoveredPath) continue;
+      const from = p.points[p.points.length - 2];
+      const to = p.points[p.points.length - 1];
+      drawArrowHead(toX(from.x), toY(from.y), toX(to.x), toY(to.y), 4.5);
+    }
+    ctx.restore();
+
+    /* ---- the rays inside the cone, in their own colours ---- */
+
+    const buckets = new Map();
+    for (let i = 0; i < paths.length; i++) {
+      if (!involved(paths[i])) continue;
+      if (i === selectedPath || i === hoveredPath) continue;
+      const key = Math.round(paths[i].lambda / 20) * 20;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(i);
+    }
+
+    ctx.save();
+    ctx.lineWidth = 1.3;
+    ctx.globalAlpha = 0.85;
+    for (const [lambda, indices] of buckets) {
+      const [r, g, b] = wavelengthToDisplayRgb(lambda);
+      ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.beginPath();
+      for (const index of indices) strokePath(paths[index], toX, toY, phase);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // The last leg - the one that actually enters the eye - is redrawn heavier,
+    // or the incoming stubs swamp the convergence.
+    if (phase >= 1) {
+      ctx.save();
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
       for (const [lambda, indices] of buckets) {
         const [r, g, b] = wavelengthToDisplayRgb(lambda);
         ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
         ctx.beginPath();
-        for (const index of indices) strokePath(paths[index], toX, toY, phase);
+        for (const index of indices) {
+          const pts = paths[index].points;
+          const from = pts[pts.length - 2], to = pts[pts.length - 1];
+          ctx.moveTo(toX(from.x), toY(from.y));
+          ctx.lineTo(toX(to.x), toY(to.y));
+        }
         ctx.stroke();
       }
       ctx.restore();
+    }
 
-      // The last leg of an arriving path - the one that actually enters the
-      // eye - is redrawn heavier. Without it the fan of incoming sunlight
-      // dominates and the convergence, which is the subject of the picture,
-      // is the one thing you cannot see.
-      if (kind === 'arriving' && phase >= 1) {
-        ctx.save();
-        ctx.lineWidth = 2.2;
-        ctx.lineCap = 'round';
-        for (const [lambda, indices] of buckets) {
-          const [r, g, b] = wavelengthToDisplayRgb(lambda);
-          ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-          ctx.beginPath();
-          for (const index of indices) {
-            const pts = paths[index].points;
-            const a = pts[pts.length - 2], c = pts[pts.length - 1];
-            ctx.moveTo(toX(a.x), toY(a.y));
-            strokeLeg(a, c, toX, toY);
-          }
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      // Scattering vertices. Every one of them is a photon being taken out of
-      // the beam; only the ones on arriving paths were turned towards the eye,
-      // so those get a bright marker and the rest a faint one.
-      ctx.save();
-      ctx.globalAlpha = kind === 'arriving' ? 0.95 : 0.28;
-      for (const indices of buckets.values()) {
-        for (const index of indices) {
-          const p = paths[index];
-          if (p.scatterCount === 0) continue;
-          const e = p.events[1];
-          const [r, g, b] = wavelengthToDisplayRgb(p.lambda);
-          ctx.fillStyle = kind === 'arriving' ? '#ffffff' : `rgb(${r}, ${g}, ${b})`;
-          ctx.beginPath();
-          ctx.arc(toX(e.x), toY(e.y), kind === 'arriving' ? 2.2 : 1.4, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-      ctx.restore();
-
-      // An arrowhead on the paths that leave: without it a stub reads as a
-      // line rather than as light departing in a direction that misses you.
-      if (kind === 'missed') {
-        ctx.save();
-        ctx.globalAlpha = 0.42;
-        for (const indices of buckets.values()) {
-          for (const index of indices) {
-            const p = paths[index];
-            const [r, g, b] = wavelengthToDisplayRgb(p.lambda);
-            ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
-            const a = p.points[p.points.length - 2];
-            const bpt = p.points[p.points.length - 1];
-            drawArrowHead(toX(a.x), toY(a.y), toX(bpt.x), toY(bpt.y), 4.5);
-          }
-        }
-        ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = 0.95;
+    ctx.fillStyle = '#ffffff';
+    for (const indices of buckets.values()) {
+      for (const index of indices) {
+        const e = paths[index].events[1];
+        ctx.beginPath();
+        ctx.arc(toX(e.x), toY(e.y), 2.4, 0, Math.PI * 2);
+        ctx.fill();
       }
     }
+    ctx.restore();
+
+    /* ---- hover and selection ---- */
 
     for (const index of [hoveredPath, selectedPath]) {
       if (index < 0 || index >= paths.length) continue;
@@ -435,67 +465,64 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fill();
   }
 
-  /** Say what the three brightnesses mean, otherwise the picture is a puzzle. */
+  /** One rule in four lines: colour means this light reaches your eye. */
   function drawPathLegend(plot) {
     const rows = [
-      { key: 'canvas.legendArriving', alpha: 0.95, width: 2.2 },
-      { key: 'canvas.legendOffView', alpha: 0.35, width: 1 },
-      { key: 'canvas.legendMissed', alpha: 0.42, width: 1 },
-      { key: 'canvas.legendThrough', alpha: 0.28, width: 1 },
+      { key: 'canvas.legendArriving', colour: true, width: 2.4 },
+      { key: 'canvas.legendOffView', colour: false, width: 1 },
+      { key: 'canvas.legendMissed', colour: false, width: 1 },
+      { key: 'canvas.legendThrough', colour: false, width: 1 },
     ];
     ctx.save();
     ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    let width = 0;
     const labels = rows.map((row) => i18n.t(row.key));
+    let width = 0;
     for (const label of labels) width = Math.max(width, ctx.measureText(label).width);
-    const boxW = width + 30;
+    const boxW = width + 32;
     const boxH = rows.length * 15 + 8;
     const x = plot.x + 8;
     const y = plot.y + 8;
-    ctx.fillStyle = 'rgba(5, 7, 13, 0.62)';
+    ctx.fillStyle = 'rgba(5, 7, 13, 0.66)';
     ctx.fillRect(x, y, boxW, boxH);
     for (let i = 0; i < rows.length; i++) {
       const cy = y + 12 + i * 15;
-      ctx.globalAlpha = rows[i].alpha;
-      ctx.strokeStyle = '#cfd8ff';
       ctx.lineWidth = rows[i].width;
+      if (rows[i].colour) {
+        // The swatch is a spectrum, because that is what the rule means: these
+        // are the rays whose wavelength you are being shown.
+        ctx.globalAlpha = 0.95;
+        const gradient = ctx.createLinearGradient(x + 6, 0, x + 22, 0);
+        for (let k = 0; k <= 4; k++) {
+          const [r, g, b] = wavelengthToDisplayRgb(430 + k * 60);
+          gradient.addColorStop(k / 4, `rgb(${r}, ${g}, ${b})`);
+        }
+        ctx.strokeStyle = gradient;
+      } else {
+        ctx.globalAlpha = 0.5;
+        ctx.strokeStyle = '#8a93a6';
+      }
       ctx.beginPath();
       ctx.moveTo(x + 6, cy);
-      ctx.lineTo(x + 20, cy);
+      ctx.lineTo(x + 22, cy);
       ctx.stroke();
-      ctx.globalAlpha = i === 0 ? 0.92 : 0.6;
+      ctx.globalAlpha = rows[i].colour ? 0.92 : 0.55;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(labels[i], x + 25, cy);
+      ctx.fillText(labels[i], x + 27, cy);
     }
     ctx.restore();
   }
 
-  /**
-   * Number of screen segments each straight leg is broken into.
-   *
-   * The vertical axis is compressed by a power law, so a ray that is straight in
-   * the world is a curve on screen. The paths carry only two or three vertices,
-   * so drawing leg-to-leg would bow them away from the altitudes they actually
-   * pass through - and the viewing cone, drawn the same way, would no longer
-   * contain the rays that belong to it.
-   */
-  const LEG_STEPS = 10;
-
-  function strokeLeg(a, b, toX, toY) {
-    for (let i = 1; i <= LEG_STEPS; i++) {
-      const t = i / LEG_STEPS;
-      ctx.lineTo(toX(a.x + (b.x - a.x) * t), toY(a.y + (b.y - a.y) * t));
-    }
-  }
-
+  // Straight in the world, straight on screen: the altitude axis is linear, so
+  // a leg needs no subdivision to land on the altitudes it really passes
+  // through, and a ray looks like what it is.
   function strokePath(path, toX, toY, phase) {
     const pts = path.points;
     if (pts.length < 2) return;
     const limit = phase >= 1 ? pts.length : Math.max(2, Math.ceil(pts.length * phase));
     ctx.moveTo(toX(pts[0].x), toY(pts[0].y));
-    for (let i = 1; i < limit; i++) strokeLeg(pts[i - 1], pts[i], toX, toY);
+    for (let i = 1; i < limit; i++) ctx.lineTo(toX(pts[i].x), toY(pts[i].y));
   }
 
   function drawAltitudeAxis(plot, toY, topAltitude) {
@@ -713,8 +740,31 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
 /* Shared constants and helpers -------------------------------------- */
 
-const ALTITUDE_POWER = 0.55;
+/**
+ * The altitude axis is LINEAR.
+ *
+ * An earlier version compressed it by a power law to give the dense lower air
+ * more room. The price was that a ray which is straight in the world became a
+ * curve on screen, which is exactly the wrong lesson in a picture about light
+ * travelling in straight lines. The room is bought a different way instead: the
+ * frame is cropped to the air that actually matters - see frameTopFor.
+ */
 const HALF_WIDTH_FACTOR = 1.5;
+
+/**
+ * Top of the drawn frame.
+ *
+ * Three scale heights hold 95 % of the column, so cropping there costs almost
+ * nothing and buys back the vertical room the power law used to steal - the
+ * air that does the scattering gets most of the picture instead of the bottom
+ * tenth of it. The frame always extends far enough to contain the observer, so
+ * climbing towards space still works, and never past the real top of the
+ * atmosphere.
+ */
+export function frameTopFor(atmosphere, observerAltitude) {
+  const wanted = Math.max(3 * atmosphere.scaleHeightRayleigh, observerAltitude * 1.15);
+  return Math.max(1, Math.min(atmosphere.topAltitude, wanted));
+}
 const FIELD_GAIN = 5.4e3;
 
 function niceAltitudeTicks(topAltitude) {

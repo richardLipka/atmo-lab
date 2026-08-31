@@ -12,7 +12,7 @@ import { createI18n } from './i18n.js';
 import { createStore, DEFAULT_STATE, maxAltitudeFor, touches } from './state.js';
 import { createColorimetry } from './physics/color.js';
 import { createSimulation } from './simulation.js';
-import { createSceneRenderer, formatAltitude } from './render/scene-renderer.js';
+import { createSceneRenderer, formatAltitude, frameTopFor } from './render/scene-renderer.js';
 import { createSkyStrip } from './render/sky-strip.js';
 import { createSpectrumChart } from './render/spectrum-chart.js';
 import { createChromaticityPlot } from './render/chromaticity.js';
@@ -76,10 +76,11 @@ async function start() {
       source: result.source,
       sunElevationDeg: state.star.elevationDeg,
       observerZ: state.observer.z,
-      viewZenithDeg: state.observer.viewZenithDeg,
-      viewAzimuthDeg: state.observer.viewAzimuthDeg,
       count: state.rays.showScattering ? state.rays.count : 0,
-      halfWidth_m: atmosphere.topAltitude * 1.5,
+      // The drawn frame is cropped to the air that matters; the physics keeps
+      // the real top of the atmosphere. These must match the renderer's.
+      halfWidth_m: frameTopFor(atmosphere, state.observer.z) * 1.5,
+      frameTop_m: frameTopFor(atmosphere, state.observer.z),
       top_m: atmosphere.topAltitude,
       seed: 20260828,
     });
@@ -106,7 +107,11 @@ async function start() {
     needsPaint = true;
     if (touches(changed, 'atmosphere', 'star.elevationDeg', 'star.temperatureK',
       'star.presetId', 'star.realisticInsolation', 'rays.count', 'rays.showScattering',
-      'observer.z', 'observer.viewZenithDeg', 'observer.viewAzimuthDeg')) {
+      'observer.z')) {
+      // Note that the viewing direction is absent: the scattering events are a
+      // property of the air and the star, not of where anyone is facing, so
+      // turning the view restyles the existing rays rather than redrawing new
+      // ones. The picture stays put and only the emphasis moves.
       needsPhotons = true;
     }
     if (touches(changed, 'atmosphere.presetId')) {
