@@ -136,7 +136,9 @@
     "computed": "Computed from the spectrum through CIE 1931 XYZ, never chosen by hand.",
     "chromaticity": "Chromaticity diagram",
     "blockedByWall": "The shaft wall blocks this direction, so no light arrives at all.",
-    "darkness": "Too little light to show a colour."
+    "darkness": "Too little light to show a colour.",
+    "measured": "Measured from the drawn rays",
+    "fromRays": "from"
   },
   "data": {
     "title": "Physical quantities",
@@ -257,8 +259,9 @@
     "sourceData": "All physical data live in editable JSON files under /config."
   },
   "histogram": {
-    "title": "All beams in the simulation",
-    "help": "Every ray drawn above, counted by wavelength. Coloured: the ones reaching the observer from the viewing cone. Grey: everything else. Lower the star and watch the whole distribution move towards the red.",
-    "mean": "mean"
+    "title": "Light the drawn rays deliver",
+    "help": "The spectrum measured from the rays above, not computed from theory. Filled bars: light arriving at the observer, coloured from the viewing cone and grey from the rest of the sky. Dashed outline: the unscattered direct beam, scaled to its own peak because it is thousands of times brighter. The scale is held at the brightest sky seen so far, so climbing makes the bars fall.",
+    "sky": "sky",
+    "direct": "direct beam"
   }
 }

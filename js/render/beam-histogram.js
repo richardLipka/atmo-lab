@@ -1,21 +1,23 @@
 /**
- * A histogram of the beams the simulation actually drew.
+ * The spectrum of the light the drawn rays deliver, as a chart.
  *
  * The spectrum plot on the right is the analytic answer: smooth curves the
- * integrator produced. This is the empirical one - a tally of the few hundred
- * rays on screen, binned by wavelength. Two things make it worth its space next
- * to the analytic plot.
+ * integrator produced. This is the measured one - the few hundred rays on
+ * screen, each carrying an unbiased estimate of what it contributes, summed per
+ * wavelength. The colour it implies is shown beside the integrator's own, and
+ * the two agree, which is the point: the picture and the theory are one thing.
  *
- * It closes the loop between the picture and the numbers. Each bar is a count
- * of rays a student can point at in the cross-section above, and the bar
- * carries the same colour rule as that picture: the part of it that reaches the
- * observer from the direction being looked at is drawn in its own wavelength
- * colour, and the rest of the beams are grey.
+ * An earlier version counted rays instead of weighing them. That could never
+ * fall when the sky darkened - a fixed number of rays is drawn whatever the
+ * state - so climbing to 40 km emptied the sky of light without moving a single
+ * bar, while the colour swatch went black. Weighted by energy, and against a
+ * scale that is held rather than refitted, the bars collapse with it.
  *
- * And it makes the sunset quantitative. Lower the star and the whole
- * distribution marches towards the red end, because the chord the light has to
- * cross grows and Beer-Lambert removes the short wavelengths first. The mean
- * wavelength printed beside it moves with it.
+ * Filled bars are the light arriving at the observer: coloured from the viewing
+ * cone, grey from the rest of the sky. The dashed outline is the unscattered
+ * direct beam, scaled to its own peak because it carries thousands of times
+ * more energy than the sky and is here for its shape - which marches red as the
+ * star sinks.
  */
 
 import { wavelengthToDisplayRgb } from '../physics/spectrum.js';
@@ -25,6 +27,8 @@ const PAD = { left: 34, right: 10, top: 10, bottom: 22 };
 export function createBeamHistogram(canvas, { i18n }) {
   const ctx = canvas.getContext('2d', { alpha: false });
   let histogram = null;
+  /** The brightest the sky has been, held so the bars can visibly fall. */
+  let reference = 0;
 
   function cssSize() {
     const rect = canvas.getBoundingClientRect();
@@ -50,7 +54,7 @@ export function createBeamHistogram(canvas, { i18n }) {
     const { w, h } = resize();
     ctx.fillStyle = '#0a0d16';
     ctx.fillRect(0, 0, w, h);
-    if (!histogram || !(histogram.peak > 0)) return;
+    if (!histogram) return;
 
     const plot = {
       x: PAD.left, y: PAD.top,
@@ -59,45 +63,59 @@ export function createBeamHistogram(canvas, { i18n }) {
     const bins = histogram.centres.length;
     const slot = plot.w / bins;
     const barW = Math.max(2, slot - 2);
-    // A little headroom, so the tallest bar is not glued to the top edge.
-    const top = histogram.peak * 1.08;
 
-    // Horizontal guides, enough to read a count off but not enough to compete.
+    // The vertical scale is the brightest the sky has been since the page
+    // loaded, held rather than re-fitted every frame. Re-fitting would defeat
+    // the whole purpose: climbing until the sky is black would keep the bars
+    // exactly as tall as before, which is the bug this chart exists to answer.
+    if (histogram.peak > reference) reference = histogram.peak;
+    const top = Math.max(reference, 1e-30) * 1.08;
+
     ctx.save();
     ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-    ctx.fillStyle = 'rgba(255,255,255,0.42)';
-    ctx.font = '9px system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
     for (const frac of [0, 0.5, 1]) {
       const y = plot.y + plot.h - frac * plot.h;
       ctx.beginPath();
       ctx.moveTo(plot.x, y + 0.5);
       ctx.lineTo(plot.x + plot.w, y + 0.5);
       ctx.stroke();
-      ctx.fillText(String(Math.round(frac * top)), plot.x - 5, y);
     }
     ctx.restore();
 
     for (let b = 0; b < bins; b++) {
       const cone = histogram.inCone[b];
-      const other = histogram.other[b];
-      if (cone + other === 0) continue;
+      const other = histogram.elsewhere[b];
+      if (cone + other <= 0) continue;
       const x = plot.x + b * slot + (slot - barW) / 2;
       const [r, g, bl] = wavelengthToDisplayRgb(histogram.centres[b]);
-
-      // Everything else, stacked on top and grey - the same rule the
-      // cross-section uses, so the two pictures read as one.
-      const otherH = (other / top) * plot.h;
-      const coneH = (cone / top) * plot.h;
-      let y = plot.y + plot.h;
+      const coneH = Math.min(plot.h, (cone / top) * plot.h);
+      const otherH = Math.min(plot.h - coneH, (other / top) * plot.h);
+      const base = plot.y + plot.h;
 
       ctx.fillStyle = 'rgba(138, 147, 166, 0.42)';
-      ctx.fillRect(x, y - coneH - otherH, barW, otherH);
-
-      y -= otherH;
+      ctx.fillRect(x, base - coneH - otherH, barW, otherH);
       ctx.fillStyle = `rgb(${r}, ${g}, ${bl})`;
-      ctx.fillRect(x, y - coneH, barW, coneH);
+      ctx.fillRect(x, base - coneH, barW, coneH);
+    }
+
+    // The direct beam, drawn as an outline scaled to its own peak. It carries
+    // thousands of times more energy than the sky does, so it cannot share the
+    // axis; what it is here for is its SHAPE, which marches red as the star
+    // sinks while the sky is doing something different.
+    if (histogram.directPeak > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      for (let b = 0; b < bins; b++) {
+        const y = plot.y + plot.h
+          - (histogram.direct[b] / histogram.directPeak) * plot.h * 0.9;
+        const x = plot.x + b * slot + slot / 2;
+        if (b === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.restore();
     }
 
     // Wavelength axis, drawn as the spectrum itself: no legend needed to say
@@ -122,16 +140,36 @@ export function createBeamHistogram(canvas, { i18n }) {
     ctx.textAlign = 'right';
     ctx.fillText('750 nm', plot.x + plot.w, plot.y + plot.h + 9);
 
-    // The number that moves as the star sets.
-    if (histogram.meanNm != null) {
+    const parts = [];
+    if (histogram.coneMeanNm != null) {
+      parts.push(`${i18n.t('histogram.sky')} ${histogram.coneMeanNm.toFixed(0)} nm`);
+    }
+    if (histogram.directMeanNm != null) {
+      parts.push(`${i18n.t('histogram.direct')} ${histogram.directMeanNm.toFixed(0)} nm`);
+    }
+    if (parts.length) {
       ctx.textAlign = 'center';
       ctx.fillStyle = 'rgba(255,255,255,0.72)';
-      ctx.fillText(
-        `${i18n.t('histogram.mean')} ${histogram.meanNm.toFixed(0)} nm`,
-        plot.x + plot.w / 2, plot.y + plot.h + 9);
+      ctx.fillText(parts.join('   ·   '), plot.x + plot.w / 2, plot.y + plot.h + 9);
     }
+
+    // How far the sky has fallen from its brightest, which is the number that
+    // moves when the observer climbs and the bars shrink to nothing.
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,255,255,0.42)';
+    const share = reference > 0 ? histogram.peak / reference : 0;
+    ctx.fillText(share >= 0.995 ? '100 %'
+      : share >= 0.01 ? `${(share * 100).toFixed(0)} %`
+        : share > 0 ? `${(share * 100).toPrecision(2)} %` : '0 %',
+    2, plot.y + 6);
     ctx.restore();
   }
 
-  return { update, draw };
+  /** Forget the held scale, so a new world or star starts from its own peak. */
+  function resetScale() {
+    reference = 0;
+  }
+
+  return { update, draw, resetScale };
 }

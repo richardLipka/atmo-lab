@@ -122,7 +122,8 @@ export function tracePhotons(options) {
   const invHR = 1 / HR;
   const invHA = 1 / atmosphere.scaleHeightAerosol;
 
-  const observer = { x: 0, y: R + Math.max(0, observerZ) };
+  const observerAltitude = Math.max(0, observerZ);
+  const observer = { x: 0, y: R + observerAltitude };
 
   /* ---- world helpers, all in true Cartesian ---- */
 
@@ -277,15 +278,42 @@ export function tracePhotons(options) {
 
   const weights = new Float64Array(SPECTRUM_BINS);
 
+  /**
+   * Every arriving ray's full spectral contribution, packed end to end in one
+   * allocation.
+   *
+   * A ray is DRAWN in one colour, sampled from its own spectrum, because that is
+   * what a photon does. But measuring the sky from those sampled colours alone
+   * throws away most of what each ray knows and leaves the estimate visibly
+   * noisy with only a few dozen rays in the cone. So the sampled wavelength is
+   * kept for the picture and the whole spectrum is kept for the measurement.
+   */
+  const arrivingSpectra = new Float64Array(Math.max(1, nArriving) * SPECTRUM_BINS);
+  let arrivingCount = 0;
+
   /** The tallest air worth drawing at this zoom. */
   const drawTop = drawTopFor();
 
-  /** Sample an altitude from the density profile, between a floor and drawTop. */
-  function sampleAltitude(floor) {
+  /**
+   * Sample an altitude from the density profile, between a floor and a ceiling.
+   *
+   * Two callers with different needs. The arriving rays are a measurement, so
+   * they sample the whole column above the observer and `columnScale` below is
+   * the normalising constant of that distribution. The decorative families only
+   * have to be somewhere visible, so they stop at the top of the frame.
+   */
+  function sampleAltitude(floor = observerAltitude, ceiling = atmosphere.topAltitude) {
     const eFloor = Math.exp(-floor / HR);
-    const eTop = Math.exp(-drawTop / HR);
+    const eTop = Math.exp(-ceiling / HR);
     return -HR * Math.log(eFloor + rng() * (eTop - eFloor));
   }
+
+  /**
+   * Integral of the density over the sampled altitude range: the constant that
+   * turns one importance-sampled point into an estimate of the whole column.
+   */
+  const columnScale = HR * (Math.exp(-observerAltitude / HR)
+    - Math.exp(-atmosphere.topAltitude / HR));
 
   /** Walk from a point along a direction to the edge of the drawn frame. */
   function clipToFrame(from, dir, maxLength = Infinity) {
@@ -303,28 +331,25 @@ export function tracePhotons(options) {
 
   /* ---- 1. paths that arrive at the observer ---- */
 
-  const observerAltitude = Math.max(0, observerZ);
-
   for (let n = 0; n < nArriving; n++) {
     const angle = (rng() * 2 - 1) * MAX_SKY_ANGLE_DEG * Math.PI / 180;
     // Line of sight in world coordinates. The observer sits on the x = 0 axis,
     // so its local "up" is +y and this is just a rotation of it.
     const d = { x: Math.sin(angle), y: Math.cos(angle) };
 
-    // Keep the vertex a little way off the observer. Sampled straight from the
-    // density, a good fraction land within a few hundred metres and collapse the
-    // drawn ray to a dot.
-    const floor = observerAltitude + drawTop * 0.045;
-    const target = sampleAltitude(floor);
+    // The scattering altitude is drawn from the density profile over the WHOLE
+    // column above the observer, not just the part inside the drawn frame.
+    // Sampling only what is on screen would bias the estimate below by whatever
+    // fraction of the air the current zoom happens to exclude, and at a close
+    // zoom that is most of it. Points off the frame still count; only their
+    // drawing is clipped.
+    const target = sampleAltitude();
     if (!(target > observerAltitude)) continue;
 
     // Where the line of sight reaches that altitude. Closed form on the sphere,
     // so the vertex sits exactly on the drawn straight line.
-    const reach = raySphere(observer, d, R + target, true);
-    if (reach == null) continue;
-    const maxAcross = Math.abs(d.x) > 1e-6 ? (halfWidth_m * 0.98) / Math.abs(d.x) : Infinity;
-    const dist = Math.min(reach, maxAcross);
-    if (!(dist > 0)) continue;
+    const dist = raySphere(observer, d, R + target, true);
+    if (dist == null || !(dist > 0)) continue;
     const P = { x: observer.x + d.x * dist, y: observer.y + d.y * dist };
 
     const sunT = sunTransmission(P);
@@ -352,18 +377,53 @@ export function tracePhotons(options) {
     const bin = sampleWeighted(weights, total, rng());
     const lambda = WAVELENGTHS_NM[bin];
 
+    // Turn this sample into an estimate of the whole integral along the ray.
+    //
+    // The altitude was drawn with probability proportional to the density, so
+    // the density in the integrand cancels against the one in the sampling
+    // distribution and what is left is Z / (rho * |dh/ds|) - importance
+    // sampling that is exact for an exponential atmosphere. |dh/ds| is the
+    // cosine between the ray and the local vertical, which is why a ray near
+    // the horizon carries so much more: it crosses far more air per metre of
+    // altitude gained. It is floored, because at the horizon itself the
+    // spherical geometry, not this factor, sets the path length.
+    const cosLocal = Math.max(0.02, (d.x * P.x + d.y * P.y) / (R + h));
+    const estimator = columnScale / (rhoR * cosLocal);
+
+    // Now the drawing, which is a separate concern from the measurement above.
+    // A vertex can legitimately sit above or beside the frame - at a close zoom
+    // most of the column does - and such a ray is drawn as a line entering from
+    // the edge, with no vertex marker, because its turn happened out of shot.
+    const exit = clipToFrame(observer, d);
+    const offFrame = Math.hypot(exit.x - observer.x, exit.y - observer.y) < dist - 1;
+    const vertex = offFrame ? exit : P;
+
     // The incoming leg is a stub, not the whole journey down from space. Drawn
     // full length, several hundred of them cross the entire frame at the solar
     // angle and scatter the colour everywhere except where it belongs; the
     // unscattered `through` rays already show that journey at full length. The
     // stub is clipped, never bent, so it stays a piece of the true straight ray.
     const entry = clipToFrame(P, toStar, halfWidth_m * ARRIVING_STUB);
+    const drawn = offFrame ? [vertex, observer] : [entry, P, observer];
+
+    const spectrumOffset = arrivingCount * SPECTRUM_BINS;
+    for (let i = 0; i < SPECTRUM_BINS; i++) {
+      arrivingSpectra[spectrumOffset + i] = weights[i] * estimator;
+    }
+    arrivingCount++;
 
     paths.push({
       kind: 'arriving',
       lambda, bin,
       weight: total,
-      points: [entry, P, observer],
+      spectrumOffset,
+      // An unbiased single-sample estimate of this ray's contribution to the
+      // radiance, in the same units the integrator reports. Depositing it in
+      // the sampled bin estimates the spectrum, because the bin was drawn in
+      // proportion to that spectrum.
+      radiance: total * estimator,
+      offFrame,
+      points: drawn,
       // Signed direction the light arrives from, so the renderer can ask whether
       // this ray is inside the cone the observer is looking down.
       arrivalAngleRad: angle,
@@ -387,7 +447,7 @@ export function tracePhotons(options) {
   /* ---- 2. paths that scatter but go somewhere else ---- */
 
   for (let n = 0; n < nMissed; n++) {
-    const P = pointAtOffset((rng() * 2 - 1) * halfWidth_m, sampleAltitude(0));
+    const P = pointAtOffset((rng() * 2 - 1) * halfWidth_m, sampleAltitude(0, drawTop));
     const sunT = sunTransmission(P);
     if (!sunT) continue;
 
@@ -462,7 +522,7 @@ export function tracePhotons(options) {
     // the density puts the beams where the air is, which at a low Sun means a
     // long chord skimming the limb - the reason the light is red, drawn rather
     // than asserted.
-    const anchor = pointAtOffset((rng() * 2 - 1) * halfWidth_m, sampleAltitude(0));
+    const anchor = pointAtOffset((rng() * 2 - 1) * halfWidth_m, sampleAltitude(0, drawTop));
     const back = { x: -toStar.x, y: -toStar.y };
 
     const entryDist = raySphere(anchor, back, topR, true);
@@ -514,6 +574,7 @@ export function tracePhotons(options) {
   }
 
   paths.scatteredFraction = scatteredFraction;
+  paths.arrivingSpectra = arrivingSpectra;
   return paths;
 }
 
@@ -558,13 +619,18 @@ export function summarisePhotons(paths, options = {}) {
 }
 
 /**
- * Histogram of the drawn beams over the spectral grid, split into the light that
- * reaches the observer from the direction being looked at and everything else.
+ * The spectrum of the light the drawn rays actually deliver, binned for a chart.
  *
- * This counts the simulated bundle itself rather than plotting the analytic
- * spectrum: it is what those few hundred rays on screen actually came out as,
- * and counting them is the point. When the star sinks, the bars visibly march
- * towards the red end, because that is what happens to the beams.
+ * This is not a count. Each arriving ray carries an unbiased estimate of its
+ * contribution to the radiance, so summing those estimates per wavelength gives
+ * a Monte Carlo measurement of the same spectrum the integrator computes - and
+ * the colour that measurement implies is shown beside the integrator's own, so
+ * a student can see that the picture and the theory are one thing.
+ *
+ * Counting instead of measuring was the flaw this replaces. A fixed number of
+ * rays is drawn whatever the state, so a count could never fall when the sky
+ * darkened: climbing to 40 km emptied the sky of light without moving a single
+ * bar. Weighted by energy, the bars collapse with it.
  *
  * @param {Array}  paths    traced paths
  * @param {number} axisRad  signed direction the observer is looking
@@ -575,8 +641,11 @@ export function histogramPhotons(paths, axisRad, halfRad, groupNm = 20) {
   const perBin = Math.max(1, Math.round(groupNm / 10));
   const bins = Math.ceil(SPECTRUM_BINS / perBin);
   const inCone = new Float64Array(bins);
-  const other = new Float64Array(bins);
+  const elsewhere = new Float64Array(bins);
+  const direct = new Float64Array(bins);
   const centres = new Float64Array(bins);
+  /** The cone's spectrum on the engine's own grid, for the colour swatch. */
+  const coneSpectrum = new Float64Array(SPECTRUM_BINS);
 
   for (let b = 0; b < bins; b++) {
     const first = b * perBin;
@@ -584,23 +653,56 @@ export function histogramPhotons(paths, axisRad, halfRad, groupNm = 20) {
     centres[b] = (WAVELENGTHS_NM[first] + WAVELENGTHS_NM[last]) / 2;
   }
 
-  let peak = 0, total = 0, sum = 0, coneTotal = 0, coneSum = 0, throughTotal = 0, throughSum = 0;
+  const spectra = paths.arrivingSpectra;
+  let coneRays = 0, directRays = 0, directSum = 0, directWeighted = 0;
   for (const p of paths) {
     const b = Math.min(bins - 1, Math.floor(p.bin / perBin));
-    const involved = p.kind === 'arriving'
-      && Math.abs(p.arrivalAngleRad - axisRad) <= halfRad;
-    if (involved) { inCone[b]++; coneTotal++; coneSum += p.lambda; } else other[b]++;
-    if (p.kind === 'through') { throughTotal++; throughSum += p.lambda; }
-    total++;
-    sum += p.lambda;
+    if (p.kind === 'arriving') {
+      const inView = Math.abs(p.arrivalAngleRad - axisRad) <= halfRad;
+      if (spectra && p.spectrumOffset != null) {
+        // The ray's whole spectrum, which is what makes the measurement steady
+        // enough to put a colour swatch next to the integrator's.
+        for (let i = 0; i < SPECTRUM_BINS; i++) {
+          const value = spectra[p.spectrumOffset + i];
+          if (inView) coneSpectrum[i] += value;
+          const bb = Math.min(bins - 1, Math.floor(i / perBin));
+          if (inView) inCone[bb] += value; else elsewhere[bb] += value;
+        }
+      } else if (inView) {
+        inCone[b] += p.radiance;
+        coneSpectrum[p.bin] += p.radiance;
+      } else {
+        elsewhere[b] += p.radiance;
+      }
+      if (inView) coneRays++;
+    } else if (p.kind === 'through') {
+      direct[b] += p.weight;
+      directSum += p.weight;
+      directWeighted += p.weight * p.lambda;
+      directRays++;
+    }
   }
-  for (let b = 0; b < bins; b++) peak = Math.max(peak, inCone[b] + other[b]);
+
+  // An average over the rays in the cone, which makes it a radiance rather than
+  // a sum that grows with however many rays happen to be drawn.
+  if (coneRays > 0) {
+    for (let i = 0; i < SPECTRUM_BINS; i++) coneSpectrum[i] /= coneRays;
+    for (let b = 0; b < bins; b++) inCone[b] /= coneRays;
+  }
+
+  let peak = 0, directPeak = 0, coneSum = 0, coneWeighted = 0;
+  for (let b = 0; b < bins; b++) {
+    peak = Math.max(peak, inCone[b] + elsewhere[b]);
+    directPeak = Math.max(directPeak, direct[b]);
+    coneSum += inCone[b];
+    coneWeighted += inCone[b] * centres[b];
+  }
 
   return {
-    centres, inCone, other, peak, total,
+    centres, inCone, elsewhere, direct, peak, directPeak, coneSpectrum,
+    coneRays, directRays,
     binWidthNm: perBin * 10,
-    meanNm: total > 0 ? sum / total : null,
-    coneMeanNm: coneTotal > 0 ? coneSum / coneTotal : null,
-    throughMeanNm: throughTotal > 0 ? throughSum / throughTotal : null,
+    coneMeanNm: coneSum > 0 ? coneWeighted / coneSum : null,
+    directMeanNm: directSum > 0 ? directWeighted / directSum : null,
   };
 }

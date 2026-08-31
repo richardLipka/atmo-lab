@@ -136,7 +136,9 @@
     "computed": "Spočítáno ze spektra přes CIE 1931 XYZ, nikdy nevybráno ručně.",
     "chromaticity": "Diagram chromatičnosti",
     "blockedByWall": "Stěna šachty tento směr zakrývá, nedorazí odsud žádné světlo.",
-    "darkness": "Příliš málo světla na zobrazení barvy."
+    "darkness": "Příliš málo světla na zobrazení barvy.",
+    "measured": "Změřeno z nakreslených paprsků",
+    "fromRays": "z"
   },
   "data": {
     "title": "Fyzikální veličiny",
@@ -257,8 +259,9 @@
     "sourceData": "Všechna fyzikální data jsou v editovatelných souborech JSON ve složce /config."
   },
   "histogram": {
-    "title": "Všechny paprsky v simulaci",
-    "help": "Každý paprsek nakreslený nahoře, sečtený podle vlnové délky. Barevně ty, které dopadají k pozorovateli ze zorného kužele; šedě všechny ostatní. Snižuj hvězdu a sleduj, jak se celé rozdělení posouvá do červena.",
-    "mean": "průměr"
+    "title": "Světlo, které nakreslené paprsky přinášejí",
+    "help": "Spektrum změřené z paprsků nahoře, ne spočítané z teorie. Plné sloupce: světlo dopadající k pozorovateli – barevně ze zorného kužele, šedě ze zbytku oblohy. Čárkovaná obrysová čára: přímý nerozptýlený svazek, škálovaný na vlastní vrchol, protože je tisíckrát jasnější. Měřítko drží nejjasnější dosud viděnou oblohu, takže při stoupání sloupce klesají.",
+    "sky": "obloha",
+    "direct": "přímý svazek"
   }
 }

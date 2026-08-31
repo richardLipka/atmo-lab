@@ -9,9 +9,10 @@
 
 import { formatAltitude, formatAngle } from '../render/scene-renderer.js';
 
-export function createPanels(root, { i18n, store, spectrumChart, chromaticity }) {
+export function createPanels(root, { i18n, store, spectrumChart, chromaticity, colorimetry }) {
   const legend = root.querySelector('#spectrum-legend');
   const swatchSky = root.querySelector('#swatch-sky');
+  const swatchMeasured = root.querySelector('#swatch-measured');
   const swatchStar = root.querySelector('#swatch-star');
   const swatchNote = root.querySelector('#swatch-note');
   const dataBody = root.querySelector('#data-rows');
@@ -186,6 +187,40 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity })
     swatchNote.textContent = i18n.t('color.computed');
   }
 
+  /**
+   * The same colour, measured from the drawn rays instead of integrated.
+   *
+   * Each ray carries an unbiased estimate of what it contributes, so averaging
+   * those over the viewing cone is a Monte Carlo measurement of the spectrum
+   * next to it. Showing both answers the fair objection that the swatch is a
+   * result of theory sitting beside a picture that had no say in it: this one
+   * is what the picture says, and the agreement is the evidence.
+   */
+  function renderMeasuredSwatch(result, histogram) {
+    const chip = swatchMeasured.querySelector('.swatch-chip');
+    const caption = swatchMeasured.querySelector('.swatch-caption');
+    const detail = swatchMeasured.querySelector('.swatch-detail');
+    caption.textContent = i18n.t('color.measured');
+
+    if (!histogram || !(histogram.coneRays > 0) || !colorimetry) {
+      swatchMeasured.hidden = true;
+      return;
+    }
+    swatchMeasured.hidden = false;
+    const measured = colorimetry.spectrumToSrgb(histogram.coneSpectrum, result.exposure);
+    chip.style.background = measured.css;
+
+    // How far the measurement sits from the integrator, in the plane where
+    // colour lives. A handful of rays is a noisy instrument, so the number
+    // wanders by a percent or so - and that is worth seeing too.
+    const target = result.primary.colors.sky.chromaticity;
+    const dx = measured.chromaticity[0] - target[0];
+    const dy = measured.chromaticity[1] - target[1];
+    const distance = Math.hypot(dx, dy);
+    detail.textContent = `${measured.css}  ·  ${i18n.t('color.fromRays')} `
+      + `${histogram.coneRays}  ·  Δxy = ${distance.toFixed(3)}`;
+  }
+
   /** Share of a spectrum's energy below the blue/red split. */
   function blueShare(spectrum, splitNm = 520) {
     let all = 0, blue = 0;
@@ -236,7 +271,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity })
         + `The star itself emitted ${emitted}% blue.${scatteredPart}`;
   }
 
-  function update(result, tally) {
+  function update(result, tally, histogram) {
     const state = store.state;
     const advanced = state.level === 'advanced';
 
@@ -252,6 +287,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity })
     spectrumChart.draw();
 
     renderSwatches(result, state);
+    renderMeasuredSwatch(result, histogram);
     renderPhotonTally(result, tally, state);
 
     dataSection.hidden = false;

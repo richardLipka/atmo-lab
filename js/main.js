@@ -52,7 +52,8 @@ async function start() {
   const controls = createControls(
     document.getElementById('controls-root'), { store, i18n, config });
   const panels = createPanels(
-    document.getElementById('right-panel'), { i18n, store, spectrumChart, chromaticity });
+    document.getElementById('right-panel'),
+    { i18n, store, spectrumChart, chromaticity, colorimetry });
   const explanation = createExplanation(
     document.getElementById('explain-panel'), { i18n, store });
   const experiments = createExperiments(
@@ -98,10 +99,11 @@ async function start() {
    */
   function publish({ photonsChanged }) {
     const view = { state: store.state, result, photons };
+    const histogram = beamHistogramFor(store.state);
     sceneRenderer.update(view, { keepSelection: !photonsChanged });
     skyStrip.update(view);
-    beamHistogram.update(beamHistogramFor(store.state));
-    panels.update(result, photonTally);
+    beamHistogram.update(histogram);
+    panels.update(result, photonTally, histogram);
     explanation.update(result);
     needsPaint = true;
   }
@@ -138,7 +140,14 @@ async function start() {
     }
     if (touches(changed, 'observer.viewZenithDeg', 'observer.viewAzimuthDeg')) {
       // No new rays, but the split between "reaches you" and "does not" moves.
-      beamHistogram.update(beamHistogramFor(state));
+      const histogram = beamHistogramFor(state);
+      beamHistogram.update(histogram);
+      panels.update(result, photonTally, histogram);
+    }
+    if (touches(changed, 'atmosphere.presetId', 'star.presetId', 'star.temperatureK')) {
+      // The held vertical scale belongs to one world lit by one star. Carrying
+      // it across to another would say something false about the new one.
+      beamHistogram.resetScale();
     }
     controls.update();
     syncHeader();
@@ -212,7 +221,7 @@ async function start() {
     panels.refreshLegendText();
     experiments.render();
     if (result) {
-      panels.update(result, photonTally);
+      panels.update(result, photonTally, beamHistogramFor(store.state));
       explanation.update(result);
     }
     needsPaint = true;

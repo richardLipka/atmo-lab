@@ -674,8 +674,10 @@ export function registerTests({ group, test, assert }, config) {
       // The renderer selects rays by this angle alone, so it must agree with
       // the geometry of the drawn polyline.
       for (const path of earthPaths.filter((p) => p.kind === 'arriving')) {
-        const vertex = path.points[1];
-        const end = path.points[2];
+        // A ray whose vertex is off the frame is drawn as two points rather
+        // than three, so take the last leg either way.
+        const end = path.points[path.points.length - 1];
+        const vertex = path.points[path.points.length - 2];
         const measured = Math.atan2(vertex.x - end.x, vertex.y - end.y);
         assert.close(measured, path.arrivalAngleRad, 1e-9);
       }
@@ -730,19 +732,91 @@ export function registerTests({ group, test, assert }, config) {
       assert.greater(meanNm(2), meanNm(80) + 30);
     });
 
-    test('the histogram counts every drawn beam exactly once', () => {
-      const h = histogramPhotons(earthPaths, 0, VIEW_CONE_HALF_DEG * Math.PI / 180);
-      let counted = 0;
-      for (let b = 0; b < h.centres.length; b++) counted += h.inCone[b] + h.other[b];
-      assert.equal(counted, earthPaths.length);
-      assert.equal(h.total, earthPaths.length);
-      assert.between(h.meanNm, SPECTRUM_MIN_NM, SPECTRUM_MAX_NM);
+    test('the traced rays reproduce the sky colour the integrator computes', () => {
+      // The point of the estimator: the drawn bundle is a measurement of the
+      // same integral the engine solves, not a decoration beside it. This runs
+      // through histogramPhotons, which is the path the interface uses, so what
+      // is checked is what a student is shown.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      for (const [elevation, zenith, z] of [[55, 35, 0], [55, 35, 20000], [4, 35, 0]]) {
+        const paths = trace({ sunElevationDeg: elevation, observerZ: z, count: 4000 });
+        const measured = histogramPhotons(paths, -zenith * Math.PI / 180, cone).coneSpectrum;
+
+        const scene = sceneAt({ elevation, z });
+        const analytic = computeViewRadiance(
+          scene, directionFromAngles(zenith * Math.PI / 180, Math.PI),
+          QUALITY_PRESETS.high).scattered;
+
+        const xy = (spectrum) => {
+          const v = colorimetry.spectrumToXYZ(spectrum);
+          const sum = v[0] + v[1] + v[2];
+          return [v[0] / sum, v[1] / sum];
+        };
+        const [ax, ay] = xy(measured);
+        const [bx, by] = xy(analytic);
+        const dxy = Math.hypot(ax - bx, ay - by);
+        const where = `elevation ${elevation}, zenith ${zenith}, z ${z}`;
+        // A tenth of the distance across the sRGB gamut would be a visible
+        // difference; this has to be far tighter than that, or the two swatches
+        // the interface shows side by side would not agree.
+        assert.less(dxy, 0.01, `${where}: chromaticity off by ${dxy.toFixed(4)}`);
+
+        const ratio = colorimetry.luminance(measured) / colorimetry.luminance(analytic);
+        assert.between(ratio, 0.9, 1.15, `${where}: luminance ratio ${ratio.toFixed(3)}`);
+      }
     });
 
-    test('the histogram moves towards the red as the star sinks', () => {
+    test('the arriving rays fade as the observer climbs out of the air', () => {
+      const skyEnergy = (z) => {
+        const paths = trace({ observerZ: z, count: 6000 });
+        return paths.filter((p) => p.kind === 'arriving')
+          .reduce((a, p) => a + p.radiance, 0)
+          / paths.filter((p) => p.kind === 'arriving').length;
+      };
+      const ground = skyEnergy(0);
+      const high = skyEnergy(40000);
+      // Four and a half scale heights up, essentially all the air is below you.
+      assert.less(high, ground * 0.06, `${high.toExponential(2)} vs ${ground.toExponential(2)}`);
+    });
+
+    test('the histogram measures energy, so it falls when the sky darkens', () => {
+      // The bug this replaced: a fixed number of rays is drawn whatever the
+      // state, so a histogram of counts could not fall when the sky went black.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const ground = histogramPhotons(trace(), 0, cone);
+      const high = histogramPhotons(trace({ observerZ: 40000 }), 0, cone);
+      assert.greater(ground.peak, 0);
+      assert.less(high.peak, ground.peak * 0.06,
+        `${high.peak.toExponential(2)} at 40 km vs ${ground.peak.toExponential(2)} at the ground`);
+    });
+
+    test('the histogram bins every arriving ray into one of its two series', () => {
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const h = histogramPhotons(earthPaths, 0, cone);
+      const arriving = earthPaths.filter((p) => p.kind === 'arriving');
+      const counted = arriving.filter(
+        (p) => Math.abs(p.arrivalAngleRad - 0) <= cone).length;
+      assert.equal(h.coneRays, counted);
+      assert.equal(h.directRays, earthPaths.filter((p) => p.kind === 'through').length);
+      assert.between(h.coneMeanNm, SPECTRUM_MIN_NM, SPECTRUM_MAX_NM);
+    });
+
+    test('the direct beam in the histogram moves red as the star sinks', () => {
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
       const mean = (elevation) => histogramPhotons(
-        trace({ sunElevationDeg: elevation }), 0, VIEW_CONE_HALF_DEG * Math.PI / 180).meanNm;
-      assert.greater(mean(3), mean(75));
+        trace({ sunElevationDeg: elevation }), 0, cone).directMeanNm;
+      assert.greater(mean(3), mean(75) + 25);
+    });
+
+    test('the measured cone spectrum is the one the swatch is drawn from', () => {
+      // coneSpectrum is what the interface turns into a colour, so it has to be
+      // the same data the bars are, on the engine's own grid.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const h = histogramPhotons(earthPaths, 0, cone, 20);
+      let fromBins = 0, fromSpectrum = 0;
+      for (let b = 0; b < h.centres.length; b++) fromBins += h.inCone[b];
+      for (let i = 0; i < SPECTRUM_BINS; i++) fromSpectrum += h.coneSpectrum[i];
+      assert.close(fromBins, fromSpectrum, 1e-9);
     });
 
     test('a vacuum produces no scattering events at all', () => {

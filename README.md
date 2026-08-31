@@ -199,20 +199,46 @@ unscattered to the ground, from a star that emitted 39 % blue** — and only 16 
 light crossing the air is scattered at all. On an airless world every path is a `through`
 path and no scattering vertex is drawn anywhere.
 
+### The drawn rays are a measurement, not an illustration
+
+Each arriving ray carries an unbiased Monte Carlo estimate of what it
+contributes to the radiance. The scattering altitude is drawn with probability
+proportional to the density, so the density in the integrand cancels against the
+one in the sampling distribution — importance sampling that is exact for an
+exponential atmosphere — and what remains is a factor of 1/cos between the ray
+and the local vertical, which is why a ray near the horizon carries so much more.
+
+That makes the picture checkable, and the interface checks it in front of you.
+Beside the perceived colour computed by the integrator sits a second swatch,
+**measured from the drawn rays alone**, with the distance between the two printed.
+With 53 rays in the viewing cone they agree to **Δxy ≤ 0.002** at the ground, at
+20 km, at 40 km and at a 4° Sun; the test suite requires better than 0.01 in
+chromaticity and 10 % in luminance, and checks it through the same code path the
+interface uses.
+
+A ray is *drawn* in a single colour sampled from its own spectrum, because that
+is what one photon does. The *measurement* keeps each ray's whole spectrum,
+because throwing 37 of 38 numbers away left the estimate visibly noisy with only
+a few dozen rays in the cone.
+
 ### The beam histogram
 
-Below the cross-section is a histogram of the beams the simulation actually drew, binned by
-wavelength. The spectrum plot on the right is the analytic answer, smooth curves from the
-integrator; this is the empirical one, a tally of the few hundred rays on screen. It carries
-the same colour rule as the picture above it — the part of each bar that reaches the
-observer from the viewing cone is in its own wavelength colour, the rest is grey — so a
-student can point at a bar and then at the rays that made it.
+Below the cross-section is the spectrum of the light those rays deliver —
+measured, not computed. Filled bars are the light arriving at the observer:
+coloured from the viewing cone, grey from the rest of the sky. The dashed outline
+is the unscattered direct beam, scaled to its own peak because it carries
+thousands of times more energy than the sky and is there for its shape.
 
-It is also where the sunset becomes a number. Lower the star and the whole distribution
-marches to the right: the mean wavelength of the drawn beams goes from about **513 nm at a
-55° Sun to about 552 nm at 4°**, for the reason Beer-Lambert gives.
+The vertical scale is **held at the brightest sky seen so far** rather than
+refitted each frame, and this matters. An earlier version counted rays: a fixed
+number is drawn whatever the state, so climbing to 40 km emptied the sky of light
+without moving a single bar, while the colour swatch beside it went black. Now
+the bars fall with it — the percentage in the corner reads 100 % at the ground
+and 0 % at 30 km — and the two mean wavelengths under the axis move apart as the
+star sinks: at a 55° Sun the sky averages **501 nm** and the direct beam
+**581 nm**; at 4° the beam has gone well past 600 nm.
 
-### Radiative transfer
+### Radiative transfer### Radiative transfer
 
 Single scattering. For each viewing ray the engine integrates
 
@@ -302,7 +328,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **85 tests** covering:
+`node tests/run-tests.js` runs **89 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
@@ -336,6 +362,11 @@ lesson:
   from the planet centre, that a low star really does make the unscattered beams cross a
   chord eight times longer and over 300 km, that those beams come out measurably redder, and
   that the histogram counts every drawn beam exactly once and shifts red as the star sinks;
+- the drawn rays as a measurement: that their Monte Carlo spectrum reproduces the
+  integrator's own sky colour to better than 0.01 in chromaticity and 10 % in luminance at
+  three very different states, that the arriving energy falls by more than 16× when the
+  observer climbs four and a half scale heights, and that the histogram measures energy
+  rather than counting rays;
 - performance: that a full interactive recompute fits inside 33 ms, and that tracing five
   thousand rays fits inside 25 ms.
 
