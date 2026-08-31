@@ -36,6 +36,10 @@ export const DEFAULT_STATE = {
     well: { enabled: false, radius_m: 1.5, depth_m: 50 },
   },
 
+  // Null means "fit the frame to the air"; a number is a vertical extent in
+  // metres, chosen with the zoom control or the mouse wheel.
+  camera: { span_m: null },
+
   rays: {
     count: 600,
     showScattering: true,
@@ -115,6 +119,18 @@ export function createStore(initial = DEFAULT_STATE) {
       obs.z = clamped;
       changed.add('observer.z');
       changed.add('observer');
+    }
+    // The zoom is a physical extent, so it has physical limits: below a few
+    // kilometres nothing is left to see, and past a few thousand the planet has
+    // shrunk to a dot.
+    const span = state.camera.span_m;
+    if (span != null) {
+      const fixed = Math.max(5e3, Math.min(6e6, span));
+      if (fixed !== span) {
+        state.camera.span_m = fixed;
+        changed.add('camera.span_m');
+        changed.add('camera');
+      }
     }
     if (state.compare.enabled) {
       const depth = Math.max(obs.well.depth_m, 1);

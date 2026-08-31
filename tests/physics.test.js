@@ -27,7 +27,9 @@ import {
 } from '../js/physics/radiance.js';
 import { directionFromAngles, sunDirectionFromElevation, raySphereFar, raySphereNear, v3 } from '../js/physics/geometry.js';
 import { sliderToZ, zToSlider } from '../js/state.js';
-import { tracePhotons, summarisePhotons, VIEW_CONE_HALF_DEG } from '../js/render/photons.js';
+import {
+  tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
+} from '../js/render/photons.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
 
@@ -617,10 +619,11 @@ export function registerTests({ group, test, assert }, config) {
       return blue / all;
     }
 
+    const SPAN = 25500, SKY = SPAN * 0.95, HALF = 21000;
     const trace = (options = {}) => tracePhotons({
       atmosphere: earth, source: sunSpectrum, sunElevationDeg: 40, observerZ: 0,
-      count: 3000, halfWidth_m: 150000, top_m: earth.topAltitude,
-      frameTop_m: 34000, seed: 42, ...options,
+      count: 3000, span_m: SPAN, skyExtent_m: SKY, halfWidth_m: HALF,
+      seed: 42, ...options,
     });
 
     const earthPaths = trace();
@@ -678,20 +681,73 @@ export function registerTests({ group, test, assert }, config) {
       }
     });
 
-    test('every leg is a straight line between its endpoints', () => {
-      // The altitude axis is linear precisely so this stays true on screen.
+    test('every drawn point lies inside the frame it was traced for', () => {
+      const R = earth.planetRadius;
       for (const path of earthPaths) {
         for (const point of path.points) {
           assert.finite(point.x);
           assert.finite(point.y);
-          assert.between(point.y, -1e-6, 34000 + 1e-6);
+          assert.between(point.x, -HALF - 1, HALF + 1);
+          // Vertically: from the bottom of the frame to the top of the sky.
+          assert.between(point.y - R, SKY - SPAN - 1, SKY + 1);
         }
       }
     });
 
+    test('the geometry is spherical, so altitude follows the radius', () => {
+      // Every scattering vertex should sit at a sensible altitude measured from
+      // the planet centre, not from a flat datum. The two differ by kilometres
+      // once a path runs a few hundred kilometres sideways.
+      const R = earth.planetRadius;
+      for (const path of earthPaths) {
+        const vertex = path.events.find((e) => e.type === 'scatter');
+        if (!vertex) continue;
+        const radial = Math.hypot(vertex.x, vertex.y) - R;
+        assert.close(radial, vertex.altitude, 1e-6);
+      }
+    });
+
+    test('a low star makes the unscattered beams cross a far longer chord', () => {
+      const chord = (elevation) => {
+        const set = trace({ sunElevationDeg: elevation })
+          .filter((p) => p.kind === 'through');
+        return set.reduce((a, p) => a + p.pathLength, 0) / set.length;
+      };
+      const high = chord(80);
+      const low = chord(2);
+      // This is the whole reason a low Sun is red, and the reason the picture
+      // can be zoomed out: at two degrees the path is hundreds of kilometres.
+      assert.greater(low, high * 8);
+      assert.greater(low, 300000);
+    });
+
+    test('the beams a low star sends through are visibly redder', () => {
+      const meanNm = (elevation) => {
+        const set = trace({ sunElevationDeg: elevation })
+          .filter((p) => p.kind === 'through');
+        return set.reduce((a, p) => a + p.lambda, 0) / set.length;
+      };
+      assert.greater(meanNm(2), meanNm(80) + 30);
+    });
+
+    test('the histogram counts every drawn beam exactly once', () => {
+      const h = histogramPhotons(earthPaths, 0, VIEW_CONE_HALF_DEG * Math.PI / 180);
+      let counted = 0;
+      for (let b = 0; b < h.centres.length; b++) counted += h.inCone[b] + h.other[b];
+      assert.equal(counted, earthPaths.length);
+      assert.equal(h.total, earthPaths.length);
+      assert.between(h.meanNm, SPECTRUM_MIN_NM, SPECTRUM_MAX_NM);
+    });
+
+    test('the histogram moves towards the red as the star sinks', () => {
+      const mean = (elevation) => histogramPhotons(
+        trace({ sunElevationDeg: elevation }), 0, VIEW_CONE_HALF_DEG * Math.PI / 180).meanNm;
+      assert.greater(mean(3), mean(75));
+    });
+
     test('a vacuum produces no scattering events at all', () => {
       const moon = createAtmosphere(config.atmospheres['airless-moon']);
-      const paths = trace({ atmosphere: moon, count: 400, top_m: moon.topAltitude });
+      const paths = trace({ atmosphere: moon, count: 400 });
       assert.greater(paths.length, 0);
       for (const path of paths) {
         assert.equal(path.scatterCount, 0);
@@ -812,6 +868,42 @@ export function registerTests({ group, test, assert }, config) {
       computeIllumination(scene, colorimetry);
       const elapsed = Date.now() - started;
       assert.less(elapsed, 33, `a full recompute took ${elapsed} ms, the budget is 33 ms`);
+    });
+
+    test('tracing the drawn rays stays cheap at the largest ray count', () => {
+      // The drawn paths went from a flat slab with a closed-form column to
+      // spherical geometry with a marched one, which is the only way to show a
+      // grazing chord. That made this loop worth guarding: the sun leg is now
+      // cached per cell of (altitude, solar zenith angle), and without that
+      // cache five thousand rays cost several times the frame budget.
+      const options = {
+        atmosphere: earth, source: sunSpectrum, sunElevationDeg: 30, observerZ: 0,
+        count: 5000, span_m: 25500, skyExtent_m: 24225, halfWidth_m: 12364, seed: 7,
+      };
+      tracePhotons(options);
+      const started = Date.now();
+      tracePhotons(options);
+      const elapsed = Date.now() - started;
+      assert.less(elapsed, 25, `tracing 5000 rays took ${elapsed} ms`);
+    });
+
+    test('the cached sun leg agrees with marching it every time', () => {
+      // The cache is only legitimate if it changes nothing you can see. Compare
+      // the colours it produces against a trace fine enough that quantisation
+      // cannot matter: the two bundles must have the same mean wavelength.
+      const base = { atmosphere: earth, source: sunSpectrum, sunElevationDeg: 12,
+        observerZ: 0, count: 4000, span_m: 25500, skyExtent_m: 24225,
+        halfWidth_m: 12364, seed: 3 };
+      const mean = (paths) => {
+        const set = paths.filter((p) => p.kind === 'arriving');
+        return set.reduce((a, p) => a + p.lambda, 0) / set.length;
+      };
+      const uncached = mean(tracePhotons({ ...base, sunCacheScale: 1e-4 }));
+      const cached = mean(tracePhotons(base));
+      // A low star is the hardest case: transmission changes fastest with
+      // altitude there, so this is where quantising could show.
+      assert.close(cached, uncached, 0.004,
+        `cached ${cached.toFixed(2)} nm vs uncached ${uncached.toFixed(2)} nm`);
     });
   });
 }

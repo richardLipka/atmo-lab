@@ -67,7 +67,9 @@
       "wellDepth": "Shaft depth",
       "wellDepthHelp": "Also sets how far down the position slider can travel.",
       "countShaftAir": "Count air inside the shaft",
-      "countShaftAirHelp": "Off by default, so that descending changes geometry only. Switch it on to add the denser air that would really fill a deep shaft."
+      "countShaftAirHelp": "Off by default, so that descending changes geometry only. Switch it on to add the denser air that would really fill a deep shaft.",
+      "zoom": "Zoom (frame height)",
+      "zoomHelp": "How much of the world the cross-section shows. Zoom out at a low Sun to see the chord its light has to cross - that length is why it is red. The mouse wheel works too."
     },
     "rays": {
       "title": "Ray simulation",
@@ -253,5 +255,10 @@
     "model": "Single-scattering model",
     "modelNote": "Light is followed from the star to one scattering event and then to the eye. Multiple scattering, refraction and ozone absorption are not modelled.",
     "sourceData": "All physical data live in editable JSON files under /config."
+  },
+  "histogram": {
+    "title": "All beams in the simulation",
+    "help": "Every ray drawn above, counted by wavelength. Coloured: the ones reaching the observer from the viewing cone. Grey: everything else. Lower the star and watch the whole distribution move towards the red.",
+    "mean": "mean"
   }
 }

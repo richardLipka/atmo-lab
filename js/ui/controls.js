@@ -7,7 +7,9 @@
  */
 
 import { sliderToZ, zToSlider, maxAltitudeFor } from '../state.js';
-import { formatAltitude } from '../render/scene-renderer.js';
+import {
+  formatAltitude, autoSpanFor, MIN_SPAN_M, MAX_SPAN_M,
+} from '../render/scene-renderer.js';
 
 function getPath(object, path) {
   return path.split('.').reduce((node, key) => (node == null ? node : node[key]), object);
@@ -42,6 +44,19 @@ function valueToLog(v, min, max) {
 
 export function createControls(root, { store, i18n, config }) {
   const elements = new Map();
+
+  /**
+   * Just enough of an atmosphere for autoSpanFor: it only reads the scale
+   * height, and building a whole atmosphere to fill in a slider would be
+   * wasteful on every repaint of the controls.
+   */
+  function atmosphereShape(state) {
+    const preset = config.atmospheres.get(state.atmosphere.presetId);
+    return {
+      scaleHeightRayleigh: state.atmosphere.scaleHeight_m
+        ?? preset?.rayleigh.scaleHeight_m ?? 8500,
+    };
+  }
 
   const sections = [
     {
@@ -214,6 +229,14 @@ export function createControls(root, { store, i18n, config }) {
           id: 'ctl-shaft-air', type: 'checkbox', labelKey: 'controls.observer.countShaftAir',
           helpKey: 'controls.observer.countShaftAirHelp',
           path: 'observer.countShaftAir', advanced: true, dependsOn: 'observer.well.enabled',
+        },
+        {
+          id: 'ctl-zoom', type: 'range', labelKey: 'controls.observer.zoom',
+          helpKey: 'controls.observer.zoomHelp', path: 'camera.span_m',
+          min: MIN_SPAN_M, max: MAX_SPAN_M, step: 1, scale: 'log',
+          fallback: (state) => autoSpanFor(
+            atmosphereShape(state), Math.max(0, state.observer.z)),
+          format: (v) => formatAltitude(v),
         },
         {
           id: 'ctl-compare', type: 'checkbox', labelKey: 'compare.enable',

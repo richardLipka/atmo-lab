@@ -176,7 +176,9 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .panel-center {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) auto auto auto;
+  /* The cross-section takes whatever is left; the histogram and the sky strip
+     are fixed strips beneath it. */
+  grid-template-rows: minmax(0, 1fr) auto auto auto auto;
   gap: 6px;
   padding: 8px;
 }
@@ -291,6 +293,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 }
 
 .sky-wrap { display: grid; gap: 3px; }
+.hist-wrap { display: grid; gap: 3px; }
 .strip-header {
   display: flex;
   align-items: center;
@@ -313,6 +316,12 @@ button:disabled { opacity: 0.4; cursor: default; }
   display: block;
   width: 100%;
   height: 78px;
+  border-radius: var(--radius-sm);
+}
+#histogram-canvas {
+  display: block;
+  width: 100%;
+  height: 86px;
   border-radius: var(--radius-sm);
 }
 
@@ -543,7 +552,7 @@ body[data-level="basic"] .explain-column.is-why { opacity: 0.78; }
   .panel { overflow: visible; }
   .panel-scroll { height: auto; max-height: none; overflow: visible; }
   .canvas-wrap { height: 52vh; min-height: 300px; }
-  .panel-center { grid-template-rows: auto auto auto auto; }
+  .panel-center { grid-template-rows: auto auto auto auto auto; }
   .explain { grid-template-columns: 1fr; }
   body[data-level="basic"] .explain { grid-template-columns: 1fr; }
 }

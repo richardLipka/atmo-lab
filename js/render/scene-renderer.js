@@ -31,6 +31,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   const ctx = canvas.getContext('2d', { alpha: false });
   let data = null;
   let field = null;          // offscreen canvas holding the atmospheric glow
+  let fieldKey = null;       // what that glow was computed for
   let layout = null;         // geometry of the last frame, for hit testing
   let hoveredPath = -1;
   let selectedPath = -1;
@@ -56,8 +57,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * small offscreen image. Drawn back scaled up and smoothed, it gives a
    * continuous gradient for the price of a few hundred evaluations - and the
    * shadow of the planet appears on its own at low sun.
+   *
+   * The grid is laid out in screen space and lifted into the world through the
+   * camera, so zooming out re-evaluates the same integrator over a bigger piece
+   * of the planet rather than stretching a picture of a small one. Cells below
+   * the surface or above the atmosphere are left transparent; the ground and
+   * the black of space are painted separately.
    */
-  function buildField(result, halfWidth, topAltitude) {
+  function buildField(result, camera, plot) {
     const scene = result.primary.scene;
     const atm = result.atmosphere;
     const off = document.createElement('canvas');
@@ -67,16 +74,20 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const image = octx.createImageData(FIELD_COLUMNS, FIELD_ROWS);
 
     for (let row = 0; row < FIELD_ROWS; row++) {
-      // Rows are spaced by the same power curve the vertical axis uses, so the
-      // dense lower air gets the resolution it deserves.
-      const tv = 1 - (row + 0.5) / FIELD_ROWS;
-      const altitude = tv * topAltitude;
+      const sy = plot.y + ((row + 0.5) / FIELD_ROWS) * plot.h;
       for (let col = 0; col < FIELD_COLUMNS; col++) {
-        const x = (-1 + 2 * (col + 0.5) / FIELD_COLUMNS) * halfWidth;
-        const point = v3(x, atm.planetRadius + altitude, 0);
+        const sx = plot.x + ((col + 0.5) / FIELD_COLUMNS) * plot.w;
+        const world = camera.unproject(sx, sy);
+        const radius = Math.hypot(world.x, world.y);
+        const altitude = radius - camera.R;
+        const i = (row * FIELD_COLUMNS + col) * 4;
+        if (altitude < 0 || altitude > atm.topAltitude) {
+          image.data[i + 3] = 0;
+          continue;
+        }
+        const point = v3(world.x, world.y, 0);
         const spectrum = computeScatteringSource(scene, point, 0, QUALITY_PRESETS.preview);
         const c = colorimetry.spectrumToSrgb(spectrum, result.exposure * FIELD_GAIN);
-        const i = (row * FIELD_COLUMNS + col) * 4;
         image.data[i] = c.rgb[0];
         image.data[i + 1] = c.rgb[1];
         image.data[i + 2] = c.rgb[2];
@@ -108,10 +119,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     // Clicking a ray should survive an unrelated slider move; only a fresh set
     // of traced photons invalidates the choice.
     if (!options.keepSelection) selectedPath = -1;
-    if (data && data.result && data.state.observer.z >= 0) {
-      const top = frameTopFor(data.result.atmosphere, data.state.observer.z);
-      field = buildField(data.result, top * HALF_WIDTH_FACTOR, top);
-    }
+    // The glow field is built lazily on the first draw, because it depends on
+    // the plot rectangle and so on the size of the canvas.
+    fieldKey = null;
   }
 
   function draw(timeMs) {
@@ -161,66 +171,222 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   function drawAtmosphereView(w, h, evaluation, z, timeMs, allowInteraction) {
     const atm = data.result.atmosphere;
-    const topAltitude = frameTopFor(atm, z);
-    const halfWidth = topAltitude * HALF_WIDTH_FACTOR;
 
-    const padLeft = 46, padRight = 12, padTop = 10, padBottom = 26;
-    const plot = { x: padLeft, y: padTop, w: w - padLeft - padRight, h: h - padTop - padBottom };
-    const groundY = plot.y + plot.h;
+    const plot = plotRect(w, h);
+    const span = spanFor(data.state, atm, z);
+    const camera = makeCamera(atm, plot, span);
 
-    const toX = (metres) => plot.x + ((metres + halfWidth) / (2 * halfWidth)) * plot.w;
-    const toY = (altitude) => groundY
-      - Math.max(0, Math.min(1, altitude / topAltitude)) * plot.h;
+    // The glow is expensive, so it is rebuilt only when what it depends on
+    // moves - which now includes the zoom and the size of the canvas.
+    const key = `${span}|${Math.round(plot.w)}x${Math.round(plot.h)}`;
+    if (allowInteraction && fieldKey !== key) {
+      field = buildField(data.result, camera, plot);
+      fieldKey = key;
+    }
+    const panelField = allowInteraction ? field : buildField(data.result, camera, plot);
 
-    // Sky glow, painted from the computed field.
-    if (field) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(plot.x, plot.y, plot.w, plot.h);
+    ctx.clip();
+
+    if (panelField) {
       ctx.save();
       ctx.imageSmoothingEnabled = true;
-      ctx.drawImage(field, plot.x, plot.y, plot.w, plot.h);
+      ctx.drawImage(panelField, plot.x, plot.y, plot.w, plot.h);
       ctx.restore();
     }
 
-    drawStarBeams(plot, toX, toY, topAltitude, halfWidth, evaluation);
-    drawViewCone(plot, toX, toY, topAltitude, halfWidth, z);
+    // The planet, drawn as the arc it is. At close zoom the sagitta is a
+    // fraction of a pixel and it looks like a flat horizon on its own.
+    fillPlanet(plot, camera, groundColor(data.result));
+
+    drawAltitudeArcs(plot, camera, atm);
+    drawStarMarker(plot, evaluation);
+    drawViewCone(plot, camera, z);
     if (data.photons && data.state.rays.showScattering) {
-      drawPhotons(plot, toX, toY, timeMs, allowInteraction);
+      drawPhotons(plot, camera.project, timeMs, allowInteraction);
     }
+    drawObserverAt(camera, z, evaluation);
+    ctx.restore();
 
-    // Ground.
-    ctx.fillStyle = groundColor(data.result);
-    ctx.fillRect(plot.x, groundY, plot.w, h - groundY);
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(plot.x, groundY + 0.5);
-    ctx.lineTo(plot.x + plot.w, groundY + 0.5);
-    ctx.stroke();
+    // Outside the clip: the labels live in the left margin, which is not part
+    // of the plot rectangle the rays are clipped to.
+    drawAltitudeLabels(plot, camera, atm);
+    drawScaleBar(plot, camera);
+    if (allowInteraction) layout = { plot, camera, mode: 'atmosphere' };
+  }
 
-    drawAltitudeAxis(plot, toY, topAltitude);
-    drawObserver(toX(0), toY(Math.max(0, z)), evaluation, z);
-    layout = allowInteraction ? { plot, toX, toY, mode: 'atmosphere' } : layout;
+  /** The drawing area inside the canvas, shared by the view and the tracer. */
+  function plotRect(w, h) {
+    const padLeft = 52, padRight = 12, padTop = 10, padBottom = 26;
+    return { x: padLeft, y: padTop, w: w - padLeft - padRight, h: h - padTop - padBottom };
   }
 
   /**
-   * A marker showing where the star sits. The beams themselves are no longer
-   * drawn here: the traced paths carry the real, spectrally weighted version of
-   * the same light, and a second set of decorative rays only competed with it.
+   * The piece of the world that is on screen, for whoever needs to sample it.
+   *
+   * The ray tracer has to lay its paths out over exactly the region that will be
+   * drawn, and it runs before the first frame, so it asks here rather than
+   * guessing at the canvas geometry.
    */
-  function drawStarBeams(plot, toX, toY, topAltitude, halfWidth, evaluation) {
+  function frameFor(state, atmosphere) {
+    const { w, h } = cssSize();
+    const plot = plotRect(w, h);
+    const camera = makeCamera(atmosphere, plot, spanFor(state, atmosphere, state.observer.z));
+    return {
+      span_m: camera.span,
+      halfWidth_m: camera.halfWidth,
+      skyExtent_m: camera.skyExtent,
+    };
+  }
+
+  /** Which vertical extent is on screen: the observer's choice, or the default. */
+  function spanFor(state, atmosphere, z) {
+    return state.camera?.span_m != null
+      ? clampSpan(state.camera.span_m)
+      : autoSpanFor(atmosphere, z);
+  }
+
+  /**
+   * Fill everything below the surface. The surface is a circle of radius R about
+   * the origin, so the boundary is sampled across the plot and closed downwards.
+   */
+  function fillPlanet(plot, camera, colour) {
+    const steps = 96;
+    ctx.save();
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i <= steps; i++) {
+      const sx = plot.x + (i / steps) * plot.w;
+      const worldX = (sx - camera.cx) / camera.scale;
+      // The surface point directly "below" this column: y = sqrt(R^2 - x^2).
+      const inside = camera.R * camera.R - worldX * worldX;
+      const worldY = inside > 0 ? Math.sqrt(inside) : 0;
+      const p = camera.project({ x: worldX, y: worldY });
+      if (!started) { ctx.moveTo(p.x, p.y); started = true; } else ctx.lineTo(p.x, p.y);
+    }
+    ctx.lineTo(plot.x + plot.w, plot.y + plot.h);
+    ctx.lineTo(plot.x, plot.y + plot.h);
+    ctx.closePath();
+    ctx.fillStyle = colour;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  /**
+   * Altitude gridlines. They are circles about the planet centre, so at wide
+   * zoom the top of the atmosphere is visibly a shell wrapped round a ball -
+   * which is the whole reason the zoom exists.
+   */
+  function drawAltitudeArcs(plot, camera, atm) {
+    ctx.save();
+    for (const value of altitudeTicksFor(camera, atm)) {
+      const top = value === atm.topAltitude;
+      ctx.strokeStyle = top ? 'rgba(160,200,255,0.35)' : 'rgba(255,255,255,0.10)';
+      ctx.setLineDash(top ? [5, 4] : []);
+      ctx.beginPath();
+      const steps = 64;
+      for (let i = 0; i <= steps; i++) {
+        const sx = plot.x + (i / steps) * plot.w;
+        const worldX = (sx - camera.cx) / camera.scale;
+        const radius = camera.R + value;
+        const inside = radius * radius - worldX * worldX;
+        if (inside <= 0) continue;
+        const q = camera.project({ x: worldX, y: Math.sqrt(inside) });
+        if (i === 0) ctx.moveTo(q.x, q.y); else ctx.lineTo(q.x, q.y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  /** The altitudes those arcs stand for, written in the left margin. */
+  function drawAltitudeLabels(plot, camera, atm) {
+    ctx.save();
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    // Zoomed out, the whole atmosphere is a few pixels tall and every tick
+    // lands on the same row. Keep the ones that are legibly apart, and always
+    // keep the top of the atmosphere, which is the one worth naming.
+    const ticks = altitudeTicksFor(camera, atm);
+    let lastY = -Infinity;
+    for (let i = ticks.length - 1; i >= 0; i--) {
+      const value = ticks[i];
+      const label = camera.project({ x: 0, y: camera.R + value });
+      if (label.y < plot.y + 6 || label.y > plot.y + plot.h - 4) continue;
+      if (label.y - lastY < 13 && value !== 0) continue;
+      lastY = label.y;
+      ctx.fillStyle = value === atm.topAltitude
+        ? 'rgba(160,200,255,0.8)' : 'rgba(255,255,255,0.5)';
+      ctx.fillText(formatAltitude(value), plot.x - 6, label.y);
+    }
+    ctx.restore();
+  }
+
+  /** Which altitudes get an arc and a label at this zoom. */
+  function altitudeTicksFor(camera, atm) {
+    const ticks = niceAltitudeTicks(Math.min(atm.topAltitude, camera.skyExtent));
+    if (!ticks.includes(atm.topAltitude) && atm.topAltitude <= camera.skyExtent) {
+      ticks.push(atm.topAltitude);
+    }
+    return ticks;
+  }
+
+  /** A bar giving the horizontal scale, which now changes with the zoom. */
+  function drawScaleBar(plot, camera) {
+    const target = plot.w * 0.22;
+    const metres = niceRoundDistance(target / camera.scale);
+    const px = metres * camera.scale;
+    const y = plot.y + plot.h + 14;
+    const x = plot.x + 4;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x, y - 4); ctx.lineTo(x, y);
+    ctx.lineTo(x + px, y); ctx.lineTo(x + px, y - 4);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.62)';
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(formatAltitude(metres), x + px + 6, y - 8);
+    ctx.restore();
+  }
+
+  /** The observer, with its sight line, placed through the camera. */
+  function drawObserverAt(camera, z, evaluation) {
+    const p = camera.project({ x: 0, y: camera.R + Math.max(0, z) });
+    drawObserver(p.x, p.y, evaluation, z);
+  }
+
+  /**
+   * A marker showing where the star sits. The beams themselves are not drawn
+   * here: the traced `through` paths carry the real, spectrally weighted
+   * version of the same light, and a second set of decorative rays only
+   * competed with it.
+   */
+  function drawStarMarker(plot, evaluation) {
     const color = data.result.primary.colors.source.css;
-    const label = i18n.t('canvas.star');
     ctx.save();
     ctx.globalAlpha = 0.9;
     ctx.fillStyle = color;
     const mx = plot.x + plot.w - 8;
-    const my = plot.y + 10 + (1 - Math.max(0, Math.min(1, data.state.star.elevationDeg / 90))) * (plot.h * 0.35);
+    const my = plot.y + 10
+      + (1 - Math.max(0, Math.min(1, data.state.star.elevationDeg / 90))) * (plot.h * 0.35);
     ctx.beginPath();
     ctx.arc(mx - 26, my, 6, 0, Math.PI * 2);
     ctx.fill();
     ctx.font = '10px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.textAlign = 'right';
-    ctx.fillText(label, mx, my + 3);
+    ctx.fillText(i18n.t('canvas.star'), mx, my + 3);
     ctx.restore();
   }
 
@@ -228,35 +394,33 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * The cone of sky the observer is looking down.
    *
    * The panels report one radiance, one spectrum and one colour, and all three
-   * are properties of this cone. Drawing it makes that concrete: the bright
-   * rays inside the wedge are the ones being measured, the faint ones outside
-   * are the rest of the sky arriving from elsewhere.
+   * are properties of this cone. Drawing it makes that concrete: the coloured
+   * rays inside the wedge are the ones being measured, the grey ones outside
+   * are everything else.
    */
-  function drawViewCone(plot, toX, toY, topAltitude, halfWidth, z) {
+  function drawViewCone(plot, camera, z) {
     const state = data.state;
     const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
     const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
     const half = VIEW_CONE_HALF_DEG * Math.PI / 180;
-    const oy = Math.max(0, z);
+    const origin = { x: 0, y: camera.R + Math.max(0, z) };
+    const reach = camera.span * 3;
 
-    // One straight segment per edge; the axis is linear, so that is exact.
-    const edge = (angle) => {
-      const dx = Math.sin(angle), dy = Math.cos(angle);
-      if (dy <= 0.02) return null;
-      let reach = (topAltitude - oy) / dy;
-      if (Math.abs(dx) > 1e-6) reach = Math.min(reach, (halfWidth * 0.98) / Math.abs(dx));
-      return { x: dx * reach, y: oy + dy * reach };
-    };
-
-    const left = edge(axis - half);
-    const right = edge(axis + half);
-    if (!left || !right) return;
+    // One straight segment per edge, generously long and clipped by the plot
+    // rectangle. Straight is exact here: the projection is orthographic.
+    const edge = (angle) => ({
+      x: origin.x + Math.sin(angle) * reach,
+      y: origin.y + Math.cos(angle) * reach,
+    });
+    const o = camera.project(origin);
+    const left = camera.project(edge(axis - half));
+    const right = camera.project(edge(axis + half));
 
     ctx.save();
     ctx.beginPath();
-    ctx.moveTo(toX(0), toY(oy));
-    ctx.lineTo(toX(left.x), toY(left.y));
-    ctx.lineTo(toX(right.x), toY(right.y));
+    ctx.moveTo(o.x, o.y);
+    ctx.lineTo(left.x, left.y);
+    ctx.lineTo(right.x, right.y);
     ctx.closePath();
     ctx.fillStyle = 'rgba(255, 255, 255, 0.075)';
     ctx.fill();
@@ -266,18 +430,21 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.setLineDash([4, 4]);
     for (const side of [left, right]) {
       ctx.beginPath();
-      ctx.moveTo(toX(0), toY(oy));
-      ctx.lineTo(toX(side.x), toY(side.y));
+      ctx.moveTo(o.x, o.y);
+      ctx.lineTo(side.x, side.y);
       ctx.stroke();
     }
     ctx.setLineDash([]);
-
-    const a = left, b = right;
     ctx.font = '10px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(255,255,255,0.72)';
     ctx.textAlign = 'center';
+    const label = camera.project({
+      x: origin.x + Math.sin(axis) * camera.span * 0.55,
+      y: origin.y + Math.cos(axis) * camera.span * 0.55,
+    });
     ctx.fillText(i18n.t('canvas.viewCone'),
-      (toX(a.x) + toX(b.x)) / 2, toY(Math.max(a.y, b.y)) - 5);
+      Math.max(plot.x + 60, Math.min(plot.x + plot.w - 60, label.x)),
+      Math.max(plot.y + 12, label.y));
     ctx.restore();
   }
 
@@ -289,7 +456,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * where the observer will never see it, then the light arriving from the rest
    * of the sky, and last, brightest, the rays inside the viewing cone.
    */
-  function drawPhotons(plot, toX, toY, timeMs, allowInteraction) {
+  function drawPhotons(plot, project, timeMs, allowInteraction) {
     const paths = data.photons;
     const animate = data.state.rays.animate;
     const phase = animate ? (timeMs / 2600) % 1 : 1;
@@ -312,7 +479,10 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       && Math.abs(p.arrivalAngleRad - axis) <= half;
 
     const GREY = '#8a93a6';
-    const contextAlpha = { through: 0.10, missed: 0.16, arriving: 0.13 };
+    // Grey, but not invisible: zoomed out, the long chord an unscattered beam
+    // has to cross IS the demonstration, so it gets the strongest of the greys.
+    const contextAlpha = { through: 0.30, missed: 0.16, arriving: 0.13 };
+    const contextWidth = { through: 1.2, missed: 1, arriving: 1 };
 
     /**
      * Every arriving ray outside the cone also ends at the observer, so drawn
@@ -330,14 +500,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     for (const kind of ['through', 'missed', 'arriving']) {
       ctx.save();
       ctx.strokeStyle = GREY;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = contextWidth[kind];
       ctx.globalAlpha = contextAlpha[kind];
       ctx.beginPath();
       for (let i = 0; i < paths.length; i++) {
         const p = paths[i];
         if (p.kind !== kind || !asContext(p, i)) continue;
         if (i === selectedPath || i === hoveredPath) continue;
-        strokePath(p, toX, toY, phase);
+        strokePath(p, project, phase);
       }
       ctx.stroke();
       ctx.restore();
@@ -352,9 +522,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       const p = paths[i];
       if (p.scatterCount === 0 || !asContext(p, i)) continue;
       if (i === selectedPath || i === hoveredPath) continue;
-      const e = p.events[1];
+      const e = project(p.events[1]);
       ctx.beginPath();
-      ctx.arc(toX(e.x), toY(e.y), 1.4, 0, Math.PI * 2);
+      ctx.arc(e.x, e.y, 1.4, 0, Math.PI * 2);
       ctx.fill();
     }
     // Arrowheads on the paths that leave: without them a stub reads as a line
@@ -364,9 +534,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       const p = paths[i];
       if (p.kind !== 'missed' || !asContext(p, i)) continue;
       if (i === selectedPath || i === hoveredPath) continue;
-      const from = p.points[p.points.length - 2];
-      const to = p.points[p.points.length - 1];
-      drawArrowHead(toX(from.x), toY(from.y), toX(to.x), toY(to.y), 4.5);
+      const from = project(p.points[p.points.length - 2]);
+      const to = project(p.points[p.points.length - 1]);
+      drawArrowHead(from.x, from.y, to.x, to.y, 4.5);
     }
     ctx.restore();
 
@@ -388,7 +558,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       const [r, g, b] = wavelengthToDisplayRgb(lambda);
       ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
       ctx.beginPath();
-      for (const index of indices) strokePath(paths[index], toX, toY, phase);
+      for (const index of indices) strokePath(paths[index], project, phase);
       ctx.stroke();
     }
     ctx.restore();
@@ -405,9 +575,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
         ctx.beginPath();
         for (const index of indices) {
           const pts = paths[index].points;
-          const from = pts[pts.length - 2], to = pts[pts.length - 1];
-          ctx.moveTo(toX(from.x), toY(from.y));
-          ctx.lineTo(toX(to.x), toY(to.y));
+          const from = project(pts[pts.length - 2]), to = project(pts[pts.length - 1]);
+          ctx.moveTo(from.x, from.y);
+          ctx.lineTo(to.x, to.y);
         }
         ctx.stroke();
       }
@@ -419,9 +589,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fillStyle = '#ffffff';
     for (const indices of buckets.values()) {
       for (const index of indices) {
-        const e = paths[index].events[1];
+        const e = project(paths[index].events[1]);
         ctx.beginPath();
-        ctx.arc(toX(e.x), toY(e.y), 2.4, 0, Math.PI * 2);
+        ctx.arc(e.x, e.y, 2.4, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -439,14 +609,15 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
       ctx.shadowBlur = 8;
       ctx.beginPath();
-      strokePath(p, toX, toY, 1);
+      strokePath(p, project, 1);
       ctx.stroke();
       ctx.shadowBlur = 0;
       for (const e of p.events) {
         if (e.type !== 'scatter' && e.type !== 'absorb') continue;
         ctx.fillStyle = e.type === 'absorb' ? '#ff5a5a' : '#ffffff';
+        const q = project(e);
         ctx.beginPath();
-        ctx.arc(toX(e.x), toY(e.y), e.type === 'absorb' ? 3.5 : 2.6, 0, Math.PI * 2);
+        ctx.arc(q.x, q.y, e.type === 'absorb' ? 3.5 : 2.6, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.restore();
@@ -517,31 +688,16 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   // Straight in the world, straight on screen: the altitude axis is linear, so
   // a leg needs no subdivision to land on the altitudes it really passes
   // through, and a ray looks like what it is.
-  function strokePath(path, toX, toY, phase) {
+  function strokePath(path, project, phase) {
     const pts = path.points;
     if (pts.length < 2) return;
     const limit = phase >= 1 ? pts.length : Math.max(2, Math.ceil(pts.length * phase));
-    ctx.moveTo(toX(pts[0].x), toY(pts[0].y));
-    for (let i = 1; i < limit; i++) ctx.lineTo(toX(pts[i].x), toY(pts[i].y));
-  }
-
-  function drawAltitudeAxis(plot, toY, topAltitude) {
-    const ticks = niceAltitudeTicks(topAltitude);
-    ctx.save();
-    ctx.font = '10px system-ui, sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    for (const value of ticks) {
-      const y = toY(value);
-      ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-      ctx.beginPath();
-      ctx.moveTo(plot.x, y + 0.5);
-      ctx.lineTo(plot.x + plot.w, y + 0.5);
-      ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.5)';
-      ctx.fillText(formatAltitude(value), plot.x - 6, y);
+    const first = project(pts[0]);
+    ctx.moveTo(first.x, first.y);
+    for (let i = 1; i < limit; i++) {
+      const q = project(pts[i]);
+      ctx.lineTo(q.x, q.y);
     }
-    ctx.restore();
   }
 
   function drawObserver(px, py, evaluation, z) {
@@ -704,20 +860,22 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   /* ---------------------------------------------------------------- */
 
-  /** Find the traced photon nearest to a canvas point. */
+  /** Find the traced ray nearest to a canvas point. */
   function pick(clientX, clientY) {
     if (!layout || !data || !data.photons) return -1;
     const rect = canvas.getBoundingClientRect();
     const px = clientX - rect.left;
     const py = clientY - rect.top;
-    const { toX, toY } = layout;
+    const project = layout.camera.project;
     let best = -1, bestDist = 12;
     for (let i = 0; i < data.photons.length; i++) {
       const pts = data.photons[i].points;
+      let previous = project(pts[0]);
       for (let k = 1; k < pts.length; k++) {
-        const d = distanceToSegment(px, py,
-          toX(pts[k - 1].x), toY(pts[k - 1].y), toX(pts[k].x), toY(pts[k].y));
+        const current = project(pts[k]);
+        const d = distanceToSegment(px, py, previous.x, previous.y, current.x, current.y);
         if (d < bestDist) { bestDist = d; best = i; }
+        previous = current;
       }
     }
     return best;
@@ -731,7 +889,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   }
 
   return {
-    update, draw, pick,
+    update, draw, pick, frameFor,
     setHovered(index) { hoveredPath = index; },
     setSelected(index) { selectedPath = index; },
     getSelected() { return selectedPath; },
@@ -741,42 +899,95 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 /* Shared constants and helpers -------------------------------------- */
 
 /**
- * The altitude axis is LINEAR.
+ * The cross-section is drawn in true spherical geometry, orthographically
+ * projected: the planet centre sits at the origin of world coordinates and the
+ * camera is a plain translate-and-scale. Two consequences, both deliberate.
  *
- * An earlier version compressed it by a power law to give the dense lower air
- * more room. The price was that a ray which is straight in the world became a
- * curve on screen, which is exactly the wrong lesson in a picture about light
- * travelling in straight lines. The room is bought a different way instead: the
- * frame is cropped to the air that actually matters - see frameTopFor.
+ * Straight rays stay straight. An early version compressed the altitude axis by
+ * a power law to give the dense lower air more room, which bent every ray on
+ * screen - the wrong lesson in a picture about light travelling in straight
+ * lines. Here it is the GROUND that curves, which is the truth, and at close
+ * zoom that curve is a fraction of a pixel, so the picture looks flat by itself.
+ *
+ * And the frame can be zoomed out until the curve matters. That is the only way
+ * to draw the reason a low Sun is red: its light crosses a chord hundreds of
+ * kilometres long, which does not fit in a picture of the local sky.
  */
-const HALF_WIDTH_FACTOR = 1.5;
+
+/** Vertical extent of the frame, in metres, at either end of the zoom control. */
+export const MIN_SPAN_M = 5e3;
+export const MAX_SPAN_M = 6e6;
+
+export function clampSpan(span) {
+  return Math.max(MIN_SPAN_M, Math.min(MAX_SPAN_M, span));
+}
 
 /**
- * Top of the drawn frame.
- *
- * Three scale heights hold 95 % of the column, so cropping there costs almost
- * nothing and buys back the vertical room the power law used to steal - the
- * air that does the scattering gets most of the picture instead of the bottom
- * tenth of it. The frame always extends far enough to contain the observer, so
- * climbing towards space still works, and never past the real top of the
- * atmosphere.
+ * The span used when the observer has not chosen one: three scale heights,
+ * which hold 95 % of the column, and always enough to contain the observer.
  */
-export function frameTopFor(atmosphere, observerAltitude) {
-  const wanted = Math.max(3 * atmosphere.scaleHeightRayleigh, observerAltitude * 1.15);
-  return Math.max(1, Math.min(atmosphere.topAltitude, wanted));
+export function autoSpanFor(atmosphere, observerAltitude) {
+  return clampSpan(Math.max(
+    3 * atmosphere.scaleHeightRayleigh, Math.max(0, observerAltitude) * 1.35));
 }
+
+/**
+ * How much of the frame is sky.
+ *
+ * Zoomed in, the ground belongs at the very bottom and the picture is all air.
+ * Zoomed out, the planet has to be given room or its curve cannot be seen, so
+ * the horizon rises towards the middle. Interpolated on the logarithm, because
+ * that is how the zoom control moves.
+ */
+function skyFractionFor(span) {
+  const lo = Math.log(6e4), hi = Math.log(2e6);
+  const t = Math.max(0, Math.min(1, (Math.log(span) - lo) / (hi - lo)));
+  return 0.95 + t * (0.42 - 0.95);
+}
+
+/**
+ * The camera: everything the drawing needs to turn world metres into pixels,
+ * and to know which piece of the world is on screen.
+ */
+export function makeCamera(atmosphere, plot, span) {
+  const R = atmosphere.planetRadius;
+  const skyFraction = skyFractionFor(span);
+  const scale = plot.h / span;
+  const cx = plot.x + plot.w / 2;
+  const groundY = plot.y + skyFraction * plot.h;
+  return {
+    R, span, scale, skyFraction, groundY, cx,
+    halfWidth: (plot.w / 2) / scale,
+    skyExtent: skyFraction * span,
+    project: (q) => ({ x: cx + q.x * scale, y: groundY - (q.y - R) * scale }),
+    /** Screen point back to the world, for hit testing. */
+    unproject: (sx, sy) => ({ x: (sx - cx) / scale, y: R + (groundY - sy) / scale }),
+  };
+}
+
 const FIELD_GAIN = 5.4e3;
 
+/** A round number of metres near `metres`, for the scale bar. */
+function niceRoundDistance(metres) {
+  const power = Math.pow(10, Math.floor(Math.log10(Math.max(1, metres))));
+  for (const step of [1, 2, 5, 10]) {
+    if (metres <= step * power) return step * power;
+  }
+  return 10 * power;
+}
+
 function niceAltitudeTicks(topAltitude) {
-  const km = topAltitude / 1000;
-  const candidates = km > 300 ? [0, 25000, 100000, 250000, 500000]
-    : km > 150 ? [0, 10000, 40000, 100000, 200000]
-      : [0, 2000, 10000, 30000, 60000, 100000];
-  return candidates.filter((v) => v <= topAltitude);
+  // The zoom now spans three orders of magnitude, so the ticks are generated
+  // rather than chosen from a table: roughly five of them, on a 1-2-5 ladder.
+  const step = niceRoundDistance(Math.max(1, topAltitude) / 4);
+  const ticks = [];
+  for (let v = 0; v <= topAltitude + 1e-6; v += step) ticks.push(Math.round(v));
+  return ticks.slice(0, 9);
 }
 
 export function formatAltitude(metres) {
   const a = Math.abs(metres);
+  if (a === 0) return '0 m';
   if (a >= 1000) return `${(metres / 1000).toFixed(a >= 10000 ? 0 : 1)} km`;
   if (a >= 1) return `${metres.toFixed(0)} m`;
   return `${metres.toFixed(2)} m`;

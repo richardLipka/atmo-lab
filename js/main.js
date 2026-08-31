@@ -12,11 +12,14 @@ import { createI18n } from './i18n.js';
 import { createStore, DEFAULT_STATE, maxAltitudeFor, touches } from './state.js';
 import { createColorimetry } from './physics/color.js';
 import { createSimulation } from './simulation.js';
-import { createSceneRenderer, formatAltitude, frameTopFor } from './render/scene-renderer.js';
+import { createSceneRenderer, formatAltitude, clampSpan, autoSpanFor } from './render/scene-renderer.js';
 import { createSkyStrip } from './render/sky-strip.js';
 import { createSpectrumChart } from './render/spectrum-chart.js';
 import { createChromaticityPlot } from './render/chromaticity.js';
-import { tracePhotons, summarisePhotons } from './render/photons.js';
+import {
+  tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
+} from './render/photons.js';
+import { createBeamHistogram } from './render/beam-histogram.js';
 import { createControls } from './ui/controls.js';
 import { createPanels } from './ui/panels.js';
 import { createExplanation } from './ui/explanation.js';
@@ -40,6 +43,8 @@ async function start() {
   const sceneRenderer = createSceneRenderer(
     document.getElementById('scene-canvas'), { i18n, colorimetry });
   const skyStrip = createSkyStrip(document.getElementById('sky-canvas'), { i18n });
+  const beamHistogram = createBeamHistogram(
+    document.getElementById('histogram-canvas'), { i18n });
   const spectrumChart = createSpectrumChart(document.getElementById('spectrum-canvas'), { i18n });
   const chromaticity = createChromaticityPlot(
     document.getElementById('chroma-canvas'), { colorimetry, i18n });
@@ -77,11 +82,9 @@ async function start() {
       sunElevationDeg: state.star.elevationDeg,
       observerZ: state.observer.z,
       count: state.rays.showScattering ? state.rays.count : 0,
-      // The drawn frame is cropped to the air that matters; the physics keeps
-      // the real top of the atmosphere. These must match the renderer's.
-      halfWidth_m: frameTopFor(atmosphere, state.observer.z) * 1.5,
-      frameTop_m: frameTopFor(atmosphere, state.observer.z),
-      top_m: atmosphere.topAltitude,
+      // The rays must be laid out over exactly the region that will be drawn,
+      // so the renderer is asked rather than the geometry guessed at.
+      ...sceneRenderer.frameFor(state, atmosphere),
       seed: 20260828,
     });
     photonTally = summarisePhotons(photons, { source: result.source });
@@ -97,9 +100,23 @@ async function start() {
     const view = { state: store.state, result, photons };
     sceneRenderer.update(view, { keepSelection: !photonsChanged });
     skyStrip.update(view);
+    beamHistogram.update(beamHistogramFor(store.state));
     panels.update(result, photonTally);
     explanation.update(result);
     needsPaint = true;
+  }
+
+  /**
+   * Bin the drawn beams for the histogram. The split between "reaches the
+   * observer from where it is looking" and everything else is made here, from
+   * the same angle the cross-section colours by, so the two agree by
+   * construction rather than by coincidence.
+   */
+  function beamHistogramFor(state) {
+    if (!photons) return null;
+    const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
+    const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
+    return histogramPhotons(photons, axis, VIEW_CONE_HALF_DEG * Math.PI / 180);
   }
 
   store.subscribe((state, changed) => {
@@ -107,7 +124,7 @@ async function start() {
     needsPaint = true;
     if (touches(changed, 'atmosphere', 'star.elevationDeg', 'star.temperatureK',
       'star.presetId', 'star.realisticInsolation', 'rays.count', 'rays.showScattering',
-      'observer.z')) {
+      'observer.z', 'camera.span_m')) {
       // Note that the viewing direction is absent: the scattering events are a
       // property of the air and the star, not of where anyone is facing, so
       // turning the view restyles the existing rays rather than redrawing new
@@ -118,6 +135,10 @@ async function start() {
       store.setContext({
         maxAltitude: maxAltitudeFor(config.atmospheres.get(state.atmosphere.presetId)),
       });
+    }
+    if (touches(changed, 'observer.viewZenithDeg', 'observer.viewAzimuthDeg')) {
+      // No new rays, but the split between "reaches you" and "does not" moves.
+      beamHistogram.update(beamHistogramFor(state));
     }
     controls.update();
     syncHeader();
@@ -214,6 +235,20 @@ async function start() {
     sceneRenderer.setHovered(index);
     needsPaint = true;
   });
+  /**
+   * The wheel zooms the cross-section. Multiplicative, because the interesting
+   * range spans three orders of magnitude - from a picture of the air over your
+   * head to one that shows the whole chord a low Sun has to cross.
+   */
+  sceneCanvas.addEventListener('wheel', (event) => {
+    if (store.state.observer.z < 0) return;    // the shaft view has its own scale
+    event.preventDefault();
+    const current = store.state.camera.span_m
+      ?? autoSpanFor(result.atmosphere, Math.max(0, store.state.observer.z));
+    const factor = Math.exp(event.deltaY * 0.0015);
+    store.patch({ camera: { span_m: clampSpan(current * factor) } });
+  }, { passive: false });
+
   sceneCanvas.addEventListener('mouseleave', () => {
     sceneRenderer.setHovered(-1);
     sceneCanvas.style.cursor = 'default';
@@ -293,6 +328,7 @@ async function start() {
     if (needsPaint || animating) {
       sceneRenderer.draw(now);
       skyStrip.draw();
+      beamHistogram.draw();
       needsPaint = false;
     }
 
@@ -324,7 +360,10 @@ async function start() {
   // renderers from a test harness where no animation frames are scheduled.
   window.atmoLab = {
     store, config, simulation, colorimetry, i18n, experiments,
-    renderers: { scene: sceneRenderer, sky: skyStrip, spectrum: spectrumChart, chromaticity },
+    renderers: {
+      scene: sceneRenderer, sky: skyStrip, spectrum: spectrumChart,
+      chromaticity, histogram: beamHistogram,
+    },
     get result() { return result; },
     get photons() { return photons; },
     /** Force one full synchronous update, bypassing the frame loop. */
@@ -334,6 +373,7 @@ async function start() {
       publish({ photonsChanged: true });
       sceneRenderer.draw(performance.now());
       skyStrip.draw();
+      beamHistogram.draw();
       spectrumChart.draw();
       return true;
     },

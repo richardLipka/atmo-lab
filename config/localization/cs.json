@@ -67,7 +67,9 @@
       "wellDepth": "Hloubka šachty",
       "wellDepthHelp": "Zároveň určuje, jak hluboko může sjet posuvník polohy.",
       "countShaftAir": "Počítat vzduch uvnitř šachty",
-      "countShaftAirHelp": "Standardně vypnuto, aby sestup měnil pouze geometrii. Zapnutím přidáš hustší vzduch, který by hlubokou šachtu ve skutečnosti vyplňoval."
+      "countShaftAirHelp": "Standardně vypnuto, aby sestup měnil pouze geometrii. Zapnutím přidáš hustší vzduch, který by hlubokou šachtu ve skutečnosti vyplňoval.",
+      "zoom": "Přiblížení (výška výřezu)",
+      "zoomHelp": "Kolik světa řez ukazuje. Při nízkém Slunci oddal pohled a uvidíš tětivu, kterou musí jeho světlo proletět – právě ta délka je důvod, proč je červené. Funguje i kolečko myši."
     },
     "rays": {
       "title": "Simulace paprsků",
@@ -253,5 +255,10 @@
     "model": "Model s jednonásobným rozptylem",
     "modelNote": "Světlo se sleduje od hvězdy k jedné rozptylové události a odtud do oka. Vícenásobný rozptyl, lom světla ani pohlcování ozonem nejsou zahrnuty.",
     "sourceData": "Všechna fyzikální data jsou v editovatelných souborech JSON ve složce /config."
+  },
+  "histogram": {
+    "title": "Všechny paprsky v simulaci",
+    "help": "Každý paprsek nakreslený nahoře, sečtený podle vlnové délky. Barevně ty, které dopadají k pozorovateli ze zorného kužele; šedě všechny ostatní. Snižuj hvězdu a sleduj, jak se celé rozdělení posouvá do červena.",
+    "mean": "průměr"
   }
 }

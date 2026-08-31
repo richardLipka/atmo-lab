@@ -169,12 +169,20 @@ Turning the view is a repaint, 0.8 ms, not a retrace.
 | **missed** | scattered somewhere else and left in another direction | grey kink with an arrowhead, rejection-sampled away from the eye |
 | **through** | crossed the whole atmosphere without scattering and hit the ground | grey line, top to bottom |
 
-**The altitude axis is linear, so a straight ray is a straight line.** An earlier version
-compressed it by a power law to give the dense lower air more room, at the cost of bending
-every ray on screen — precisely the wrong lesson in a picture about light travelling in
-straight lines. The room is bought differently: the frame is cropped to three scale
-heights, which holds 95 % of the column, and always stretches far enough to contain the
-observer. Legs are clipped to that frame, never bent by it.
+**Straight rays stay straight, and the ground curves.** The cross-section is drawn in true
+spherical geometry — planet centre at the origin of world coordinates — under a plain
+orthographic projection, so a ray that is straight in the world is a straight line on
+screen. An early version compressed the altitude axis by a power law to give the dense
+lower air more room, which bent every ray: the wrong lesson in a picture about light
+travelling in straight lines. Zoomed in, the sagitta of the horizon is a fraction of a
+pixel and the picture looks flat by itself.
+
+**And it zooms, from 5 km to 6000 km of frame height** — the control under *Observer*, or
+the mouse wheel on the picture. This is not decoration. It is the only way to draw the
+reason a low Sun is red: **at 55° above the horizon the unscattered beams cross about
+120 km of air; at 3° they cross about 1260 km**, a chord that skims the limb and simply
+does not fit in a picture of the local sky. Zoom out at sunset and you can see it — the
+planet's arc, the atmosphere as a thin shell, and the beams running the length of it.
 
 The wavelength of each arriving ray is drawn from the true single-scattering weight
 β(λ)ρ·P(θ)·T_sun(λ)·T_view(λ)·I₀(λ) — the same product the integrator forms — so the
@@ -190,6 +198,19 @@ arriving from the viewing cone is blue (< 520 nm), against 33 % of the light tha
 unscattered to the ground, from a star that emitted 39 % blue** — and only 16 % of the
 light crossing the air is scattered at all. On an airless world every path is a `through`
 path and no scattering vertex is drawn anywhere.
+
+### The beam histogram
+
+Below the cross-section is a histogram of the beams the simulation actually drew, binned by
+wavelength. The spectrum plot on the right is the analytic answer, smooth curves from the
+integrator; this is the empirical one, a tally of the few hundred rays on screen. It carries
+the same colour rule as the picture above it — the part of each bar that reaches the
+observer from the viewing cone is in its own wavelength colour, the rest is grey — so a
+student can point at a bar and then at the rays that made it.
+
+It is also where the sunset becomes a number. Lower the star and the whole distribution
+marches to the right: the mean wavelength of the drawn beams goes from about **513 nm at a
+55° Sun to about 552 nm at 4°**, for the reason Beer-Lambert gives.
 
 ### Radiative transfer
 
@@ -258,9 +279,11 @@ lesson:
 - **Mie scattering is approximated**, not solved. Real Mie theory needs Maxwell's equations
   on a sphere; here it is a power law plus an asymmetry parameter, which reproduces the two
   features that matter pedagogically (near-neutral colour, forward peaking).
-- The drawn light paths use a **flat slab** — over the width of the picture the curvature is
-  invisible and the flat geometry is far easier to read. The numbers and colours always come
-  from the spherical integrator, never from the paths.
+- The drawn light paths are integrated with a **marched column** rather than the closed form,
+  and the sun leg is **cached** per cell of (altitude, solar zenith angle) — legitimate
+  because in a spherically symmetric atmosphere it depends on nothing else. A test compares
+  the cached bundle against an effectively uncached one and requires the mean wavelength to
+  agree to 0.004 nm.
 - The families of path are **not drawn in their true proportion**. In reality about 84 % of
   the sunlight crossing Earth's air is never scattered at all; drawing that faithfully
   would leave too few arriving rays to read. The true fraction is computed from the optical
@@ -272,15 +295,14 @@ lesson:
   and scatter the colour everywhere except the cone it is meant to mark; the unscattered
   `through` rays already show that journey at full length. The stub is clipped, never bent,
   so it stays a piece of the true straight ray.
-- The cross-section uses a **compressed vertical axis**, and where a shaft aperture is too
-  narrow to draw it is widened and explicitly labelled "cone exaggerated for clarity" with
-  the true angle shown next to it.
+- Where a shaft aperture is too narrow to draw it is widened and explicitly labelled "cone
+  exaggerated for clarity", with the true angle shown next to it.
 
 ---
 
 ## Tests
 
-`node tests/run-tests.js` runs **78 tests** covering:
+`node tests/run-tests.js` runs **85 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
@@ -310,26 +332,38 @@ lesson:
   enough that every cone the interface can point at contains a usable bundle; and that the
   stored arrival angle agrees with the geometry of the drawn polyline, since the renderer
   selects rays by that angle alone;
-- a performance budget assertion that a full interactive recompute fits inside 33 ms.
+- the spherical drawing geometry: that a scattering vertex's altitude follows its radius
+  from the planet centre, that a low star really does make the unscattered beams cross a
+  chord eight times longer and over 300 km, that those beams come out measurably redder, and
+  that the histogram counts every drawn beam exactly once and shifts red as the star sinks;
+- performance: that a full interactive recompute fits inside 33 ms, and that tracing five
+  thousand rays fits inside 25 ms.
 
 ## Performance
 
-Measured in Chrome at 1280×720, median of 14 runs:
+The drawn rays are now traced through spherical geometry with a marched column, which is
+strictly more expensive than the flat slab and its closed form. Measured in Node on this
+machine, median of ten runs, for the tracing step alone:
 
 | | 600 rays | 2 000 rays | 5 000 rays (the maximum) |
 |---|---|---|---|
-| moving a slider (full recompute + repaint) | 6.8 ms | 8.0 ms | 12.7 ms (worst 14.6) |
-| an animation frame (repaint only) | — | 0.4 ms | 0.9 ms (worst 2.0) |
+| Sun at 55° | 1.7 ms | 4.5 ms | 15.5 ms |
+| Sun at 3° | 1.1 ms | 2.3 ms | 5.9 ms |
 
-Both stay inside the 33 ms budget for 30 fps at every ray count the interface offers, and
-the test suite asserts the compute half of that budget independently.
+A low Sun is *cheaper*, because most of the air the rays would sample is in the planet's
+shadow and returns before any marching. Two things keep this affordable: the sun leg is
+cached per cell of (altitude, solar zenith angle), and the march stops once the air has
+thinned past twelve decay lengths — while a grazing path, where that cutoff does not bite,
+keeps its full length, which is exactly the case that matters.
 
-Three things buy this. The model is recomputed at most once per frame and only when
-something actually changed, so an idle page costs nothing. The expensive step — rebuilding
-the atmospheric glow field and the readout DOM — is separated from painting, so it runs on
-change rather than once per frame. And photon paths are traced only when a parameter that
-affects them moves, then drawn batched by wavelength, so five thousand rays cost a handful
-of stroke calls.
+The model is recomputed at most once per frame and only when something changed; the
+expensive step — rebuilding the atmospheric glow field and the readout DOM — is separated
+from painting; and turning the view restyles the existing rays instead of retracing them, so
+that path is a repaint of a few milliseconds rather than a recompute.
+
+The test suite asserts both halves of the budget independently. Browser timings are not
+quoted here: the preview environment these were developed in was too contended to measure
+reliably, and quoting a number from it would be worse than quoting none.
 
 ## Browser console
 
