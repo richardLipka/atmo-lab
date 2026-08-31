@@ -151,13 +151,26 @@ horizon (the classic figure is ~38).
 ### What the cross-section draws
 
 The picture is built **backwards from the observer**, because the question a student is
-asking is "why is the light that reaches *me* blue?" Every path shown is one of three:
+asking is "why is the light that reaches *me* blue?"
+
+A dashed wedge marks the **observer's field of view** — a cone of half-angle 12° about the
+viewing direction, following both the zenith angle and the azimuth. That cone is not
+decoration: the radiance, the spectrum and the colour swatch on the right are all
+properties of it, so four fifths of the arriving rays are sampled inside it and drawn as
+the subject of the picture. Turning the view slider swings the cone and the rays with it.
+
+Every path shown is one of four kinds:
 
 | | what it is | how it is drawn |
 |---|---|---|
-| **arriving** | sunlight that came down, scattered once, and turned into the eye | full incoming leg, then a heavy final leg into the observer |
-| **missed** | sunlight that scattered somewhere else and left in some other direction | a short kink with an arrowhead, deliberately not aimed at you |
-| **through** | light that crossed the whole atmosphere without scattering and hit the ground | one faint straight line, top to bottom |
+| **arriving, in view** | scattered once and turned into the eye from inside the viewing cone | full incoming leg, then a heavy final leg into the observer |
+| **arriving, elsewhere** | reaches the eye from the rest of the sky — real, and what lights the ground | the same, but faint: context, not the measurement |
+| **missed** | scattered somewhere else and left in some other direction | a short kink with an arrowhead, rejection-sampled away from the eye |
+| **through** | crossed the whole atmosphere without scattering and hit the ground | one faint line, top to bottom |
+
+Because the vertical axis is compressed by a power law, a ray that is straight in the world
+is a curve on screen; every leg and every cone edge is subdivided so the drawn rays really
+do lie inside the drawn cone.
 
 The wavelength of each arriving path is drawn from the true single-scattering weight
 β(λ)ρ·P(θ)·T_sun(λ)·T_view(λ)·I₀(λ) — the same product the integrator forms — so the
@@ -166,9 +179,11 @@ Each arriving path has exactly one scattering vertex, which is not a shortcut: i
 precisely the single-scattering approximation the engine integrates, so the picture and the
 numbers describe the same model.
 
-The panel states the measured outcome: at a 55° Sun, **62 % of the light arriving at the
-observer is blue (< 520 nm), against 28 % of the light that got through unscattered, from a
-star that emitted 39 % blue**. On an airless world every path is a `through` path and no
+The panel states the measured outcome for the cone being looked at: at a 55° Sun, looking
+35° from the zenith away from it, **60 % of the light arriving at the observer is blue
+(< 520 nm), against 32 % of the light that got through unscattered, from a star that
+emitted 39 % blue**. Turning to look towards the Sun instead drops the arriving figure,
+because the aerosol forward lobe is nearly colourless and dilutes the Rayleigh blue. On an airless world every path is a `through` path and no
 scattering vertex is drawn at all.
 
 ### Radiative transfer
@@ -253,7 +268,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **76 tests** covering:
+`node tests/run-tests.js` runs **78 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
@@ -278,6 +293,8 @@ lesson:
   the light that got through, that every arriving path really ends at the observer with a
   single scattering vertex, that every missed path genuinely leaves in a direction that is
   not the observer, and that a vacuum produces no scattering vertex at all;
+- the viewing cone: that the sampled rays lie inside it, that it follows the azimuth and
+  not merely the zenith angle, and that looking away from the star is the bluer half;
 - a performance budget assertion that a full interactive recompute fits inside 33 ms.
 
 ## Performance

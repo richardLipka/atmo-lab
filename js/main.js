@@ -77,6 +77,7 @@ async function start() {
       sunElevationDeg: state.star.elevationDeg,
       observerZ: state.observer.z,
       viewZenithDeg: state.observer.viewZenithDeg,
+      viewAzimuthDeg: state.observer.viewAzimuthDeg,
       count: state.rays.showScattering ? state.rays.count : 0,
       halfWidth_m: atmosphere.topAltitude * 1.5,
       top_m: atmosphere.topAltitude,
@@ -105,7 +106,7 @@ async function start() {
     needsPaint = true;
     if (touches(changed, 'atmosphere', 'star.elevationDeg', 'star.temperatureK',
       'star.presetId', 'star.realisticInsolation', 'rays.count', 'rays.showScattering',
-      'observer.z', 'observer.viewZenithDeg')) {
+      'observer.z', 'observer.viewZenithDeg', 'observer.viewAzimuthDeg')) {
       needsPhotons = true;
     }
     if (touches(changed, 'atmosphere.presetId')) {

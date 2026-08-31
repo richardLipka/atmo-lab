@@ -37,6 +37,16 @@ import {
   rayleighPhase, henyeyGreensteinPhase, sampleRayleighCosine, sampleHenyeyGreensteinCosine,
 } from '../physics/scattering.js';
 
+/**
+ * Half-angle of the cone of sky the observer is looking down.
+ *
+ * The panels report a radiance for one direction, so the picture has to show
+ * which rays that direction actually collects. A mathematical point direction
+ * would be one line; a cone is what an eye or an instrument really accepts, and
+ * it is wide enough to read at the scale the cross-section is drawn.
+ */
+export const VIEW_CONE_HALF_DEG = 12;
+
 /** A small deterministic generator, so a given setup always draws the same picture. */
 function makeRng(seed) {
   let s = seed >>> 0 || 1;
@@ -82,8 +92,9 @@ function slabColumn(y0, y1, dy, H) {
  *   sunElevationDeg   elevation of the star above the horizon
  *   observerZ         observer altitude in metres (negative is handled by the
  *                     shaft view, which draws no paths)
- *   viewZenithDeg     where the observer is looking, so that direction gets
- *                     denser sampling than the rest of the sky
+ *   viewZenithDeg     where the observer is looking; most arriving paths fill
+ *                     a cone of VIEW_CONE_HALF_DEG about this direction
+ *   viewAzimuthDeg    which side of the observer that direction is on
  *   count             total number of paths to draw
  *   halfWidth_m       half the width of the drawn domain
  *   top_m             top of the drawn domain
@@ -91,7 +102,8 @@ function slabColumn(y0, y1, dy, H) {
  */
 export function tracePhotons(options) {
   const {
-    atmosphere, source, sunElevationDeg, observerZ = 0, viewZenithDeg = 0,
+    atmosphere, source, sunElevationDeg, observerZ = 0,
+    viewZenithDeg = 0, viewAzimuthDeg = 0,
     count, halfWidth_m, top_m, seed = 12345,
   } = options;
 
@@ -186,30 +198,51 @@ export function tracePhotons(options) {
 
   /* ---- 1. paths that arrive at the observer ---- */
 
-  const viewZenith = viewZenithDeg * Math.PI / 180;
+  // The signed in-plane viewing angle. The cross-section is a plane containing
+  // the star, so an azimuth on the far side of the observer appears mirrored;
+  // this is the same convention the renderer draws the sight line with, and the
+  // two must agree or the drawn cone would point somewhere the panels do not
+  // describe.
+  const viewSign = Math.cos(viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
+  const viewAngle = viewSign * viewZenithDeg * Math.PI / 180;
+  const coneHalf = VIEW_CONE_HALF_DEG * Math.PI / 180;
 
   for (let n = 0; n < nArriving; n++) {
-    // Look somewhere. A third of the paths hug the actual viewing direction so
-    // that the direction the panels report is visibly the one being sampled;
-    // the rest sweep the sky, because the whole dome is what lights the ground.
-    const focused = n % 3 === 0;
-    const angle = focused
-      ? viewZenith * (rng() < 0.5 ? 1 : -1) + (rng() * 2 - 1) * 0.12
-      : (rng() * 2 - 1) * 1.48;
+    // Most of the arriving paths fill the cone the observer is actually looking
+    // down, because that is the direction the spectrum and the colour swatch
+    // report. The remainder are spread over the rest of the sky: light really
+    // does reach you from every direction, and that is what lights the ground -
+    // but it is context, and the renderer draws it fainter.
+    const inView = n % 5 !== 0;
+    let angle;
+    if (inView) {
+      angle = viewAngle + (rng() * 2 - 1) * coneHalf;
+    } else {
+      // Keep the two populations disjoint, so a faint ray inside the cone can
+      // never be mistaken for one of the rays the panels are describing.
+      let tries = 0;
+      do { angle = (rng() * 2 - 1) * 1.48; tries++; }
+      while (Math.abs(angle - viewAngle) < coneHalf && tries < 8);
+      if (Math.abs(angle - viewAngle) < coneHalf) continue;
+    }
+
     const d = { x: Math.sin(angle), y: Math.cos(angle) };
     if (d.y <= 0.02) continue;
 
     // How far up the view ray did the scattering happen? Sample the depth from
     // the density profile itself, so vertices cluster in the dense air near the
     // ground exactly as the real scattering does.
-    const yTop = top_m;
-    const eTop = Math.exp(-yTop / HR);
+    const eTop = Math.exp(-top_m / HR);
     const eObs = Math.exp(-observer.y / HR);
-    const u = rng();
-    const yScatter = -HR * Math.log(eObs + u * (eTop - eObs));
-    const dist = (yScatter - observer.y) / d.y;
-    const P = { x: observer.x + d.x * dist, y: yScatter };
-    if (Math.abs(P.x) > halfWidth_m * 1.05) continue;
+    const yScatter = -HR * Math.log(eObs + rng() * (eTop - eObs));
+    // Shorten the ray rather than discarding it when the vertex would fall off
+    // the side of the picture: dropping those paths thinned the cone at exactly
+    // the shallow angles where it is most visible.
+    const maxDist = Math.abs(d.x) > 1e-6
+      ? (halfWidth_m * 0.98) / Math.abs(d.x) : Infinity;
+    const dist = Math.min((yScatter - observer.y) / d.y, maxDist);
+    if (!(dist > 0)) continue;
+    const P = { x: observer.x + d.x * dist, y: observer.y + d.y * dist };
 
     // Deflection: the photon was travelling away from the star, and leaves
     // travelling along −d (from P down to the observer).
@@ -228,6 +261,7 @@ export function tracePhotons(options) {
 
     paths.push({
       kind: 'arriving',
+      inView,
       lambda, bin,
       weight: total,
       points: [entry, P, observer],
@@ -387,8 +421,13 @@ export function summarisePhotons(paths, options = {}) {
   };
 
   for (const p of paths) {
-    const bucket = tally[p.kind];
     const isBlue = p.lambda < splitNm;
+    // Only the paths inside the viewing cone are counted as arriving. Sampling
+    // is deliberately concentrated there, so including the sparse rest-of-sky
+    // paths would mix two different sampling densities into one percentage.
+    // As counted, this is the light arriving from the direction the spectrum
+    // panel and the colour swatch describe.
+    const bucket = p.kind === 'arriving' && !p.inView ? null : tally[p.kind];
     if (bucket) { bucket.total++; if (isBlue) bucket.blue++; }
     const legacy = isBlue ? tally.blue : tally.red;
     legacy.total++;

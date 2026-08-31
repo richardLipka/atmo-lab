@@ -19,6 +19,7 @@
 import { computeScatteringSource, QUALITY_PRESETS } from '../physics/radiance.js';
 import { wellApertureHalfAngle } from '../physics/well.js';
 import { wavelengthToDisplayRgb } from '../physics/spectrum.js';
+import { VIEW_CONE_HALF_DEG } from './photons.js';
 import { v3 } from '../physics/geometry.js';
 
 const FIELD_COLUMNS = 26;
@@ -180,6 +181,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
 
     drawStarBeams(plot, toX, toY, topAltitude, halfWidth, evaluation);
+    drawViewCone(plot, toX, toY, topAltitude, halfWidth, z);
     if (data.photons && data.state.rays.showScattering) {
       drawPhotons(plot, toX, toY, timeMs, allowInteraction);
     }
@@ -222,22 +224,102 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.restore();
   }
 
+  /**
+   * The cone of sky the observer is looking down.
+   *
+   * The panels report one radiance, one spectrum and one colour, and all three
+   * are properties of this cone. Drawing it makes that concrete: the bright
+   * rays inside the wedge are the ones being measured, the faint ones outside
+   * are the rest of the sky arriving from elsewhere.
+   */
+  function drawViewCone(plot, toX, toY, topAltitude, halfWidth, z) {
+    const state = data.state;
+    const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
+    const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
+    const half = VIEW_CONE_HALF_DEG * Math.PI / 180;
+    const oy = Math.max(0, z);
+
+    // Follow each edge in world space and map point by point, for the same
+    // reason the ray legs are subdivided: a straight screen edge would not lie
+    // along the straight rays it is meant to bound.
+    const edge = (angle) => {
+      const dx = Math.sin(angle), dy = Math.cos(angle);
+      const out = [];
+      if (dy <= 0.02) return out;
+      let reach = (topAltitude - oy) / dy;
+      if (Math.abs(dx) > 1e-6) reach = Math.min(reach, (halfWidth * 0.98) / Math.abs(dx));
+      for (let i = 1; i <= 24; i++) {
+        const t = (i / 24) * reach;
+        out.push({ x: dx * t, y: oy + dy * t });
+      }
+      return out;
+    };
+
+    const left = edge(axis - half);
+    const right = edge(axis + half);
+    if (left.length === 0 || right.length === 0) return;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(toX(0), toY(oy));
+    for (const q of left) ctx.lineTo(toX(q.x), toY(q.y));
+    for (let i = right.length - 1; i >= 0; i--) ctx.lineTo(toX(right[i].x), toY(right[i].y));
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.055)';
+    ctx.fill();
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.32)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    for (const side of [left, right]) {
+      ctx.beginPath();
+      ctx.moveTo(toX(0), toY(oy));
+      for (const q of side) ctx.lineTo(toX(q.x), toY(q.y));
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    const a = left[left.length - 1], b = right[right.length - 1];
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.72)';
+    ctx.textAlign = 'center';
+    ctx.fillText(i18n.t('canvas.viewCone'),
+      (toX(a.x) + toX(b.x)) / 2, toY(Math.max(a.y, b.y)) - 5);
+    ctx.restore();
+  }
+
+  /**
+   * Draw the families of light paths.
+   *
+   * They are painted back to front so the subject ends up on top: first the
+   * light that crossed without interacting, then the events that threw light
+   * where the observer will never see it, then the light arriving from the rest
+   * of the sky, and last, brightest, the rays inside the viewing cone.
+   */
   function drawPhotons(plot, toX, toY, timeMs, allowInteraction) {
     const paths = data.photons;
     const animate = data.state.rays.animate;
     const phase = animate ? (timeMs / 2600) % 1 : 1;
 
+    // Four layers, painted back to front. The arriving paths are split in two:
+    // the ones inside the viewing cone are the subject of the picture, the ones
+    // from the rest of the sky are context and stay faint.
     const style = {
-      through: { alpha: 0.22, width: 1.0, dash: [] },
-      missed: { alpha: 0.34, width: 1.0, dash: [] },
-      arriving: { alpha: 0.30, width: 1.0, dash: [] },
+      through: { alpha: 0.20, width: 1.0 },
+      missed: { alpha: 0.30, width: 1.0 },
+      offView: { alpha: 0.16, width: 1.0 },
+      arriving: { alpha: 0.42, width: 1.1 },
     };
+    const belongs = (p, layer) => (
+      layer === 'arriving' ? p.kind === 'arriving' && p.inView
+        : layer === 'offView' ? p.kind === 'arriving' && !p.inView
+          : p.kind === layer);
 
-    for (const kind of ['through', 'missed', 'arriving']) {
+    for (const kind of ['through', 'missed', 'offView', 'arriving']) {
       // Group by wavelength bucket so the whole cloud costs a handful of strokes.
       const buckets = new Map();
       for (let i = 0; i < paths.length; i++) {
-        if (paths[i].kind !== kind) continue;
+        if (!belongs(paths[i], kind)) continue;
         if (i === selectedPath || i === hoveredPath) continue;
         const key = Math.round(paths[i].lambda / 20) * 20;
         if (!buckets.has(key)) buckets.set(key, []);
@@ -247,7 +329,6 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       ctx.save();
       ctx.lineWidth = s.width;
       ctx.globalAlpha = s.alpha;
-      ctx.setLineDash(s.dash);
       for (const [lambda, indices] of buckets) {
         const [r, g, b] = wavelengthToDisplayRgb(lambda);
         ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
@@ -273,7 +354,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
             const pts = paths[index].points;
             const a = pts[pts.length - 2], c = pts[pts.length - 1];
             ctx.moveTo(toX(a.x), toY(a.y));
-            ctx.lineTo(toX(c.x), toY(c.y));
+            strokeLeg(a, c, toX, toY);
           }
           ctx.stroke();
         }
@@ -284,7 +365,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       // the beam; only the ones on arriving paths were turned towards the eye,
       // so those get a bright marker and the rest a faint one.
       ctx.save();
-      ctx.globalAlpha = kind === 'arriving' ? 0.95 : 0.30;
+      ctx.globalAlpha = kind === 'arriving' ? 0.95 : 0.28;
       for (const indices of buckets.values()) {
         for (const index of indices) {
           const p = paths[index];
@@ -357,9 +438,10 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   /** Say what the three brightnesses mean, otherwise the picture is a puzzle. */
   function drawPathLegend(plot) {
     const rows = [
-      { key: 'canvas.legendArriving', alpha: 0.95 },
-      { key: 'canvas.legendMissed', alpha: 0.42 },
-      { key: 'canvas.legendThrough', alpha: 0.32 },
+      { key: 'canvas.legendArriving', alpha: 0.95, width: 2.2 },
+      { key: 'canvas.legendOffView', alpha: 0.35, width: 1 },
+      { key: 'canvas.legendMissed', alpha: 0.42, width: 1 },
+      { key: 'canvas.legendThrough', alpha: 0.28, width: 1 },
     ];
     ctx.save();
     ctx.font = '10px system-ui, sans-serif';
@@ -378,7 +460,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       const cy = y + 12 + i * 15;
       ctx.globalAlpha = rows[i].alpha;
       ctx.strokeStyle = '#cfd8ff';
-      ctx.lineWidth = i === 0 ? 1.8 : 1;
+      ctx.lineWidth = rows[i].width;
       ctx.beginPath();
       ctx.moveTo(x + 6, cy);
       ctx.lineTo(x + 20, cy);
@@ -390,12 +472,30 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.restore();
   }
 
+  /**
+   * Number of screen segments each straight leg is broken into.
+   *
+   * The vertical axis is compressed by a power law, so a ray that is straight in
+   * the world is a curve on screen. The paths carry only two or three vertices,
+   * so drawing leg-to-leg would bow them away from the altitudes they actually
+   * pass through - and the viewing cone, drawn the same way, would no longer
+   * contain the rays that belong to it.
+   */
+  const LEG_STEPS = 10;
+
+  function strokeLeg(a, b, toX, toY) {
+    for (let i = 1; i <= LEG_STEPS; i++) {
+      const t = i / LEG_STEPS;
+      ctx.lineTo(toX(a.x + (b.x - a.x) * t), toY(a.y + (b.y - a.y) * t));
+    }
+  }
+
   function strokePath(path, toX, toY, phase) {
     const pts = path.points;
     if (pts.length < 2) return;
     const limit = phase >= 1 ? pts.length : Math.max(2, Math.ceil(pts.length * phase));
     ctx.moveTo(toX(pts[0].x), toY(pts[0].y));
-    for (let i = 1; i < limit; i++) ctx.lineTo(toX(pts[i].x), toY(pts[i].y));
+    for (let i = 1; i < limit; i++) strokeLeg(pts[i - 1], pts[i], toX, toY);
   }
 
   function drawAltitudeAxis(plot, toY, topAltitude) {

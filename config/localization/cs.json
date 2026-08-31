@@ -108,11 +108,13 @@
     "wavelength": "Vlnová délka",
     "energy": "Zbývající energie",
     "angle": "Vychýlení",
-    "legendArriving": "dopadá k pozorovateli",
+    "legendArriving": "dopadá k pozorovateli ze zorného kužele",
     "legendMissed": "rozptýleno jinam, k pozorovateli nedorazí",
     "legendThrough": "prochází bez rozptylu až k zemi",
     "observed": "dorazil k pozorovateli",
-    "missedObserver": "odchází jiným směrem"
+    "missedObserver": "odchází jiným směrem",
+    "viewCone": "zorný kužel pozorovatele",
+    "legendOffView": "dopadá k pozorovateli z jiné části oblohy"
   },
   "spectrum": {
     "title": "Spektrum",
