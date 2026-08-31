@@ -24,8 +24,15 @@ import { v3 } from '../physics/geometry.js';
 
 const FIELD_COLUMNS = 26;
 const FIELD_ROWS = 34;
-/** Below this the aperture cone is invisible, so it is drawn wider and labelled. */
-const MIN_DRAWN_APERTURE_DEG = 2.2;
+/**
+ * The deepest shaft the picture draws to scale, as a depth-to-radius ratio.
+ * Beyond this the cone would be thinner than a line, so the shaft is drawn
+ * stubbier than it is and both the true ratio and the true angle are printed.
+ */
+const MAX_DRAWN_SHAFT_RATIO = 9;
+
+/** How much of the sky the shaft view samples, either side of the vertical. */
+const SHAFT_RAY_SPAN = 86 * Math.PI / 180;
 
 export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   const ctx = canvas.getContext('2d', { alpha: false });
@@ -155,8 +162,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.clip();
     ctx.translate(x0, y0);
 
-    if (z < 0) drawShaftView(pw, ph, evaluation, z, timeMs);
-    else drawAtmosphereView(pw, ph, evaluation, z, timeMs, caption === null);
+    // The shaft is shown whenever there is a shaft to be in, not only once the
+    // observer has descended into it. Standing at the mouth is a state worth
+    // drawing: the aperture is the whole sky, and it closes as you go down.
+    if (data.state.observer.well.enabled && z <= 0) {
+      drawShaftView(pw, ph, evaluation, z);
+    } else {
+      drawAtmosphereView(pw, ph, evaluation, z, timeMs, caption === null);
+    }
 
     if (caption) {
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
@@ -782,109 +795,229 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   /* Shaft view                                                        */
   /* ---------------------------------------------------------------- */
 
-  function drawShaftView(w, h, evaluation, z, timeMs) {
-    const depth = -z;
-    const radius = data.state.observer.well.radius_m;
-    const halfAngle = wellApertureHalfAngle(depth, radius);
-    const halfAngleDeg = halfAngle * 180 / Math.PI;
+  /**
+   * The shaft.
+   *
+   * The whole content of this picture is one fact: the rock decides which
+   * directions can reach you, and it decides on geometry alone. Light arriving
+   * from anywhere except a narrow cone about the vertical runs into the rock
+   * before it gets to the bottom, and no property of the air or of the light
+   * enters into that. So the rays are drawn converging on the observer from
+   * right across the sky, each carrying the colour of the patch it came from,
+   * and each either arriving or stopping dead at the lip of the shaft.
+   */
+  function drawShaftView(w, h, evaluation, z) {
+    const well = data.state.observer.well;
+    const radius = well.radius_m;
+    const depth = Math.max(0, -z);                 // how far below the mouth
+    const shaftDepth = Math.max(depth, well.depth_m);
+    const trueHalf = wellApertureHalfAngle(depth, radius);
+    const trueHalfDeg = trueHalf * 180 / Math.PI;
 
-    const padTop = 8, padBottom = 26, padSide = 40;
-    const skyHeight = Math.round((h - padTop - padBottom) * 0.30);
+    const padTop = 8, padBottom = 30, padSide = 40;
+    const skyHeight = Math.round((h - padTop - padBottom) * 0.26);
     const groundY = padTop + skyHeight;
-    const shaftTop = groundY;
-    const shaftBottom = h - padBottom;
+    const floorY = h - padBottom;
     const centreX = w / 2;
-    const shaftHalfWidth = Math.max(26, Math.min((w - padSide * 2) / 2, w * 0.16));
 
-    // Sky above the shaft, coloured by the computed dome.
+    /**
+     * A real shaft is far deeper than it is wide - a hundredth of a degree of
+     * sky at the bottom of a deep one - and drawn to scale it would be a
+     * vertical line. So the aspect ratio is capped, the cone the picture shows
+     * is the cone that fits, and the true numbers are printed beside it. What
+     * the drawing keeps exact is the mechanism: everything below is derived
+     * from the drawn geometry, so the picture never contradicts itself.
+     */
+    const trueRatio = radius > 0 ? shaftDepth / radius : 0;
+    const drawnRatio = Math.min(trueRatio, MAX_DRAWN_SHAFT_RATIO);
+
+    // The scale is set by the whole shaft, not by how far down the observer
+    // happens to be. Deriving it from the observer's depth collapsed the
+    // picture to nothing whenever they stood at the mouth, which is exactly the
+    // state worth being able to look at: the aperture is the whole sky there,
+    // and it closes as they descend.
+    let shaftHalfWidth = Math.max(16, Math.min((w - padSide * 2) / 2, w * 0.13));
+    const room = floorY - groundY - 16;
+    let shaftHeight = drawnRatio * shaftHalfWidth;
+    if (shaftHeight > room) {
+      shaftHeight = room;
+      if (drawnRatio > 0) shaftHalfWidth = room / drawnRatio;
+    }
+    const perMetre = shaftDepth > 0 ? shaftHeight / shaftDepth : 0;
+    const observerY = groundY + depth * perMetre;
+    const shaftBottomY = Math.min(floorY, groundY + Math.max(12, shaftHeight));
+
+    // At the mouth this is a right angle: the whole sky is still there.
+    const drawnHalf = Math.min(SHAFT_RAY_SPAN,
+      Math.atan2(shaftHalfWidth, observerY - groundY));
+    // Whether the drawn cone is wider than the real one - which is a question
+    // about the cone, not about the shaft. Standing at the mouth the aperture
+    // is a right angle and the picture shows a right angle, however stubby the
+    // shaft below has had to be drawn, and claiming an exaggeration there would
+    // be a lie in the other direction.
+    const exaggerated = drawnHalf > trueHalf * 1.05;
+
+    /* ---- the world ---- */
+
     drawDomeBand(padSide, padTop, w - padSide * 2, skyHeight, evaluation);
+    dimBlockedSky(padSide, padTop, w - padSide * 2, skyHeight, drawnHalf);
 
-    // Rock.
-    ctx.fillStyle = '#221b16';
+    ctx.fillStyle = '#241d17';
     ctx.fillRect(0, groundY, w, h - groundY);
-    ctx.fillStyle = '#2e251d';
-    ctx.fillRect(0, groundY, w, 6);
+    ctx.fillStyle = '#332920';
+    ctx.fillRect(0, groundY, w, 5);
 
-    // The shaft cavity.
-    ctx.fillStyle = '#07080c';
-    ctx.fillRect(centreX - shaftHalfWidth, shaftTop, shaftHalfWidth * 2, shaftBottom - shaftTop);
+    ctx.fillStyle = '#05070c';
+    ctx.fillRect(centreX - shaftHalfWidth, groundY, shaftHalfWidth * 2, shaftBottomY - groundY);
 
-    const observerY = shaftBottom - 16;
-
-    // The escape cone, filled with the colour of the sky it reveals.
-    const drawnDeg = Math.max(halfAngleDeg, MIN_DRAWN_APERTURE_DEG);
-    const drawnAngle = drawnDeg * Math.PI / 180;
-    const coneHeight = observerY - shaftTop;
-    const coneHalf = Math.tan(drawnAngle) * coneHeight;
-    const zenithColor = nearestDomeColor(evaluation, 0);
+    // The cone that survives, filled with the colour of the sky it reveals.
     ctx.save();
-    const gradient = ctx.createLinearGradient(0, observerY, 0, shaftTop);
-    gradient.addColorStop(0, 'rgba(255,255,255,0.02)');
-    gradient.addColorStop(1, zenithColor);
+    const gradient = ctx.createLinearGradient(0, observerY, 0, groundY);
+    gradient.addColorStop(0, 'rgba(255,255,255,0.03)');
+    gradient.addColorStop(1, nearestDomeColor(evaluation, 0));
     ctx.fillStyle = gradient;
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = 0.8;
     ctx.beginPath();
     ctx.moveTo(centreX, observerY);
-    ctx.lineTo(centreX - coneHalf, shaftTop);
-    ctx.lineTo(centreX + coneHalf, shaftTop);
+    ctx.lineTo(centreX - shaftHalfWidth, groundY);
+    ctx.lineTo(centreX + shaftHalfWidth, groundY);
     ctx.closePath();
     ctx.fill();
     ctx.restore();
 
-    // Walls.
-    ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+    /* ---- the rays, which are the point ---- */
+
+    drawShaftRays(w, centreX, padTop, groundY, observerY, drawnHalf, evaluation);
+
+    // Walls, drawn over the rays so the rock reads as solid.
+    ctx.strokeStyle = 'rgba(255,235,205,0.5)';
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(centreX - shaftHalfWidth, shaftTop);
-    ctx.lineTo(centreX - shaftHalfWidth, shaftBottom);
-    ctx.moveTo(centreX + shaftHalfWidth, shaftTop);
-    ctx.lineTo(centreX + shaftHalfWidth, shaftBottom);
+    ctx.moveTo(centreX - shaftHalfWidth, groundY);
+    ctx.lineTo(centreX - shaftHalfWidth, shaftBottomY);
+    ctx.moveTo(centreX + shaftHalfWidth, groundY);
+    ctx.lineTo(centreX + shaftHalfWidth, shaftBottomY);
     ctx.stroke();
 
-    // Sample rays: some slip through the mouth, the rest strike the wall.
+    drawObserver(centreX, observerY, evaluation, z);
+
+    /* ---- labels ---- */
+
     ctx.save();
-    ctx.lineWidth = 1.2;
-    for (let i = 0; i <= 14; i++) {
-      const angle = (-1 + 2 * i / 14) * (Math.PI / 2) * 0.92;
-      const escapes = Math.abs(angle) <= drawnAngle;
-      const dx = Math.sin(angle), dy = Math.cos(angle);
-      const tWall = Math.abs(dx) > 1e-6 ? shaftHalfWidth / Math.abs(dx) : Infinity;
-      const tMouth = coneHeight / dy;
-      const t = Math.min(tWall, tMouth);
-      ctx.strokeStyle = escapes ? 'rgba(255,255,255,0.75)' : 'rgba(255,120,90,0.5)';
-      ctx.setLineDash(escapes ? [] : [3, 3]);
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = 'rgba(255,255,255,0.68)';
+    ctx.fillText(i18n.t('controls.observer.wellDepth') + ': ' + formatAltitude(depth),
+      8, floorY - 16);
+    ctx.fillText('R = ' + radius.toFixed(1) + ' m', 8, floorY - 3);
+    ctx.textAlign = 'right';
+    ctx.fillText('θmax = ' + formatAngle(trueHalfDeg), w - 8, groundY + 14);
+    if (exaggerated) {
+      ctx.fillStyle = 'rgba(255,200,120,0.85)';
+      ctx.fillText(i18n.t('canvas.coneExaggerated'), w - 8, groundY + 27);
+      ctx.fillText(i18n.t('canvas.trueRatio') + ' ' + Math.round(trueRatio) + ':1',
+        w - 8, groundY + 40);
+      ctx.fillText(i18n.t('canvas.drawnRatio') + ' ' + drawnRatio.toFixed(0) + ':1',
+        w - 8, groundY + 53);
+    }
+    ctx.restore();
+    layout = null;
+  }
+
+  /**
+   * Rays converging on the observer from right across the sky.
+   *
+   * Each is drawn along the line that would reach the observer. The ones inside
+   * the cone come through the mouth and arrive. The ones outside meet the
+   * ground beyond the lip of the shaft and stop there, and the dashed
+   * continuation shows where they were going: straight through the rock, which
+   * is the whole reason the bottom of a well is dark.
+   */
+  function drawShaftRays(w, centreX, skyTop, groundY, observerY, drawnHalf, evaluation) {
+    const rays = 21;
+    const drop = observerY - groundY;
+    ctx.save();
+    for (let i = 0; i < rays; i++) {
+      const angle = (-1 + 2 * (i + 0.5) / rays) * SHAFT_RAY_SPAN;
+      const reaches = Math.abs(angle) <= drawnHalf;
+      const slope = Math.tan(angle);
+      const groundX = centreX + drop * slope;
+      const skyX = groundX + (groundY - skyTop) * slope;
+      const colour = nearestDomeColor(evaluation, angle * 180 / Math.PI);
+
+      // The part in the open air above the ground, in the colour of that sky.
+      ctx.strokeStyle = colour;
+      ctx.globalAlpha = reaches ? 0.95 : 0.5;
+      ctx.lineWidth = reaches ? 2 : 1.1;
+      ctx.setLineDash([]);
       ctx.beginPath();
-      ctx.moveTo(centreX, observerY);
-      ctx.lineTo(centreX + dx * t, observerY - dy * t);
+      ctx.moveTo(skyX, skyTop);
+      ctx.lineTo(groundX, groundY);
       ctx.stroke();
-      if (!escapes && t === tWall) {
-        ctx.fillStyle = 'rgba(255,120,90,0.85)';
+
+      if (reaches) {
         ctx.beginPath();
-        ctx.arc(centreX + dx * t, observerY - dy * t, 2.5, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(groundX, groundY);
+        ctx.lineTo(centreX, observerY);
+        ctx.stroke();
+        continue;
+      }
+
+      // Stopped. Where it would have gone, and the rock that is in the way.
+      ctx.globalAlpha = 0.3;
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(groundX, groundY);
+      ctx.lineTo(centreX, observerY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // The mark where the rock takes it.
+      if (groundX > -20 && groundX < w + 20) {
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = '#ff8a5a';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(groundX - 3.5, groundY - 3.5);
+        ctx.lineTo(groundX + 3.5, groundY + 3.5);
+        ctx.moveTo(groundX + 3.5, groundY - 3.5);
+        ctx.lineTo(groundX - 3.5, groundY + 3.5);
+        ctx.stroke();
       }
     }
     ctx.restore();
 
-    drawObserver(centreX, observerY, evaluation, z);
-
-    // Labels: depth, radius, and an honest note when the cone is exaggerated.
+    // Say which is which, once, rather than colouring a legend.
     ctx.save();
     ctx.font = '10px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillText(i18n.t('canvas.shaftReaches'), centreX, observerY + 16);
+    ctx.fillStyle = 'rgba(255,138,90,0.9)';
     ctx.textAlign = 'left';
-    ctx.fillText(`${i18n.t('controls.observer.wellDepth')}: ${formatAltitude(depth)}`, 8, shaftBottom - 4);
-    ctx.fillText(`R = ${radius.toFixed(1)} m`, 8, shaftBottom + 10);
-    ctx.textAlign = 'right';
-    ctx.fillText(`θmax = ${formatAngle(halfAngleDeg)}`, w - 8, shaftTop + 14);
-    if (halfAngleDeg < MIN_DRAWN_APERTURE_DEG) {
-      ctx.fillStyle = 'rgba(255,200,120,0.8)';
-      ctx.fillText(i18n.getLanguage() === 'cs'
-        ? 'kužel zvětšen pro názornost'
-        : 'cone exaggerated for clarity', w - 8, shaftTop + 28);
-    }
+    ctx.fillText(i18n.t('canvas.shaftAbsorbed'), 8, groundY - 6);
     ctx.restore();
-    layout = null;
+  }
+
+  /** Grey out the sky the shaft has taken away, leaving the patch that is left. */
+  function dimBlockedSky(x, y, width, height, drawnHalf) {
+    const keep = Math.max(2, Math.min(width, width * (drawnHalf / SHAFT_RAY_SPAN)));
+    const left = x + (width - keep) / 2;
+    ctx.save();
+    ctx.fillStyle = 'rgba(4, 5, 9, 0.82)';
+    ctx.fillRect(x, y, left - x, height);
+    ctx.fillRect(left + keep, y, x + width - (left + keep), height);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(left - 0.5, y - 0.5, keep + 1, height + 1);
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(i18n.t('canvas.shaftPatch'), x + width / 2, y + height + 2);
+    ctx.restore();
   }
 
   /** Paint the sampled sky dome as a horizon-to-horizon band. */

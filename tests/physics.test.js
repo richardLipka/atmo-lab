@@ -26,7 +26,7 @@ import {
   QUALITY_PRESETS,
 } from '../js/physics/radiance.js';
 import { directionFromAngles, sunDirectionFromElevation, raySphereFar, raySphereNear, v3 } from '../js/physics/geometry.js';
-import { sliderToZ, zToSlider } from '../js/state.js';
+import { sliderToZ, zToSlider, createStore, DEFAULT_STATE } from '../js/state.js';
 import {
   tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
 } from '../js/render/photons.js';
@@ -889,6 +889,41 @@ export function registerTests({ group, test, assert }, config) {
         const scale = Math.max(Math.abs(z), 1);
         assert.less(Math.abs(back - z) / scale, 0.02, `z = ${z} should survive the round trip`);
       }
+    });
+
+    test('the shaft confines the observer between its bottom and its mouth', () => {
+      // The cross-section shows the shaft the whole time the shaft is switched
+      // on, so the position control must not be able to leave it - otherwise
+      // the picture and the state disagree about where the observer is.
+      const store = createStore({
+        ...DEFAULT_STATE,
+        observer: {
+          ...DEFAULT_STATE.observer,
+          well: { enabled: true, radius_m: 1.5, depth_m: 50 },
+        },
+      });
+      store.setContext({ maxAltitude: 100000 });
+
+      store.patch({ observer: { z: 5000 } });
+      assert.equal(store.state.observer.z, 0, 'cannot climb out of the shaft');
+      store.patch({ observer: { z: -500 } });
+      assert.equal(store.state.observer.z, -50, 'cannot sink through the bottom');
+      store.patch({ observer: { z: -12 } });
+      assert.equal(store.state.observer.z, -12, 'anywhere in between is fine');
+
+      // And switching the shaft off releases the ceiling again.
+      store.patch({ observer: { well: { enabled: false } } });
+      store.patch({ observer: { z: 5000 } });
+      assert.equal(store.state.observer.z, 5000);
+    });
+
+    test('standing at the mouth of a shaft sees the whole sky', () => {
+      // The state the old view could not show at all, because it only drew the
+      // shaft once the observer was below the surface. It is the anchor of the
+      // experiment: the aperture starts as everything and closes as you go down.
+      assert.close(wellApertureHalfAngle(0, 1.5), Math.PI / 2, 1e-12);
+      assert.close(wellIlluminanceFraction(0, 1.5), 1, 1e-12);
+      assert.equal(wellIsBlocked(80 * Math.PI / 180, 0, 1.5), false);
     });
 
     test('the mapping keeps metre resolution near the ground', () => {

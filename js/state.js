@@ -113,8 +113,12 @@ export function createStore(initial = DEFAULT_STATE) {
    */
   function reconcile(changed) {
     const obs = state.observer;
+    // Inside a shaft you are somewhere between its bottom and its mouth, and
+    // nowhere else: the cross-section shows the shaft the whole time the shaft
+    // is switched on, so the position control must not be able to leave it.
     const maxDepth = obs.well.enabled ? obs.well.depth_m : 0;
-    const clamped = Math.max(-maxDepth, Math.min(context.maxAltitude, obs.z));
+    const ceiling = obs.well.enabled ? 0 : context.maxAltitude;
+    const clamped = Math.max(-maxDepth, Math.min(ceiling, obs.z));
     if (clamped !== obs.z) {
       obs.z = clamped;
       changed.add('observer.z');

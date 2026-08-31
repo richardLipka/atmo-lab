@@ -116,7 +116,13 @@
     "observed": "dorazil k pozorovateli",
     "missedObserver": "odchází jiným směrem",
     "viewCone": "tvůj zorný kužel",
-    "legendOffView": "dopadá k tobě z jiné části oblohy"
+    "legendOffView": "dopadá k tobě z jiné části oblohy",
+    "shaftReaches": "dopadá k pozorovateli",
+    "shaftAbsorbed": "zastaveno horninou",
+    "shaftPatch": "jediný zbytek oblohy",
+    "coneExaggerated": "kužel rozšířen, aby šel nakreslit",
+    "trueRatio": "skutečná hloubka : poloměr",
+    "drawnRatio": "nakresleno jako"
   },
   "spectrum": {
     "title": "Spektrum",

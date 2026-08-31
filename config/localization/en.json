@@ -116,7 +116,13 @@
     "observed": "arrived at the observer",
     "missedObserver": "leaves in another direction",
     "viewCone": "your field of view",
-    "legendOffView": "reaches you from elsewhere in the sky"
+    "legendOffView": "reaches you from elsewhere in the sky",
+    "shaftReaches": "reaches the observer",
+    "shaftAbsorbed": "stopped by the rock",
+    "shaftPatch": "the only sky left",
+    "coneExaggerated": "cone widened to be drawable",
+    "trueRatio": "true depth : radius",
+    "drawnRatio": "drawn as"
   },
   "spectrum": {
     "title": "Spectrum",

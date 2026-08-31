@@ -311,6 +311,20 @@ Because a deep shaft's aperture can be a hundredth of a degree wide, two things 
 rather than falling between samples: the hemisphere integral for illuminance, and the sky
 strip, whose middle third is magnified onto the aperture and labelled as such.
 
+**The shaft view is shown the whole time the shaft is switched on**, not only once the
+observer has descended into it, and the position control is confined between the bottom and
+the mouth while it is. Standing at the mouth is the anchor of the experiment: the aperture
+is the entire sky (θmax = 90°) and it closes as you go down — 7.1° at 12 m, 1.7° at 50 m
+in a shaft 1.5 m across.
+
+The picture is a fan of rays converging on the observer from right across the sky, each
+carrying the colour of the patch it came from. The ones inside the cone come through the
+mouth and arrive; the ones outside meet the ground beyond the lip and stop there, marked
+with a cross, with a dashed continuation showing where they were going — straight through
+rock. The sky band above is dimmed outside the aperture, leaving visible the only patch of
+sky that is left. Every one of those decisions is geometry: no property of the air or of
+the light appears anywhere in it.
+
 An **advanced toggle, "count air inside the shaft"**, is off by default so that descending
 is purely geometric, as specified. Switching it on adds the denser air that would really
 fill a deep shaft (C = H(e^(d/H) − 1)) — and only then does descending finally become an
@@ -356,7 +370,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **91 tests** covering:
+`node tests/run-tests.js` runs **93 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
@@ -375,6 +389,8 @@ lesson:
 - well geometry: the exact tan θ > R/d condition, arctan(R/d), 2π(1−cos θ), sin²θ_max;
 - **the well paradox itself** — that radiance and colour through the aperture are identical
   at every depth, while illuminance follows the solid angle;
+- that the shaft confines the observer between its bottom and its mouth while it is on, and
+  releases the ceiling again when it is switched off;
 - config integrity, including CZ/EN key parity and bilingual completeness of every
   experiment step;
 - the drawn light paths: that arriving light is measurably bluer than its source and than
