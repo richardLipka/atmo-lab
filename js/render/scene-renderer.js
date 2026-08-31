@@ -20,6 +20,7 @@ import { computeScatteringSource, QUALITY_PRESETS } from '../physics/radiance.js
 import { wellApertureHalfAngle } from '../physics/well.js';
 import { wavelengthToDisplayRgb } from '../physics/spectrum.js';
 import { VIEW_CONE_HALF_DEG } from './photons.js';
+import { clampSpan } from '../state.js';
 import { v3 } from '../physics/geometry.js';
 
 const FIELD_COLUMNS = 26;
@@ -192,7 +193,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
     const plot = plotRect(w, h);
     const span = spanFor(data.state, atm, z);
-    const camera = makeCamera(atm, plot, span, belowGroundFor(data.state));
+    const camera = makeCamera(atm, plot, span,
+      belowGroundFor(data.state), Math.max(0, -z));
 
     // The glow is expensive, so it is rebuilt only when what it depends on
     // moves - which now includes the zoom and the size of the canvas.
@@ -221,6 +223,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
     drawAltitudeArcs(plot, camera, atm);
     drawStarMarker(plot, evaluation);
+    drawApertureCone(plot, camera, z);
     drawViewCone(plot, camera, z);
     if (data.photons && data.state.rays.showScattering) {
       drawPhotons(plot, camera.project, timeMs, allowInteraction);
@@ -252,7 +255,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const { w, h } = cssSize();
     const plot = plotRect(w, h);
     const camera = makeCamera(atmosphere, plot,
-      spanFor(state, atmosphere, state.observer.z), belowGroundFor(state));
+      spanFor(state, atmosphere, state.observer.z), belowGroundFor(state),
+      Math.max(0, -state.observer.z));
     return {
       span_m: camera.span,
       halfWidth_m: camera.halfWidth,
@@ -443,6 +447,56 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.textAlign = 'right';
     ctx.fillText(i18n.t('canvas.star'), mx, my + 3);
+    ctx.restore();
+  }
+
+  /**
+   * The only sky a shaft leaves.
+   *
+   * Without this the picture is honestly puzzling: the air above is bright blue
+   * and nothing arrives, and the reason - that the rock has taken all of the
+   * sky except a sliver - is implied by the stopped rays rather than shown.
+   * This is that sliver, at arctan(R/depth), drawn to scale from the observer
+   * out through the mouth. The blue you can actually have is the blue inside it.
+   */
+  function drawApertureCone(plot, camera, z) {
+    const well = data.state.observer.well;
+    if (!well.enabled || z >= 0) return;
+    const half = wellApertureHalfAngle(-z, well.radius_m);
+    if (!(half > 0) || half >= Math.PI / 2 - 1e-6) return;
+
+    const origin = { x: 0, y: camera.R + z };
+    const reach = camera.span * 3;
+    const edge = (angle) => camera.project({
+      x: origin.x + Math.sin(angle) * reach,
+      y: origin.y + Math.cos(angle) * reach,
+    });
+    const o = camera.project(origin);
+    const left = edge(-half);
+    const right = edge(half);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(o.x, o.y);
+    ctx.lineTo(left.x, left.y);
+    ctx.lineTo(right.x, right.y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(150, 210, 255, 0.10)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(150, 210, 255, 0.45)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 3]);
+    for (const side of [left, right]) {
+      ctx.beginPath();
+      ctx.moveTo(o.x, o.y);
+      ctx.lineTo(side.x, side.y);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(180, 220, 255, 0.85)';
+    ctx.textAlign = 'left';
+    ctx.fillText('θmax = ' + formatAngle(half * 180 / Math.PI), plot.x + 8, plot.y + 14);
     ctx.restore();
   }
 
@@ -945,14 +999,6 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
  * kilometres long, which does not fit in a picture of the local sky.
  */
 
-/** Vertical extent of the frame, in metres, at either end of the zoom control. */
-export const MIN_SPAN_M = 20;
-export const MAX_SPAN_M = 6e6;
-
-export function clampSpan(span) {
-  return Math.max(MIN_SPAN_M, Math.min(MAX_SPAN_M, span));
-}
-
 /**
  * The span used when the observer has not chosen one: three scale heights,
  * which hold 95 % of the column, and always enough to contain the observer.
@@ -986,14 +1032,22 @@ function skyFractionFor(span) {
  * The camera: everything the drawing needs to turn world metres into pixels,
  * and to know which piece of the world is on screen.
  */
-export function makeCamera(atmosphere, plot, span, belowGround = 0) {
+export function makeCamera(atmosphere, plot, span, belowGround = 0, observerDepth = 0) {
   const R = atmosphere.planetRadius;
-  // Normally the ground belongs at the bottom of the frame. When there is a
-  // shaft, the frame has to hold it, so the horizon rises far enough that the
-  // hole and its walls are inside the picture rather than off the bottom edge.
-  const skyFraction = belowGround > 0
-    ? Math.max(0.25, Math.min(0.95, 1 - (belowGround * 1.25) / span))
+  // Normally the ground belongs near the bottom of the frame. When there is a
+  // shaft the horizon rises to make room for it - and if the observer is deep
+  // enough, or the zoom close enough, that the horizon has to leave the top of
+  // the picture altogether, then it leaves. What must never leave is the
+  // observer: a zoom that puts them off the bottom edge shows the walls of a
+  // shaft with nobody in it, which is what happened before this second step.
+  let skyFraction = belowGround > 0
+    ? Math.min(skyFractionFor(span), 1 - (belowGround * 1.25) / span)
     : skyFractionFor(span);
+  if (observerDepth > 0) {
+    const observerFraction = skyFraction + observerDepth / span;
+    if (observerFraction > 0.88) skyFraction -= observerFraction - 0.88;
+    skyFraction = Math.min(skyFraction, 0.95);
+  }
   const scale = plot.h / span;
   const cx = plot.x + plot.w / 2;
   const groundY = plot.y + skyFraction * plot.h;

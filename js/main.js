@@ -9,10 +9,12 @@
 
 import { loadConfiguration } from './config-loader.js';
 import { createI18n } from './i18n.js';
-import { createStore, DEFAULT_STATE, maxAltitudeFor, touches } from './state.js';
+import {
+  createStore, DEFAULT_STATE, maxAltitudeFor, touches, clampSpan,
+} from './state.js';
 import { createColorimetry } from './physics/color.js';
 import { createSimulation } from './simulation.js';
-import { createSceneRenderer, formatAltitude, clampSpan, autoSpanFor } from './render/scene-renderer.js';
+import { createSceneRenderer, formatAltitude, autoSpanFor } from './render/scene-renderer.js';
 import { createSkyStrip } from './render/sky-strip.js';
 import { createSpectrumChart } from './render/spectrum-chart.js';
 import { createChromaticityPlot } from './render/chromaticity.js';

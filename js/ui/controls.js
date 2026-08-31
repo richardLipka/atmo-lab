@@ -6,10 +6,10 @@
  * state path it drives; nothing here knows anything about the physics.
  */
 
-import { sliderToZ, zToSlider, maxAltitudeFor } from '../state.js';
 import {
-  formatAltitude, autoSpanFor, MIN_SPAN_M, MAX_SPAN_M,
-} from '../render/scene-renderer.js';
+  sliderToZ, zToSlider, maxAltitudeFor, MIN_SPAN_M, MAX_SPAN_M,
+} from '../state.js';
+import { formatAltitude, autoSpanFor } from '../render/scene-renderer.js';
 
 function getPath(object, path) {
   return path.split('.').reduce((node, key) => (node == null ? node : node[key]), object);

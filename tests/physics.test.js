@@ -26,7 +26,10 @@ import {
   QUALITY_PRESETS,
 } from '../js/physics/radiance.js';
 import { directionFromAngles, sunDirectionFromElevation, raySphereFar, raySphereNear, v3 } from '../js/physics/geometry.js';
-import { sliderToZ, zToSlider, createStore, DEFAULT_STATE } from '../js/state.js';
+import {
+  sliderToZ, zToSlider, createStore, DEFAULT_STATE,
+  clampSpan, MIN_SPAN_M, MAX_SPAN_M,
+} from '../js/state.js';
 import {
   tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
 } from '../js/render/photons.js';
@@ -976,6 +979,25 @@ export function registerTests({ group, test, assert }, config) {
       store.patch({ observer: { well: { enabled: false } } });
       store.patch({ observer: { z: 5000 } });
       assert.equal(store.state.observer.z, 5000);
+    });
+
+    test('the zoom reaches far enough in to see a shaft', () => {
+      // The limits used to be written down twice - once in the renderer, once
+      // in the store's invariant - and they drifted. The renderer was widened
+      // to twenty metres while the store went on snapping anything under five
+      // kilometres back up, so zooming in on a shaft silently did nothing and
+      // the shaft could never be seen. One definition now, and this is it.
+      assert.less(MIN_SPAN_M, 50, 'a twenty-metre shaft has to fit in the frame');
+      assert.equal(clampSpan(25), 25);
+      assert.equal(clampSpan(MIN_SPAN_M / 2), MIN_SPAN_M);
+      assert.equal(clampSpan(MAX_SPAN_M * 2), MAX_SPAN_M);
+
+      const store = createStore(DEFAULT_STATE);
+      store.patch({ camera: { span_m: 25 } });
+      assert.equal(store.state.camera.span_m, 25,
+        'the store must not undo a zoom the interface offers');
+      store.patch({ camera: { span_m: 1 } });
+      assert.equal(store.state.camera.span_m, MIN_SPAN_M);
     });
 
     test('standing at the mouth of a shaft sees the whole sky', () => {

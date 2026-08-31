@@ -6,6 +6,23 @@
  * rebuilding the whole interface.
  */
 
+/**
+ * Vertical extent of the cross-section, in metres, at either end of the zoom.
+ *
+ * These live here because this is where the invariant is enforced, and they got
+ * out of step once already: the renderer was widened to let the zoom reach a
+ * twenty-metre shaft while the store went on clamping to five kilometres, so
+ * every attempt to zoom in on a shaft silently snapped back and the shaft could
+ * not be seen at all. One definition, imported by whoever needs it.
+ */
+export const MIN_SPAN_M = 20;
+export const MAX_SPAN_M = 6e6;
+
+/** The zoom is a physical extent, so it has physical limits. */
+export function clampSpan(span) {
+  return Math.max(MIN_SPAN_M, Math.min(MAX_SPAN_M, span));
+}
+
 export const DEFAULT_STATE = {
   language: 'cs',
   level: 'basic',
@@ -124,12 +141,9 @@ export function createStore(initial = DEFAULT_STATE) {
       changed.add('observer.z');
       changed.add('observer');
     }
-    // The zoom is a physical extent, so it has physical limits: below a few
-    // kilometres nothing is left to see, and past a few thousand the planet has
-    // shrunk to a dot.
     const span = state.camera.span_m;
     if (span != null) {
-      const fixed = Math.max(5e3, Math.min(6e6, span));
+      const fixed = clampSpan(span);
       if (fixed !== span) {
         state.camera.span_m = fixed;
         changed.add('camera.span_m');

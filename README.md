@@ -325,10 +325,17 @@ counts follow the geometry and nothing else: in a shaft 20 m deep, **30 of 360 d
 get through at R = 2 m and 255 of 360 at R = 8 m**, and the test suite checks the surviving
 share against arctan(R/depth) inside a three-sigma band.
 
-Because a shaft is a thing of metres under an atmosphere of kilometres, the zoom now reaches
+Because a shaft is a thing of metres under an atmosphere of kilometres, the zoom reaches
 down to 20 m of frame height and fits itself to the shaft when there is one. At a wide zoom
 the shaft is narrower than a pixel and simply is not drawn, which is the truth about a
-two-metre hole under a hundred kilometres of air.
+two-metre hole under a hundred kilometres of air. The frame keeps the observer in view at
+every zoom: the horizon rises to make room for the shaft, and when the zoom is close enough
+that the horizon must leave the top of the picture, it leaves.
+
+**The aperture cone is drawn**, at arctan(R/depth), from the observer out through the
+mouth. Without it the picture is honestly puzzling — the air above is bright blue and
+nothing arrives — and the reason is only implied by the stopped rays. The blue you can
+actually have is the blue inside that cone; the rock has taken the rest.
 
 An **advanced toggle, "count air inside the shaft"**, is off by default so that descending
 is purely geometric, as specified. Switching it on adds the denser air that would really
@@ -375,7 +382,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **96 tests** covering:
+`node tests/run-tests.js` runs **97 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
@@ -398,6 +405,8 @@ lesson:
   releases the ceiling again when it is switched off;
 - that the shaft wall stops exactly the rays arctan(R/depth) says it should, that a stopped
   ray ends on the wall carrying nothing, and that widening the shaft lets more sky back in;
+- that the zoom reaches far enough in to see a shaft — the limits were written down twice
+  and drifted, so the store was undoing zooms the interface offered;
 - config integrity, including CZ/EN key parity and bilingual completeness of every
   experiment step;
 - the drawn light paths: that arriving light is measurably bluer than its source and than
