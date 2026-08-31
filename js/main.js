@@ -145,9 +145,11 @@ async function start() {
       panels.update(result, photonTally, histogram);
     }
     if (touches(changed, 'atmosphere.presetId', 'star.presetId', 'star.temperatureK')) {
-      // The held vertical scale belongs to one world lit by one star. Carrying
-      // it across to another would say something false about the new one.
+      // The held scales - the histogram's axis and the brightness the rays are
+      // drawn against - belong to one world lit by one star. Carrying them
+      // across to another would say something false about the new one.
       beamHistogram.resetScale();
+      sceneRenderer.resetScale();
     }
     controls.update();
     syncHeader();

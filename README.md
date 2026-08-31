@@ -221,6 +221,16 @@ is what one photon does. The *measurement* keeps each ray's whole spectrum,
 because throwing 37 of 38 numbers away left the estimate visibly noisy with only
 a few dozen rays in the cone.
 
+That estimate also sets how brightly the rays are drawn. The same fixed number
+of them is traced at every altitude, so without this the fan converging on the
+observer looked exactly as bright at 30 km as at sea level — the picture saying
+nothing had changed while the physics said the sky had gone out. The mean
+delivered radiance, against the brightest bundle seen so far, fades the whole
+arriving bundle: the coloured pixels in the cross-section fall from 6 800 at the
+ground to 4 800 at 12 km to 2 000 at 30 km, tracking the sky's own collapse from
+`rgb(136,166,214)` to `rgb(20,29,45)`. The events *below* the observer do not
+fade, because they are happening in air the observer merely climbed above.
+
 ### The beam histogram
 
 Below the cross-section is the spectrum of the light those rays deliver —

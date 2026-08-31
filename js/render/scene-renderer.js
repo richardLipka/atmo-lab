@@ -35,6 +35,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   let layout = null;         // geometry of the last frame, for hit testing
   let hoveredPath = -1;
   let selectedPath = -1;
+  /** The brightest arriving bundle seen, so a dimmer one can be drawn dimmer. */
+  let rayReference = 0;
 
   function cssSize() {
     const rect = canvas.getBoundingClientRect();
@@ -478,10 +480,38 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const involved = (p) => p.kind === 'arriving'
       && Math.abs(p.arrivalAngleRad - axis) <= half;
 
+    /**
+     * How bright the arriving bundle should be drawn.
+     *
+     * A fixed number of rays is traced whatever the state, so without this the
+     * fan converging on the observer looks exactly as bright at 30 km as at the
+     * ground - the picture would say nothing changed while the physics says the
+     * sky went out. Each ray carries an unbiased estimate of what it delivers;
+     * the mean of those, against the brightest bundle seen so far, is how much
+     * light there actually is. The power is a display gamma, so the fade is
+     * gradual rather than a cliff, and it stops short of zero, because a ray
+     * you cannot see teaches nothing.
+     *
+     * Only the arriving families fade. The events below - light thrown where it
+     * misses you, light crossing unscattered - happen in air the observer has
+     * climbed above, and they do not dim just because you left.
+     */
+    let radianceSum = 0, arrivingCount = 0;
+    for (const p of paths) {
+      if (p.kind !== 'arriving') continue;
+      radianceSum += p.radiance ?? 0;
+      arrivingCount++;
+    }
+    const meanArriving = arrivingCount > 0 ? radianceSum / arrivingCount : 0;
+    if (meanArriving > rayReference) rayReference = meanArriving;
+    const fade = rayReference > 0
+      ? Math.max(0.05, Math.min(1, Math.pow(meanArriving / rayReference, 0.4)))
+      : 1;
+
     const GREY = '#8a93a6';
     // Grey, but not invisible: zoomed out, the long chord an unscattered beam
     // has to cross IS the demonstration, so it gets the strongest of the greys.
-    const contextAlpha = { through: 0.30, missed: 0.16, arriving: 0.13 };
+    const contextAlpha = { through: 0.30, missed: 0.16, arriving: 0.13 * fade };
     const contextWidth = { through: 1.2, missed: 1, arriving: 1 };
 
     /**
@@ -516,11 +546,11 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.save();
     // Scattering vertices outside the cone: every one is still a photon taken
     // out of the beam, so they are drawn - just not celebrated.
-    ctx.globalAlpha = 0.22;
     ctx.fillStyle = GREY;
     for (let i = 0; i < paths.length; i++) {
       const p = paths[i];
       if (p.scatterCount === 0 || !asContext(p, i)) continue;
+      ctx.globalAlpha = p.kind === 'arriving' ? 0.22 * fade : 0.22;
       if (i === selectedPath || i === hoveredPath) continue;
       const e = project(p.events[1]);
       ctx.beginPath();
@@ -553,7 +583,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
     ctx.save();
     ctx.lineWidth = 1.3;
-    ctx.globalAlpha = 0.85;
+    ctx.globalAlpha = 0.85 * fade;
     for (const [lambda, indices] of buckets) {
       const [r, g, b] = wavelengthToDisplayRgb(lambda);
       ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
@@ -567,6 +597,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     // or the incoming stubs swamp the convergence.
     if (phase >= 1) {
       ctx.save();
+      ctx.globalAlpha = Math.max(0.12, fade);
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       for (const [lambda, indices] of buckets) {
@@ -585,7 +616,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
 
     ctx.save();
-    ctx.globalAlpha = 0.95;
+    ctx.globalAlpha = 0.95 * fade;
     ctx.fillStyle = '#ffffff';
     for (const indices of buckets.values()) {
       for (const index of indices) {
@@ -888,8 +919,13 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
   }
 
+  /** Forget the held brightness, so a new world or star starts from its own. */
+  function resetScale() {
+    rayReference = 0;
+  }
+
   return {
-    update, draw, pick, frameFor,
+    update, draw, pick, frameFor, resetScale,
     setHovered(index) { hoveredPath = index; },
     setSelected(index) { selectedPath = index; },
     getSelected() { return selectedPath; },
