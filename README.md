@@ -311,19 +311,24 @@ Because a deep shaft's aperture can be a hundredth of a degree wide, two things 
 rather than falling between samples: the hemisphere integral for illuminance, and the sky
 strip, whose middle third is magnified onto the aperture and labelled as such.
 
-**The shaft view is shown the whole time the shaft is switched on**, not only once the
-observer has descended into it, and the position control is confined between the bottom and
-the mouth while it is. Standing at the mouth is the anchor of the experiment: the aperture
-is the entire sky (θmax = 90°) and it closes as you go down — 7.1° at 12 m, 1.7° at 50 m
-in a shaft 1.5 m across.
+**The shaft is part of the same cross-section, not a picture of its own.** An earlier
+version switched to a purpose-drawn schematic of a well, which meant the shaft was the one
+situation the simulator did not actually simulate — it was a diagram of what the answer
+would be. The shaft is now cut out of the ground in the ordinary cross-section, drawn to
+scale, and the ordinary traced rays run into its walls.
 
-The picture is a fan of rays converging on the observer from right across the sky, each
-carrying the colour of the patch it came from. The ones inside the cone come through the
-mouth and arrive; the ones outside meet the ground beyond the lip and stop there, marked
-with a cross, with a dashed continuation showing where they were going — straight through
-rock. The sky band above is dimmed outside the aperture, leaving visible the only patch of
-sky that is left. Every one of those decisions is geometry: no property of the air or of
-the light appears anywhere in it.
+A ray whose direction is steeper than arctan(R/depth) meets rock before it reaches the
+mouth. It is recorded as stopped at the wall, carries nothing, and never becomes a
+scattering path at all — it is drawn ending on the wall with a cross. The rest pass through
+the mouth and go on to scatter in the air above exactly as they would anywhere else. The
+counts follow the geometry and nothing else: in a shaft 20 m deep, **30 of 360 directions
+get through at R = 2 m and 255 of 360 at R = 8 m**, and the test suite checks the surviving
+share against arctan(R/depth) inside a three-sigma band.
+
+Because a shaft is a thing of metres under an atmosphere of kilometres, the zoom now reaches
+down to 20 m of frame height and fits itself to the shaft when there is one. At a wide zoom
+the shaft is narrower than a pixel and simply is not drawn, which is the truth about a
+two-metre hole under a hundred kilometres of air.
 
 An **advanced toggle, "count air inside the shaft"**, is off by default so that descending
 is purely geometric, as specified. Switching it on adds the denser air that would really
@@ -370,7 +375,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **93 tests** covering:
+`node tests/run-tests.js` runs **96 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
@@ -391,6 +396,8 @@ lesson:
   at every depth, while illuminance follows the solid angle;
 - that the shaft confines the observer between its bottom and its mouth while it is on, and
   releases the ceiling again when it is switched off;
+- that the shaft wall stops exactly the rays arctan(R/depth) says it should, that a stopped
+  ray ends on the wall carrying nothing, and that widening the shaft lets more sky back in;
 - config integrity, including CZ/EN key parity and bilingual completeness of every
   experiment step;
 - the drawn light paths: that arriving light is measurably bluer than its source and than

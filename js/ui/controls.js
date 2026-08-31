@@ -235,7 +235,7 @@ export function createControls(root, { store, i18n, config }) {
           helpKey: 'controls.observer.zoomHelp', path: 'camera.span_m',
           min: MIN_SPAN_M, max: MAX_SPAN_M, step: 1, scale: 'log',
           fallback: (state) => autoSpanFor(
-            atmosphereShape(state), Math.max(0, state.observer.z)),
+            atmosphereShape(state), state.observer.z, state.observer.well),
           format: (v) => formatAltitude(v),
         },
         {

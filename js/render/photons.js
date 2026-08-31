@@ -83,7 +83,8 @@ function sampleWeighted(weights, total, u) {
  *   atmosphere        an object from createAtmosphere
  *   source            top-of-atmosphere spectrum
  *   sunElevationDeg   elevation of the star above the observer's horizon
- *   observerZ         observer altitude in metres
+ *   observerZ         observer altitude in metres, negative inside a shaft
+ *   well              { enabled, radius_m, depth_m }, or null
  *   count             how many paths to draw
  *   span_m            vertical extent of the drawn frame, in metres
  *   halfWidth_m       half its horizontal extent
@@ -93,6 +94,7 @@ function sampleWeighted(weights, total, u) {
 export function tracePhotons(options) {
   const {
     atmosphere, source, sunElevationDeg, observerZ = 0,
+    well = null,
     count, span_m, halfWidth_m, skyExtent_m, seed = 12345,
     // Scales the sun-leg cache cell. 1 is the working value; the test suite
     // drives it towards zero to compare against an effectively uncached trace.
@@ -122,8 +124,15 @@ export function tracePhotons(options) {
   const invHR = 1 / HR;
   const invHA = 1 / atmosphere.scaleHeightAerosol;
 
+  // Altitude of the lowest air: inside a shaft the observer is below the
+  // surface, but the air still begins at the surface, because the shaft is a
+  // hole in the ground rather than a hole in the atmosphere.
   const observerAltitude = Math.max(0, observerZ);
-  const observer = { x: 0, y: R + observerAltitude };
+  const observer = { x: 0, y: R + observerZ };
+
+  const shaft = well && well.enabled && observerZ < 0
+    ? { radius: well.radius_m, depth: -observerZ }
+    : null;
 
   /* ---- world helpers, all in true Cartesian ---- */
 
@@ -363,6 +372,31 @@ export function tracePhotons(options) {
     // so its local "up" is +y and this is just a rotation of it.
     const d = { x: Math.sin(angle), y: Math.cos(angle) };
 
+    // Inside a shaft, the wall decides first. A direction steeper than
+    // arctan(R/depth) runs into rock before it reaches the mouth, and no
+    // amount of air above changes that - so the ray is recorded as stopped at
+    // the wall, carries nothing, and never becomes a scattering path at all.
+    if (shaft && Math.abs(Math.tan(angle)) * shaft.depth > shaft.radius) {
+      const along = shaft.radius / Math.max(1e-9, Math.abs(d.x));
+      const hit = { x: observer.x + d.x * along, y: observer.y + d.y * along };
+      paths.push({
+        kind: 'blocked',
+        lambda: 550, bin: 17,
+        weight: 0, radiance: 0,
+        arrivalAngleRad: angle,
+        points: [hit, observer],
+        events: [
+          {
+            type: 'wall', x: hit.x, y: hit.y, altitude: altitudeOf(hit),
+            lambda: 550, angleDeg: Math.abs(angle) * 180 / Math.PI,
+          },
+        ],
+        outcome: 'wall',
+        scatterCount: 0,
+      });
+      continue;
+    }
+
     // The scattering altitude is drawn from the density profile over the WHOLE
     // column above the observer, not just the part inside the drawn frame.
     // Sampling only what is on screen would bias the estimate below by whatever
@@ -389,7 +423,12 @@ export function tracePhotons(options) {
     const rhoA = atmosphere.densityAerosol(h);
     const phaseR = rayleighPhase(cosTheta);
     const phaseA = henyeyGreensteinPhase(cosTheta, g);
-    const back = columns(P, { x: -d.x, y: -d.y }, dist);
+    // The column back to the observer stops at the surface: with the shaft
+    // treated as empty, the metres between the mouth and the observer are not
+    // air and must not be integrated as if they were.
+    const mouth = shaft ? raySphere(observer, d, R, true) : null;
+    const airStart = mouth != null && mouth > 0 ? mouth : 0;
+    const back = columns(P, { x: -d.x, y: -d.y }, Math.max(0, dist - airStart));
 
     let total = 0;
     for (let i = 0; i < SPECTRUM_BINS; i++) {

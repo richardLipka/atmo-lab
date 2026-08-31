@@ -848,6 +848,67 @@ export function registerTests({ group, test, assert }, config) {
       assert.close(fromBins, fromSpectrum, 1e-9);
     });
 
+    test('the shaft wall stops the rays the aperture excludes', () => {
+      // The shaft is not a separate picture with a predicted answer painted on
+      // it: it is the same trace, with the rock allowed to get in the way
+      // first. So the counts have to follow arctan(R/depth) and nothing else.
+      const shaft = (depth, radius, count = 4000) => {
+        const paths = trace({
+          observerZ: -depth, count,
+          well: { enabled: true, depth_m: depth, radius_m: radius },
+          span_m: depth * 2.4, skyExtent_m: depth * 1.2, halfWidth_m: depth * 2,
+        });
+        const arriving = paths.filter((p) => p.kind === 'arriving').length;
+        const blocked = paths.filter((p) => p.kind === 'blocked').length;
+        return { arriving, blocked, fraction: arriving / (arriving + blocked) };
+      };
+
+      for (const [depth, radius] of [[20, 2], [20, 8], [50, 1.5]]) {
+        const got = shaft(depth, radius);
+        // Directions are sampled uniformly in angle over +/- MAX_SKY_ANGLE_DEG,
+        // so the surviving share is the aperture's share of that span.
+        const share = (Math.atan(radius / depth) * 180 / Math.PI) / 85;
+        const total = got.arriving + got.blocked;
+        const expected = share * total;
+        // Counting a random subset, so the test is a three-sigma band rather
+        // than a percentage: a narrow aperture lets so few rays through that
+        // ordinary sampling noise is a large fraction of them.
+        const sigma = Math.sqrt(expected * (1 - share));
+        assert.less(Math.abs(got.arriving - expected), 3 * sigma + 1,
+          `depth ${depth}, R ${radius}: ${got.arriving} through, expected `
+          + `${expected.toFixed(1)} +/- ${sigma.toFixed(1)}`);
+      }
+    });
+
+    test('a blocked ray stops on the wall and delivers nothing', () => {
+      const depth = 20, radius = 2;
+      const paths = trace({
+        observerZ: -depth, count: 2000,
+        well: { enabled: true, depth_m: depth, radius_m: radius },
+        span_m: 48, skyExtent_m: 24, halfWidth_m: 40,
+      });
+      const blocked = paths.filter((p) => p.kind === 'blocked');
+      assert.greater(blocked.length, 100);
+      for (const path of blocked) {
+        assert.equal(path.radiance, 0, 'a stopped ray carries no light');
+        // It ends where the wall is, and never gets past the mouth.
+        const wall = path.points[0];
+        assert.close(Math.abs(wall.x), radius, 1e-6);
+        const heightAboveEye = Math.hypot(wall.x, wall.y) - earth.planetRadius + depth;
+        assert.between(heightAboveEye, 0, depth + 1e-6);
+      }
+    });
+
+    test('widening the shaft lets more of the sky back in', () => {
+      const through = (radius) => trace({
+        observerZ: -20, count: 3000,
+        well: { enabled: true, depth_m: 20, radius_m: radius },
+        span_m: 48, skyExtent_m: 24, halfWidth_m: 40,
+      }).filter((p) => p.kind === 'arriving').length;
+      assert.greater(through(8), through(2) * 3);
+      assert.greater(through(2), 0);
+    });
+
     test('a vacuum produces no scattering events at all', () => {
       const moon = createAtmosphere(config.atmospheres['airless-moon']);
       const paths = trace({ atmosphere: moon, count: 400 });

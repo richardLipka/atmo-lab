@@ -29,10 +29,8 @@ const FIELD_ROWS = 34;
  * Beyond this the cone would be thinner than a line, so the shaft is drawn
  * stubbier than it is and both the true ratio and the true angle are printed.
  */
-const MAX_DRAWN_SHAFT_RATIO = 9;
-
-/** How much of the sky the shaft view samples, either side of the vertical. */
-const SHAFT_RAY_SPAN = 86 * Math.PI / 180;
+/** How many of the blocked directions to draw, once nearly all of them are. */
+const MAX_DRAWN_BLOCKED = 26;
 
 export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   const ctx = canvas.getContext('2d', { alpha: false });
@@ -114,8 +112,15 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const beam = result.primary.beam;
     const spectrum = new Float64Array(beam.spectrum.length);
     const cosSun = Math.max(0, result.primary.scene.sunDir.y);
+    // The terrain is lit by the beam that reaches the SURFACE, which is not the
+    // beam that reaches the observer: down a shaft the latter is blocked, and
+    // colouring the whole landscape from it turned the ground black while the
+    // Sun was still up. What the shaft blocks is the observer's view, not the
+    // countryside. Night still darkens it, because then there is no beam.
+    const lit = !beam.belowHorizon;
     for (let i = 0; i < spectrum.length; i++) {
-      spectrum[i] = albedo * (beam.spectrum[i] * cosSun);
+      spectrum[i] = lit
+        ? albedo * result.source[i] * beam.transmittance[i] * cosSun : 0;
     }
     const c = colorimetry.spectrumToSrgb(spectrum, 1.6);
     const floor = Math.max(0.03, Math.min(1, ill.totalOpen * 4));
@@ -162,14 +167,12 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.clip();
     ctx.translate(x0, y0);
 
-    // The shaft is shown whenever there is a shaft to be in, not only once the
-    // observer has descended into it. Standing at the mouth is a state worth
-    // drawing: the aperture is the whole sky, and it closes as you go down.
-    if (data.state.observer.well.enabled && z <= 0) {
-      drawShaftView(pw, ph, evaluation, z);
-    } else {
-      drawAtmosphereView(pw, ph, evaluation, z, timeMs, caption === null);
-    }
+    // One picture, always. An earlier version switched to a purpose-drawn
+    // schematic of the shaft, which meant the shaft was the one situation the
+    // simulation did not actually simulate - it was a diagram of what the
+    // answer would be. The shaft is now part of the same cross-section, cut out
+    // of the ground, with the same traced rays running into its walls.
+    drawAtmosphereView(pw, ph, evaluation, z, timeMs, caption === null);
 
     if (caption) {
       ctx.fillStyle = 'rgba(255,255,255,0.85)';
@@ -189,7 +192,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
     const plot = plotRect(w, h);
     const span = spanFor(data.state, atm, z);
-    const camera = makeCamera(atm, plot, span);
+    const camera = makeCamera(atm, plot, span, belowGroundFor(data.state));
 
     // The glow is expensive, so it is rebuilt only when what it depends on
     // moves - which now includes the zoom and the size of the canvas.
@@ -248,7 +251,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   function frameFor(state, atmosphere) {
     const { w, h } = cssSize();
     const plot = plotRect(w, h);
-    const camera = makeCamera(atmosphere, plot, spanFor(state, atmosphere, state.observer.z));
+    const camera = makeCamera(atmosphere, plot,
+      spanFor(state, atmosphere, state.observer.z), belowGroundFor(state));
     return {
       span_m: camera.span,
       halfWidth_m: camera.halfWidth,
@@ -256,11 +260,17 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     };
   }
 
+  /** How far below the surface the frame has to reach, in metres. */
+  function belowGroundFor(state) {
+    const well = state.observer.well;
+    return well.enabled ? Math.max(well.depth_m, -state.observer.z) : 0;
+  }
+
   /** Which vertical extent is on screen: the observer's choice, or the default. */
   function spanFor(state, atmosphere, z) {
     return state.camera?.span_m != null
       ? clampSpan(state.camera.span_m)
-      : autoSpanFor(atmosphere, z);
+      : autoSpanFor(atmosphere, z, state.observer.well);
   }
 
   /**
@@ -288,6 +298,36 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,0.35)';
     ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    cutShaft(camera);
+  }
+
+  /**
+   * The shaft, as what it is: a hole in the ground, drawn to scale in the same
+   * frame as everything else. At a wide zoom it is narrower than a pixel and
+   * simply does not show, which is the truth about a two-metre shaft under a
+   * hundred kilometres of air - zoom in to see it.
+   */
+  function cutShaft(camera) {
+    const well = data.state.observer.well;
+    if (!well.enabled) return;
+    const top = camera.project({ x: -well.radius_m, y: camera.R });
+    const bottom = camera.project({ x: well.radius_m, y: camera.R - well.depth_m });
+    const width = bottom.x - top.x;
+    if (width < 0.4) return;
+
+    ctx.save();
+    ctx.fillStyle = '#05070c';
+    ctx.fillRect(top.x, top.y, width, bottom.y - top.y);
+    ctx.strokeStyle = 'rgba(255,235,205,0.55)';
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(top.x, top.y);
+    ctx.lineTo(top.x, bottom.y);
+    ctx.moveTo(top.x + width, top.y);
+    ctx.lineTo(top.x + width, bottom.y);
     ctx.stroke();
     ctx.restore();
   }
@@ -377,7 +417,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   /** The observer, with its sight line, placed through the camera. */
   function drawObserverAt(camera, z, evaluation) {
-    const p = camera.project({ x: 0, y: camera.R + Math.max(0, z) });
+    // Not clamped to the surface: down a shaft, that is the whole point.
+    const p = camera.project({ x: 0, y: camera.R + z });
     drawObserver(p.x, p.y, evaluation, z);
   }
 
@@ -418,7 +459,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
     const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
     const half = VIEW_CONE_HALF_DEG * Math.PI / 180;
-    const origin = { x: 0, y: camera.R + Math.max(0, z) };
+    const origin = { x: 0, y: camera.R + z };
     const reach = camera.span * 3;
 
     // One straight segment per edge, generously long and clipped by the plot
@@ -603,6 +644,10 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
     ctx.restore();
 
+    /* ---- the rays the wall stops ---- */
+
+    drawBlockedRays(paths, project);
+
     /* ---- the rays inside the cone, in their own colours ---- */
 
     const buckets = new Map();
@@ -687,6 +732,50 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
 
     drawPathLegend(plot);
+  }
+
+  /**
+   * Directions the shaft wall refuses.
+   *
+   * These are ordinary traced rays that never became scattering paths, because
+   * the rock was in the way before the air was. Each is drawn from the point on
+   * the wall where it stops down to the observer, so the picture shows which
+   * part of the sky has been taken away and by what. Only a sample is drawn:
+   * once the aperture is a couple of degrees nearly every direction is blocked,
+   * and all of them at once is a solid fan that hides the few that get through.
+   */
+  function drawBlockedRays(paths, project) {
+    const blocked = [];
+    for (const p of paths) if (p.kind === 'blocked') blocked.push(p);
+    if (blocked.length === 0) return;
+    const stride = Math.max(1, Math.round(blocked.length / MAX_DRAWN_BLOCKED));
+
+    ctx.save();
+    for (let i = 0; i < blocked.length; i += stride) {
+      const p = blocked[i];
+      const hit = project(p.points[0]);
+      const eye = project(p.points[1]);
+      if (Math.hypot(hit.x - eye.x, hit.y - eye.y) < 3) continue;
+
+      ctx.strokeStyle = 'rgba(255, 138, 90, 0.34)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(eye.x, eye.y);
+      ctx.lineTo(hit.x, hit.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.strokeStyle = 'rgba(255, 138, 90, 0.9)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(hit.x - 3, hit.y - 3);
+      ctx.lineTo(hit.x + 3, hit.y + 3);
+      ctx.moveTo(hit.x + 3, hit.y - 3);
+      ctx.lineTo(hit.x - 3, hit.y + 3);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   function drawArrowHead(x1, y1, x2, y2, size) {
@@ -795,252 +884,6 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   /* Shaft view                                                        */
   /* ---------------------------------------------------------------- */
 
-  /**
-   * The shaft.
-   *
-   * The whole content of this picture is one fact: the rock decides which
-   * directions can reach you, and it decides on geometry alone. Light arriving
-   * from anywhere except a narrow cone about the vertical runs into the rock
-   * before it gets to the bottom, and no property of the air or of the light
-   * enters into that. So the rays are drawn converging on the observer from
-   * right across the sky, each carrying the colour of the patch it came from,
-   * and each either arriving or stopping dead at the lip of the shaft.
-   */
-  function drawShaftView(w, h, evaluation, z) {
-    const well = data.state.observer.well;
-    const radius = well.radius_m;
-    const depth = Math.max(0, -z);                 // how far below the mouth
-    const shaftDepth = Math.max(depth, well.depth_m);
-    const trueHalf = wellApertureHalfAngle(depth, radius);
-    const trueHalfDeg = trueHalf * 180 / Math.PI;
-
-    const padTop = 8, padBottom = 30, padSide = 40;
-    const skyHeight = Math.round((h - padTop - padBottom) * 0.26);
-    const groundY = padTop + skyHeight;
-    const floorY = h - padBottom;
-    const centreX = w / 2;
-
-    /**
-     * A real shaft is far deeper than it is wide - a hundredth of a degree of
-     * sky at the bottom of a deep one - and drawn to scale it would be a
-     * vertical line. So the aspect ratio is capped, the cone the picture shows
-     * is the cone that fits, and the true numbers are printed beside it. What
-     * the drawing keeps exact is the mechanism: everything below is derived
-     * from the drawn geometry, so the picture never contradicts itself.
-     */
-    const trueRatio = radius > 0 ? shaftDepth / radius : 0;
-    const drawnRatio = Math.min(trueRatio, MAX_DRAWN_SHAFT_RATIO);
-
-    // The scale is set by the whole shaft, not by how far down the observer
-    // happens to be. Deriving it from the observer's depth collapsed the
-    // picture to nothing whenever they stood at the mouth, which is exactly the
-    // state worth being able to look at: the aperture is the whole sky there,
-    // and it closes as they descend.
-    let shaftHalfWidth = Math.max(16, Math.min((w - padSide * 2) / 2, w * 0.13));
-    const room = floorY - groundY - 16;
-    let shaftHeight = drawnRatio * shaftHalfWidth;
-    if (shaftHeight > room) {
-      shaftHeight = room;
-      if (drawnRatio > 0) shaftHalfWidth = room / drawnRatio;
-    }
-    const perMetre = shaftDepth > 0 ? shaftHeight / shaftDepth : 0;
-    const observerY = groundY + depth * perMetre;
-    const shaftBottomY = Math.min(floorY, groundY + Math.max(12, shaftHeight));
-
-    // At the mouth this is a right angle: the whole sky is still there.
-    const drawnHalf = Math.min(SHAFT_RAY_SPAN,
-      Math.atan2(shaftHalfWidth, observerY - groundY));
-    // Whether the drawn cone is wider than the real one - which is a question
-    // about the cone, not about the shaft. Standing at the mouth the aperture
-    // is a right angle and the picture shows a right angle, however stubby the
-    // shaft below has had to be drawn, and claiming an exaggeration there would
-    // be a lie in the other direction.
-    const exaggerated = drawnHalf > trueHalf * 1.05;
-
-    /* ---- the world ---- */
-
-    drawDomeBand(padSide, padTop, w - padSide * 2, skyHeight, evaluation);
-    dimBlockedSky(padSide, padTop, w - padSide * 2, skyHeight, drawnHalf);
-
-    ctx.fillStyle = '#241d17';
-    ctx.fillRect(0, groundY, w, h - groundY);
-    ctx.fillStyle = '#332920';
-    ctx.fillRect(0, groundY, w, 5);
-
-    ctx.fillStyle = '#05070c';
-    ctx.fillRect(centreX - shaftHalfWidth, groundY, shaftHalfWidth * 2, shaftBottomY - groundY);
-
-    // The cone that survives, filled with the colour of the sky it reveals.
-    ctx.save();
-    const gradient = ctx.createLinearGradient(0, observerY, 0, groundY);
-    gradient.addColorStop(0, 'rgba(255,255,255,0.03)');
-    gradient.addColorStop(1, nearestDomeColor(evaluation, 0));
-    ctx.fillStyle = gradient;
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(centreX, observerY);
-    ctx.lineTo(centreX - shaftHalfWidth, groundY);
-    ctx.lineTo(centreX + shaftHalfWidth, groundY);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    /* ---- the rays, which are the point ---- */
-
-    drawShaftRays(w, centreX, padTop, groundY, observerY, drawnHalf, evaluation);
-
-    // Walls, drawn over the rays so the rock reads as solid.
-    ctx.strokeStyle = 'rgba(255,235,205,0.5)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(centreX - shaftHalfWidth, groundY);
-    ctx.lineTo(centreX - shaftHalfWidth, shaftBottomY);
-    ctx.moveTo(centreX + shaftHalfWidth, groundY);
-    ctx.lineTo(centreX + shaftHalfWidth, shaftBottomY);
-    ctx.stroke();
-
-    drawObserver(centreX, observerY, evaluation, z);
-
-    /* ---- labels ---- */
-
-    ctx.save();
-    ctx.font = '10px system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = 'rgba(255,255,255,0.68)';
-    ctx.fillText(i18n.t('controls.observer.wellDepth') + ': ' + formatAltitude(depth),
-      8, floorY - 16);
-    ctx.fillText('R = ' + radius.toFixed(1) + ' m', 8, floorY - 3);
-    ctx.textAlign = 'right';
-    ctx.fillText('θmax = ' + formatAngle(trueHalfDeg), w - 8, groundY + 14);
-    if (exaggerated) {
-      ctx.fillStyle = 'rgba(255,200,120,0.85)';
-      ctx.fillText(i18n.t('canvas.coneExaggerated'), w - 8, groundY + 27);
-      ctx.fillText(i18n.t('canvas.trueRatio') + ' ' + Math.round(trueRatio) + ':1',
-        w - 8, groundY + 40);
-      ctx.fillText(i18n.t('canvas.drawnRatio') + ' ' + drawnRatio.toFixed(0) + ':1',
-        w - 8, groundY + 53);
-    }
-    ctx.restore();
-    layout = null;
-  }
-
-  /**
-   * Rays converging on the observer from right across the sky.
-   *
-   * Each is drawn along the line that would reach the observer. The ones inside
-   * the cone come through the mouth and arrive. The ones outside meet the
-   * ground beyond the lip of the shaft and stop there, and the dashed
-   * continuation shows where they were going: straight through the rock, which
-   * is the whole reason the bottom of a well is dark.
-   */
-  function drawShaftRays(w, centreX, skyTop, groundY, observerY, drawnHalf, evaluation) {
-    const rays = 21;
-    const drop = observerY - groundY;
-    ctx.save();
-    for (let i = 0; i < rays; i++) {
-      const angle = (-1 + 2 * (i + 0.5) / rays) * SHAFT_RAY_SPAN;
-      const reaches = Math.abs(angle) <= drawnHalf;
-      const slope = Math.tan(angle);
-      const groundX = centreX + drop * slope;
-      const skyX = groundX + (groundY - skyTop) * slope;
-      const colour = nearestDomeColor(evaluation, angle * 180 / Math.PI);
-
-      // The part in the open air above the ground, in the colour of that sky.
-      ctx.strokeStyle = colour;
-      ctx.globalAlpha = reaches ? 0.95 : 0.5;
-      ctx.lineWidth = reaches ? 2 : 1.1;
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.moveTo(skyX, skyTop);
-      ctx.lineTo(groundX, groundY);
-      ctx.stroke();
-
-      if (reaches) {
-        ctx.beginPath();
-        ctx.moveTo(groundX, groundY);
-        ctx.lineTo(centreX, observerY);
-        ctx.stroke();
-        continue;
-      }
-
-      // Stopped. Where it would have gone, and the rock that is in the way.
-      ctx.globalAlpha = 0.3;
-      ctx.lineWidth = 1;
-      ctx.setLineDash([3, 4]);
-      ctx.beginPath();
-      ctx.moveTo(groundX, groundY);
-      ctx.lineTo(centreX, observerY);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // The mark where the rock takes it.
-      if (groundX > -20 && groundX < w + 20) {
-        ctx.globalAlpha = 0.95;
-        ctx.strokeStyle = '#ff8a5a';
-        ctx.lineWidth = 1.6;
-        ctx.beginPath();
-        ctx.moveTo(groundX - 3.5, groundY - 3.5);
-        ctx.lineTo(groundX + 3.5, groundY + 3.5);
-        ctx.moveTo(groundX + 3.5, groundY - 3.5);
-        ctx.lineTo(groundX - 3.5, groundY + 3.5);
-        ctx.stroke();
-      }
-    }
-    ctx.restore();
-
-    // Say which is which, once, rather than colouring a legend.
-    ctx.save();
-    ctx.font = '10px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillText(i18n.t('canvas.shaftReaches'), centreX, observerY + 16);
-    ctx.fillStyle = 'rgba(255,138,90,0.9)';
-    ctx.textAlign = 'left';
-    ctx.fillText(i18n.t('canvas.shaftAbsorbed'), 8, groundY - 6);
-    ctx.restore();
-  }
-
-  /** Grey out the sky the shaft has taken away, leaving the patch that is left. */
-  function dimBlockedSky(x, y, width, height, drawnHalf) {
-    const keep = Math.max(2, Math.min(width, width * (drawnHalf / SHAFT_RAY_SPAN)));
-    const left = x + (width - keep) / 2;
-    ctx.save();
-    ctx.fillStyle = 'rgba(4, 5, 9, 0.82)';
-    ctx.fillRect(x, y, left - x, height);
-    ctx.fillRect(left + keep, y, x + width - (left + keep), height);
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(left - 0.5, y - 0.5, keep + 1, height + 1);
-    ctx.font = '9px system-ui, sans-serif';
-    ctx.fillStyle = 'rgba(255,255,255,0.7)';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillText(i18n.t('canvas.shaftPatch'), x + width / 2, y + height + 2);
-    ctx.restore();
-  }
-
-  /** Paint the sampled sky dome as a horizon-to-horizon band. */
-  function drawDomeBand(x, y, w, h, evaluation) {
-    const dome = evaluation.dome;
-    const n = dome.length;
-    for (let i = 0; i < n; i++) {
-      const cellX = x + (i / n) * w;
-      const cellW = w / n + 1;
-      ctx.fillStyle = dome[i].color.css;
-      ctx.fillRect(cellX, y, cellW, h);
-    }
-  }
-
-  function nearestDomeColor(evaluation, signedAngleDeg) {
-    let best = evaluation.dome[0], bestDelta = Infinity;
-    for (const sample of evaluation.dome) {
-      const delta = Math.abs(sample.signedAngleDeg - signedAngleDeg);
-      if (delta < bestDelta) { bestDelta = delta; best = sample; }
-    }
-    return best.color.css;
-  }
-
   /* ---------------------------------------------------------------- */
 
   /** Find the traced ray nearest to a canvas point. */
@@ -1103,7 +946,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
  */
 
 /** Vertical extent of the frame, in metres, at either end of the zoom control. */
-export const MIN_SPAN_M = 5e3;
+export const MIN_SPAN_M = 20;
 export const MAX_SPAN_M = 6e6;
 
 export function clampSpan(span) {
@@ -1114,7 +957,13 @@ export function clampSpan(span) {
  * The span used when the observer has not chosen one: three scale heights,
  * which hold 95 % of the column, and always enough to contain the observer.
  */
-export function autoSpanFor(atmosphere, observerAltitude) {
+export function autoSpanFor(atmosphere, observerAltitude, well = null) {
+  // A shaft is a thing of metres under an atmosphere of kilometres, and no
+  // single frame holds both. When there is a shaft to be in, the frame fits the
+  // shaft; the zoom control reaches all the way back out to the atmosphere.
+  if (well && well.enabled) {
+    return clampSpan(Math.max(4 * well.radius_m, well.depth_m * 2.4, 20));
+  }
   return clampSpan(Math.max(
     3 * atmosphere.scaleHeightRayleigh, Math.max(0, observerAltitude) * 1.35));
 }
@@ -1137,9 +986,14 @@ function skyFractionFor(span) {
  * The camera: everything the drawing needs to turn world metres into pixels,
  * and to know which piece of the world is on screen.
  */
-export function makeCamera(atmosphere, plot, span) {
+export function makeCamera(atmosphere, plot, span, belowGround = 0) {
   const R = atmosphere.planetRadius;
-  const skyFraction = skyFractionFor(span);
+  // Normally the ground belongs at the bottom of the frame. When there is a
+  // shaft, the frame has to hold it, so the horizon rises far enough that the
+  // hole and its walls are inside the picture rather than off the bottom edge.
+  const skyFraction = belowGround > 0
+    ? Math.max(0.25, Math.min(0.95, 1 - (belowGround * 1.25) / span))
+    : skyFractionFor(span);
   const scale = plot.h / span;
   const cx = plot.x + plot.w / 2;
   const groundY = plot.y + skyFraction * plot.h;

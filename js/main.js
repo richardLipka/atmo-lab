@@ -82,6 +82,7 @@ async function start() {
       source: result.source,
       sunElevationDeg: state.star.elevationDeg,
       observerZ: state.observer.z,
+      well: state.observer.well,
       count: state.rays.showScattering ? state.rays.count : 0,
       // The rays must be laid out over exactly the region that will be drawn,
       // so the renderer is asked rather than the geometry guessed at.
@@ -126,7 +127,7 @@ async function start() {
     needsPaint = true;
     if (touches(changed, 'atmosphere', 'star.elevationDeg', 'star.temperatureK',
       'star.presetId', 'star.realisticInsolation', 'rays.count', 'rays.showScattering',
-      'observer.z', 'camera.span_m')) {
+      'observer.z', 'observer.well', 'camera.span_m')) {
       // Note that the viewing direction is absent: the scattering events are a
       // property of the air and the star, not of where anyone is facing, so
       // turning the view restyles the existing rays rather than redrawing new
@@ -252,10 +253,9 @@ async function start() {
    * head to one that shows the whole chord a low Sun has to cross.
    */
   sceneCanvas.addEventListener('wheel', (event) => {
-    if (store.state.observer.z < 0) return;    // the shaft view has its own scale
     event.preventDefault();
     const current = store.state.camera.span_m
-      ?? autoSpanFor(result.atmosphere, Math.max(0, store.state.observer.z));
+      ?? autoSpanFor(result.atmosphere, store.state.observer.z, store.state.observer.well);
     const factor = Math.exp(event.deltaY * 0.0015);
     store.patch({ camera: { span_m: clampSpan(current * factor) } });
   }, { passive: false });
