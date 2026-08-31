@@ -504,9 +504,29 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
     const meanArriving = arrivingCount > 0 ? radianceSum / arrivingCount : 0;
     if (meanArriving > rayReference) rayReference = meanArriving;
-    const fade = rayReference > 0
-      ? Math.max(0.05, Math.min(1, Math.pow(meanArriving / rayReference, 0.4)))
-      : 1;
+    // How much light arrives, as a fraction of the most this configuration has
+    // ever delivered. The total ink spent on the arriving bundle is made
+    // proportional to it, split evenly between HOW MANY rays are drawn and how
+    // strongly - so their product is linear in the light. Thinning matters as
+    // much as dimming: three hundred rays at five per cent opacity still read
+    // as a fan of three hundred rays, which is the thing that was wrong.
+    const share = rayReference > 0 ? Math.min(1, meanArriving / rayReference) : 1;
+    const fade = Math.sqrt(share);
+
+    /**
+     * Which arriving rays survive the thinning.
+     *
+     * A fixed hash of the index rather than a prefix or a counter, so a ray does
+     * not blink in and out as unrelated things change, and the surviving set is
+     * an unbiased sample of the whole. Only the DRAWING is thinned: the
+     * histogram and the measured colour beside it still use every traced ray,
+     * so the measurement stays as precise as it was while the picture stops
+     * claiming light that is not there.
+     */
+    const drawnArriving = (index) => {
+      if (fade >= 1) return true;
+      return (((index * 2654435761) >>> 0) / 4294967296) < fade;
+    };
 
     const GREY = '#8a93a6';
     // Grey, but not invisible: zoomed out, the long chord an unscattered beam
@@ -523,7 +543,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
      */
     const GREY_ARRIVING_STRIDE = 3;
     const asContext = (p, i) => !involved(p)
-      && (p.kind !== 'arriving' || i % GREY_ARRIVING_STRIDE === 0);
+      && (p.kind !== 'arriving' || (i % GREY_ARRIVING_STRIDE === 0 && drawnArriving(i)));
 
     /* ---- everything outside the cone, in grey ---- */
 
@@ -574,7 +594,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
     const buckets = new Map();
     for (let i = 0; i < paths.length; i++) {
-      if (!involved(paths[i])) continue;
+      if (!involved(paths[i]) || !drawnArriving(i)) continue;
       if (i === selectedPath || i === hoveredPath) continue;
       const key = Math.round(paths[i].lambda / 20) * 20;
       if (!buckets.has(key)) buckets.set(key, []);
@@ -597,7 +617,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     // or the incoming stubs swamp the convergence.
     if (phase >= 1) {
       ctx.save();
-      ctx.globalAlpha = Math.max(0.12, fade);
+      ctx.globalAlpha = fade;
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       for (const [lambda, indices] of buckets) {

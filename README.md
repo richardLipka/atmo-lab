@@ -221,15 +221,25 @@ is what one photon does. The *measurement* keeps each ray's whole spectrum,
 because throwing 37 of 38 numbers away left the estimate visibly noisy with only
 a few dozen rays in the cone.
 
-That estimate also sets how brightly the rays are drawn. The same fixed number
-of them is traced at every altitude, so without this the fan converging on the
-observer looked exactly as bright at 30 km as at sea level — the picture saying
-nothing had changed while the physics said the sky had gone out. The mean
-delivered radiance, against the brightest bundle seen so far, fades the whole
-arriving bundle: the coloured pixels in the cross-section fall from 6 800 at the
-ground to 4 800 at 12 km to 2 000 at 30 km, tracking the sky's own collapse from
-`rgb(136,166,214)` to `rgb(20,29,45)`. The events *below* the observer do not
-fade, because they are happening in air the observer merely climbed above.
+That estimate also sets how much of the arriving bundle is drawn at all. The same
+fixed number of rays is traced at every altitude, so without this the fan
+converging on the observer looked exactly as bright at 30 km as at sea level —
+the picture saying nothing had changed while the physics said the sky had gone
+out. The total ink spent on the bundle is now proportional to the light it
+delivers, split evenly between **how many** rays are drawn and how strongly:
+thinning matters as much as dimming, because three hundred rays at five per cent
+opacity still read as a fan of three hundred rays.
+
+There is no floor. A ray that delivers nothing is drawn as nothing, because above
+the air the *absence* of rays is the lesson. Measured on the canvas, the ink the
+arriving bundle spends falls from 1 394 at the ground to 545 at 12 km to about 28
+at 30 km, and above roughly 50 km the fan is simply not there; at 100 km no
+arriving ray is traced at all, because there is no air above the observer to
+scatter one. The sky reads `rgb(0,0,0)` and the panel says so in words.
+
+The events *below* the observer do not fade, and that asymmetry is the point of
+the altitude experiment: the air is still there, still lit, still scattering. It
+is merely no longer above you.
 
 ### The beam histogram
 
