@@ -878,6 +878,110 @@ export function registerTests({ group, test, assert }, config) {
       }
     });
 
+    test('light arrives unturned when you look at the star', () => {
+      // The complaint this answers: point the view at the Sun and every ray in
+      // the cone had scattered somewhere, as though nothing ever arrives in a
+      // straight line. Almost everything reaching an observer looking at the
+      // Sun has never been scattered at all.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const paths = trace({ sunElevationDeg: 55 });
+      const straight = paths.filter(
+        (p) => p.scatterCount === 0 && p.outcome === 'observed');
+      assert.greater(straight.length, 0, 'the beam has to be drawn');
+      for (const p of straight) {
+        assert.equal(p.kind, 'direct');
+        assert.equal(p.points.length, 2, 'it is a straight line, not a kink');
+      }
+
+      // It lies along the star's direction, and the histogram knows whether
+      // that direction is the one being looked at.
+      const starZenith = (90 - 55) * Math.PI / 180;
+      assert.close(paths.starAngleRad, starZenith, 1e-9);
+      assert.ok(histogramPhotons(paths, starZenith, cone).starInCone);
+      assert.ok(!histogramPhotons(paths, -starZenith, cone).starInCone);
+      assert.ok(!histogramPhotons(paths, starZenith + 2 * cone, cone).starInCone);
+    });
+
+    test('the beam is not drawn when nothing can deliver it', () => {
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const gone = (options) => trace({ count: 400, ...options })
+        .filter((p) => p.kind === 'direct').length;
+      assert.equal(gone({ sunElevationDeg: -6 }), 0, 'the star has set');
+      assert.equal(gone({
+        sunElevationDeg: 55, observerZ: -20,
+        well: { enabled: true, radius_m: 1.5, depth_m: 20 },
+      }), 0, 'the shaft wall is in the way');
+
+      const walled = trace({
+        count: 400, sunElevationDeg: 55, observerZ: -20,
+        well: { enabled: true, radius_m: 1.5, depth_m: 20 },
+      });
+      assert.ok(!histogramPhotons(walled, 0, cone).starInCone);
+    });
+
+    test('the star disc is far brighter than the sky, and the panel says so', () => {
+      // The one place in the picture where the number of drawn lines is not the
+      // amount of light, because it cannot be. The bundle is five lines and the
+      // truth is five orders of magnitude, so the truth has to be a number.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const starZenith = (90 - 55) * Math.PI / 180;
+      const h = histogramPhotons(
+        trace({ sunElevationDeg: 55, count: 6000 }), starZenith, cone);
+      const ratio = colorimetry.luminance(h.beam.radiance)
+        / colorimetry.luminance(h.coneSpectrum);
+      // The Sun's disc against a clear daytime sky is a few times 10^5.
+      assert.between(ratio, 3e4, 3e6, `disc/sky = ${ratio.toExponential(2)}`);
+      assert.close(h.beam.starSolidAngle,
+        2 * Math.PI * (1 - Math.cos(0.2665 * Math.PI / 180)), 1e-9);
+    });
+
+    test('tuning what gets drawn does not move what gets measured', () => {
+      // The knobs in the advanced panel are a drawing budget, and the whole
+      // reason they are safe to expose is this: the measurement divides the
+      // light it collects by the number of directions it looked in, so tracing
+      // half as many arriving rays halves both and leaves the answer alone.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const xy = (spectrum) => {
+        const v = colorimetry.spectrumToXYZ(spectrum);
+        const sum = v[0] + v[1] + v[2];
+        return [v[0] / sum, v[1] / sum];
+      };
+      const measure = (mix) => {
+        const paths = trace({ count: 20000, mix });
+        const h = histogramPhotons(paths, -35 * Math.PI / 180, cone);
+        return { h, xy: xy(h.coneSpectrum), y: colorimetry.luminance(h.coneSpectrum) };
+      };
+
+      const base = measure(null);
+      for (const mix of [
+        { scatterShare: 0.4, arrivingShare: 0.5 },
+        { scatterShare: 0.95, arrivingShare: 0.9 },
+        { scatterShare: 0.2, arrivingShare: 0.8 },
+      ]) {
+        const other = measure(mix);
+        const label = `scatter ${mix.scatterShare}, arriving ${mix.arrivingShare}`;
+        assert.less(Math.hypot(other.xy[0] - base.xy[0], other.xy[1] - base.xy[1]),
+          0.006, `${label}: the colour moved`);
+        assert.between(other.y / base.y, 0.9, 1.1, `${label}: the brightness moved`);
+      }
+    });
+
+    test('the true proportions are the ones the physics gives', () => {
+      // What the switch is for: the drawn budget is frankly unfaithful, and
+      // this is the tool admitting it. Only about a sixth of the light crossing
+      // Earth's air is scattered at all.
+      const paths = trace({ count: 6000, mix: { physical: true } });
+      const scattered = paths.filter((p) => p.scatterCount > 0).length;
+      const share = scattered / 6000;
+      assert.close(share, paths.scatteredFraction, 0.05,
+        `drew ${(share * 100).toFixed(1)} % scattered against a true `
+        + `${(paths.scatteredFraction * 100).toFixed(1)} %`);
+      assert.less(share, 0.25, 'and it is a small fraction');
+
+      // The default is the legible one, and is nothing like it.
+      assert.close(trace({ count: 6000 }).scatterShare, 0.88, 1e-9);
+    });
+
     test('the traced paths do not depend on where the observer is looking', () => {
       // The whole point of tracing independently of the view: turning the head
       // must restyle the existing rays, never reshuffle the scene. If this ever
@@ -994,6 +1098,45 @@ export function registerTests({ group, test, assert }, config) {
         return set.reduce((a, p) => a + p.lambda, 0) / set.length;
       };
       assert.greater(meanNm(2), meanNm(80) + 30);
+    });
+
+    test('the measured sky is a cone average, and matches one', () => {
+      // Why the measurement sits a couple of percent above the integrator, and
+      // why that is not an error. The panel's number is the mean radiance over
+      // the observer's whole field of view; computeViewRadiance answers for one
+      // exact direction. Looking at the zenith, every direction in the cone is
+      // brighter than the axis, so the average must come out higher - by 6 % at
+      // the zenith and 2 % at 35 degrees. Averaged over the same fan the two
+      // agree to about a percent, which is what pins the meaning of the number.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const scene = sceneAt({ elevation: 55 });
+      const zenithDeg = 35;
+
+      const point = computeViewRadiance(scene,
+        directionFromAngles(zenithDeg * Math.PI / 180, Math.PI),
+        QUALITY_PRESETS.normal).scattered;
+
+      const samples = 25;
+      const fan = new Float64Array(SPECTRUM_BINS);
+      for (let i = 0; i < samples; i++) {
+        const signed = -zenithDeg
+          + (-VIEW_CONE_HALF_DEG + (2 * VIEW_CONE_HALF_DEG * (i + 0.5)) / samples);
+        const r = computeViewRadiance(scene,
+          directionFromAngles(Math.abs(signed) * Math.PI / 180, signed <= 0 ? Math.PI : 0),
+          QUALITY_PRESETS.normal);
+        for (let k = 0; k < SPECTRUM_BINS; k++) fan[k] += r.scattered[k] / samples;
+      }
+
+      const measured = histogramPhotons(
+        trace({ sunElevationDeg: 55, count: 20000 }),
+        -zenithDeg * Math.PI / 180, cone).coneSpectrum;
+
+      const vsFan = colorimetry.luminance(measured) / colorimetry.luminance(fan);
+      const vsPoint = colorimetry.luminance(measured) / colorimetry.luminance(point);
+      assert.between(vsFan, 0.95, 1.05,
+        `against the same fan the measurement is off by ${((vsFan - 1) * 100).toFixed(1)}%`);
+      assert.greater(vsPoint, vsFan,
+        'and the cone average has to exceed the value on its axis here');
     });
 
     test('the traced rays reproduce the sky colour the integrator computes', () => {
@@ -1145,13 +1288,20 @@ export function registerTests({ group, test, assert }, config) {
     });
 
     test('a vacuum produces no scattering events at all', () => {
+      // What an airless world looks like: the star, and nothing else. Light
+      // streams past, the beam arrives unchanged, and not one photon is turned
+      // towards the observer anywhere - so there is no sky.
       const moon = createAtmosphere(config.atmospheres['airless-moon']);
       const paths = trace({ atmosphere: moon, count: 400 });
       assert.greater(paths.length, 0);
       for (const path of paths) {
         assert.equal(path.scatterCount, 0);
-        assert.equal(path.kind === 'through', true, 'nothing but light streaming past');
+        assert.ok(path.kind === 'through' || path.kind === 'direct',
+          `nothing but light streaming past, and the beam itself; got ${path.kind}`);
       }
+      assert.greater(paths.filter((p) => p.kind === 'direct').length, 0,
+        'the star is still there to be looked at');
+      assert.greater(paths.observerBeam.pathLength, 0);
     });
 
     test('the reported scattered fraction follows the optical depth', () => {

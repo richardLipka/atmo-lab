@@ -82,7 +82,13 @@
       "quality": "Simulation quality",
       "qualityPreview": "Fast",
       "qualityNormal": "Normal",
-      "qualityHigh": "Precise"
+      "qualityHigh": "Precise",
+      "physicalMix": "True proportions",
+      "physicalMixHelp": "Draw the families in the proportions the physics gives instead of the legible ones. Only about a sixth of the light crossing Earth’s air is scattered at all, so the picture fills with the unscattered beams that really do dominate it and the sky fan thins to almost nothing. Nothing measured changes — only what is drawn.",
+      "scatterShare": "Paths that scatter",
+      "scatterShareHelp": "What share of the drawn paths are scattering events at all. This is a drawing budget, not a probability the physics uses: the measured colour divides by the directions it looked in, so it does not move when you change this.",
+      "arrivingShare": "Of those, aimed at you",
+      "arrivingShareHelp": "Of the scattering events drawn, the share turned towards the observer rather than away. Also a drawing budget — which of them really reach you is decided by the phase function, ray by ray."
     }
   },
   "canvas": {
@@ -123,7 +129,8 @@
     "coneExaggerated": "cone widened to be drawable",
     "trueRatio": "true depth : radius",
     "drawnRatio": "drawn as",
-    "legendInCone": "turns in view, but goes elsewhere"
+    "legendInCone": "turns in view, but goes elsewhere",
+    "legendDirect": "straight from the star, not to scale"
   },
   "spectrum": {
     "title": "Spectrum",
@@ -154,7 +161,8 @@
     "noRays": "No rays were traced in this direction.",
     "measuredNote": "Built only from the rays on screen. The mix of their eight colours is the hue; how many of them there are, against every direction looked in, is the brightness. Climbing leaves fewer of them because there is less air left to scatter; a shaft leaves fewer because the rock takes the directions.",
     "agreement": "The integrator differs by dxy = {dxy}; brightness ratio {ratio} from {rays} rays.",
-    "belowOneRay": "Less light than one ray stands for, across {cast} directions in view."
+    "belowOneRay": "Less light than one ray stands for, across {cast} directions in view.",
+    "starInCone": "The star is in your field of view: its disc is about {ratio} times brighter than the sky around it, so the bundle on the picture is not to scale and cannot be."
   },
   "data": {
     "title": "Physical quantities",

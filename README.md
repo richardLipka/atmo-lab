@@ -174,6 +174,24 @@ the direction you are facing.* Turning the view is a repaint, 0.8 ms, not a retr
 | **elsewhere in the sky** | also reaches the eye, from every other direction — this is what lights the ground | grey |
 | **missed** | scattered somewhere else and left in another direction | grey kink with an arrowhead, rejection-sampled away from the eye |
 | **through** | crossed the whole atmosphere without scattering and hit the ground | grey line, top to bottom |
+| **direct** | crossed without scattering and landed on the observer | a bundle of nine parallel lines in band colours, **not to scale** |
+
+**Light also arrives without being turned at all.** Point the view at the star
+and, before this existed, every ray in the cone had scattered somewhere — as
+though light never arrives in a straight line, when in fact almost everything
+reaching an observer looking at the Sun has never been scattered once. The beam
+is marched by the tracer along the one chord that matters and drawn as a narrow
+bundle into the eye, taking its bands from its own spectrum, so it whitens and
+reddens with elevation like everything else: at a 55° Sun the nine lines come
+out `045556677`, at 12° `156666777`, at 3° `467777777` — almost all in the
+deepest red band.
+
+The bundle is the one place in the picture where **the number of lines is not
+the amount of light**, and it cannot be: the Sun's disc runs to about
+**2×10⁵ times the radiance of the sky beside it**, so honouring the rule would
+take a hundred thousand lines. The ratio is printed in the panel instead, which
+is the only place it fits. The outer lines of the bundle stop at the ground
+rather than passing through it — that share of the beam lands beside you.
 
 ### Eight colours, in the ratio the spectrum holds
 
@@ -260,6 +278,26 @@ the average like any other. Averaging over the arrivals instead reported a brigh
 blue sky at the bottom of a fifty-metre mine — a true statement about the patch of
 sky still visible through the mouth, and a false one about the place.
 
+### The drawing budget is adjustable, and it changes nothing measured
+
+Three controls under *Rays* at the advanced level set how the drawn paths are
+shared out: what fraction of them are scattering events at all, what fraction of
+those are aimed at the observer, and a **true proportions** switch that replaces
+the first with the fraction this atmosphere really scatters.
+
+The defaults are frankly unfaithful — 88 % of drawn paths are scattering events
+where Earth's air scatters about a sixth of the light crossing it — because a
+faithful budget leaves five arriving rays out of six hundred and nothing to look
+at. Turning the switch on is the tool admitting that: the picture fills with the
+unscattered beams that really do dominate it and the sky fan thins to almost
+nothing.
+
+**None of it moves the measurement.** The measured colour divides the light it
+collects by the number of directions it looked in, so tracing a ninth as many
+arriving rays divides both and leaves the answer alone. Across a 9× change in
+the arriving budget the measured luminance moves by 0.45 %, which is the Monte
+Carlo noise and not the knob; a test pins it.
+
 ### One reason for two kinds of darkness
 
 How many arriving rays get drawn is read off the atmosphere: **the share of the
@@ -306,6 +344,47 @@ event *on* the ground leaving in a downward direction — where both roots of th
 surface intersection are zero, so the usual near-root test misses it. Zoomed out,
 where the ground curves away and much of the frame is rock, this used to collect
 the stubs of everything scattered downwards near the limb.
+
+### How accurate is any of this?
+
+Measured, not asserted. Every number below comes from a script run against this
+build.
+
+**What is right.** The Rayleigh and Henyey-Greenstein phase functions integrate
+to 1.00000 over 4π, and Rayleigh's forward lobe is exactly twice its sideways
+one. The direct beam's air mass is within **1 % of Kasten–Young** from the
+zenith down to 10° elevation. The Monte Carlo estimator is unbiased: measured
+against the integrator *averaged over the same fan* it lands within 1 %, and its
+spread at the default 600 rays is ±2 % on brightness (±8 % looking at the
+zenith, where the cone is widest in radiance), falling to ±0.5 % at 5000 rays.
+The traced direct beam reproduces the integrator's to 2 % at 450, 550 and
+650 nm, in daylight, at a 4° Sun, at 20 km, at night and down a shaft.
+
+The two or three percent by which the measured sky exceeds `computeViewRadiance`
+is **not an error**: the panel reports the mean radiance over a 24° field of
+view and the integrator answers for one exact direction. At the zenith every
+direction in the cone is brighter than the axis, so the average must come out
+higher — 6 % higher, which is what it does.
+
+**What is wrong, and by how much.**
+
+| | size | effect |
+|---|---|---|
+| Rayleigh scattering is **~18 % too strong** — β(550) = 1.35×10⁻⁵ m⁻¹, the value used throughout real-time graphics, against a measured 1.14×10⁻⁵ giving τ = 0.0973 | uniform +17–19 % across 400–700 nm | the sky is a fifth brighter than reality. Being uniform, it barely touches the *colour* |
+| **Single scattering only** | second order is roughly τ/2 of the first: **+14 % blue at the zenith, +28 % at 60°**, and far more near the horizon | the sky is too dark and too saturated; the horizon suffers most. Partly cancels the error above, for unrelated reasons |
+| **No ozone at all** | the Chappuis band costs τ = 0.041 vertically at 600 nm — **4 % of the orange at the zenith, 39 % at 12 air masses** | the main reason a real twilight zenith is blue. This model has no such mechanism |
+| **The cross-section is a plane slice** | a 50 m shaft of 1.5 m radius: simulation **12.2 %**, plane theory 14.3 %, round-shaft theory **2.1 %** | the simulated well is a *trench*, not a round shaft, and is about 6× too bright. The theory tab shows the round answer beside it |
+| **No refraction** | air mass at 0.5° elevation is **8.6 % below** Kasten–Young, and does not improve with quality | a very low Sun sits slightly wrong; the Sun should also set about two minutes later than drawn |
+| **Nothing is sampled within 5° of the horizon** | looking at 89°, only 29 of a nominal 51 directions are cast | the brightest part of a twilight sky is outside what the rays can see. The measurement divides by what it cast, so it is not biased — it simply cannot look there |
+| No multiple ground reflection, exponential density with no temperature structure, Henyey-Greenstein standing in for Mie | | ordinary simplifications, stated for completeness |
+
+**So: is the simulation correct as it is?** For what it sets out to teach — why
+the sky is blue, why a low Sun is red, why climbing empties the sky — yes, and
+the mechanism is right rather than painted on. As a radiometric instrument it is
+not: expect the sky brightness to be right to a factor of order 1.2, the well to
+be wrong by 6× because it is drawn as a trench, and twilight colour to be
+missing its most important ingredient. The two errors that would be worth fixing
+first, in order, are the **plane-slice well** and **ozone**.
 
 ### The beam histogram
 

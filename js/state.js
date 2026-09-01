@@ -63,6 +63,22 @@ export const DEFAULT_STATE = {
     animate: true,
     brightness: 1,
     quality: 'normal',
+    /**
+     * How the drawn paths are shared out between the families.
+     *
+     * These tune the PICTURE and nothing else. The measured colour divides the
+     * light it collects by the number of directions it looked in, so halving
+     * the arriving rays halves both and leaves the answer exactly where it was;
+     * a test pins that. What they change is what the cross-section chooses to
+     * show you, and the defaults are frankly unfaithful: 88 % of the drawn
+     * paths are scattering events when the real figure for Earth's air is about
+     * a sixth. Switch `physical` on to see the honest budget.
+     */
+    mix: {
+      scatterShare: 0.88,
+      arrivingShare: 0.6818,
+      physical: false,
+    },
   },
 
   compare: { enabled: false, leftZ: 10000, rightZ: -10000 },
@@ -148,6 +164,18 @@ export function createStore(initial = DEFAULT_STATE) {
         state.camera.span_m = fixed;
         changed.add('camera.span_m');
         changed.add('camera');
+      }
+    }
+    // The drawing budget is a pair of shares, and a share outside [0, 1] is not
+    // a share. Nothing downstream would crash on one, but the tracer would draw
+    // a family with a negative population and the picture would quietly lose it.
+    const mix = state.rays.mix;
+    for (const key of ['scatterShare', 'arrivingShare']) {
+      const value = Math.max(0, Math.min(1, mix[key]));
+      if (value !== mix[key]) {
+        mix[key] = value;
+        changed.add(`rays.mix.${key}`);
+        changed.add('rays.mix');
       }
     }
     if (state.compare.enabled) {

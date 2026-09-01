@@ -82,7 +82,13 @@
       "quality": "Kvalita výpočtu",
       "qualityPreview": "Rychlá",
       "qualityNormal": "Běžná",
-      "qualityHigh": "Přesná"
+      "qualityHigh": "Přesná",
+      "physicalMix": "Skutečné poměry",
+      "physicalMixHelp": "Kreslit rodiny drah v poměrech, které dává fyzika, místo těch přehledných. Ze světla procházejícího zemským vzduchem se rozptýlí jen asi šestina, takže se obrázek zaplní nerozptýlenými svazky, které mu ve skutečnosti vládnou, a vějíř oblohy se ztenkí téměř k ničemu. Měřené hodnoty se nezmění — jen to, co je nakreslené.",
+      "scatterShare": "Drah, které se rozptýlí",
+      "scatterShareHelp": "Jaká část nakreslených drah je vůbec rozptylová událost. Je to rozpočet kreslení, ne pravděpodobnost, kterou by používala fyzika: měřená barva dělí světlo počtem směrů, kam se dívala, takže se tím nehne.",
+      "arrivingShare": "Z nich míří k tobě",
+      "arrivingShareHelp": "Z nakreslených rozptylových událostí ta část, která míří k pozorovateli, ne pryč. Také rozpočet kreslení — které z nich k tobě opravdu doletí, rozhoduje fázová funkce, paprsek po paprsku."
     }
   },
   "canvas": {
@@ -123,7 +129,8 @@
     "coneExaggerated": "kužel rozšířen, aby šel nakreslit",
     "trueRatio": "skutečná hloubka : poloměr",
     "drawnRatio": "nakresleno jako",
-    "legendInCone": "rozptyl v kuželu, ale míří jinam"
+    "legendInCone": "rozptyl v kuželu, ale míří jinam",
+    "legendDirect": "přímo od hvězdy, nikoli v měřítku"
   },
   "spectrum": {
     "title": "Spektrum",
@@ -154,7 +161,8 @@
     "noRays": "Tímto směrem nebyl trasován žádný paprsek.",
     "measuredNote": "Sestaveno jen z paprsků na obrazovce. Poměr jejich osmi barev určuje odstín; jejich počet vůči všem směrům, kam se pozorovatel díval, určuje jas. Výš jich je méně, protože zbývá méně vzduchu, který by rozptyloval; v šachtě proto, že skála zabere směry.",
     "agreement": "Integrátor se liší o dxy = {dxy}; poměr jasu {ratio} z {rays} paprsků.",
-    "belowOneRay": "Na {cast} směrů v zorném poli připadá méně světla, než zastupuje jeden paprsek."
+    "belowOneRay": "Na {cast} směrů v zorném poli připadá méně světla, než zastupuje jeden paprsek.",
+    "starInCone": "Hvězda je v zorném poli: její kotouč je asi {ratio}krát jasnější než obloha kolem ní, takže svazek na obrázku není v měřítku a ani být nemůže."
   },
   "data": {
     "title": "Fyzikální veličiny",

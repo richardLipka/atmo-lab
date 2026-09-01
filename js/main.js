@@ -86,6 +86,9 @@ async function start() {
       observerZ: state.observer.z,
       well: state.observer.well,
       count: state.rays.showScattering ? state.rays.count : 0,
+      starAngularRadiusDeg:
+        config.stars.get(state.star.presetId)?.angularRadius_deg ?? 0.2665,
+      mix: state.rays.mix,
       // The rays must be laid out over exactly the region that will be drawn,
       // so the renderer is asked rather than the geometry guessed at.
       ...sceneRenderer.frameFor(state, atmosphere),
@@ -129,6 +132,7 @@ async function start() {
     needsPaint = true;
     if (touches(changed, 'atmosphere', 'star.elevationDeg', 'star.temperatureK',
       'star.presetId', 'star.realisticInsolation', 'rays.count', 'rays.showScattering',
+      'rays.mix',
       'observer.z', 'observer.well', 'camera.span_m')) {
       // Note that the viewing direction is absent: the scattering events are a
       // property of the air and the star, not of where anyone is facing, so

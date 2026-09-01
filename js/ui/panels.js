@@ -252,7 +252,34 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
 
     // The one sentence that says where the number came from. It matters that it
     // is not the same sentence as the one on the theory tab.
+    //
+    // When the star is in the field of view there is a second sentence, and it
+    // is an admission. The swatch above is the SKY, and the star's disc beside
+    // it runs to some hundreds of thousands of times that radiance - too much
+    // to fold into one colour without the answer being "white", and far too
+    // much to draw as rays at the scale everything else uses. So the picture
+    // shows the beam as a bundle that is frankly not to scale, and the size of
+    // the lie is printed here rather than hidden.
     measuredNote.textContent = i18n.t('color.measuredNote');
+    if (histogram.starInCone && histogram.beam) {
+      const sky = colorimetry.luminance(histogram.coneSpectrum);
+      const star = colorimetry.luminance(histogram.beam.radiance ?? histogram.beam.spectrum);
+      if (sky > 0 && star > 0) {
+        measuredNote.textContent += ` ${i18n.t('color.starInCone', {
+          ratio: formatRatio(star / sky),
+        })}`;
+      }
+    }
+  }
+
+  /** A large ratio, rounded to something a person would actually say. */
+  function formatRatio(value) {
+    if (!(value > 0)) return '-';
+    if (value < 10) return value.toFixed(1);
+    if (value < 1000) return String(Math.round(value / 10) * 10);
+    const exponent = Math.floor(Math.log10(value));
+    const lead = Math.round(value / 10 ** (exponent - 1)) / 10;
+    return `${lead}×10^${exponent}`;
   }
 
   /**

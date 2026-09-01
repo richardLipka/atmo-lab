@@ -80,6 +80,15 @@ export function isRayDrawn(index, share) {
 /** How far from the zenith arriving rays are sampled, short of the horizon. */
 const MAX_SKY_ANGLE_DEG = 85;
 
+/**
+ * How many parallel lines stand for the star's direct beam.
+ *
+ * A drawing decision, and the only place in the picture where the number of
+ * lines is not the amount of light. It cannot be: see the note where they are
+ * built.
+ */
+const DIRECT_BUNDLE = 9;
+
 /** Length of the drawn sunward stub, as a fraction of the frame half-width. */
 const ARRIVING_STUB = 0.30;
 
@@ -93,6 +102,8 @@ function makeRng(seed) {
     return s / 4294967296;
   };
 }
+
+const clamp01 = (v) => Math.max(0, Math.min(1, Number.isFinite(v) ? v : 0));
 
 /** Draw an index from a set of non-negative weights. */
 function sampleWeighted(weights, total, u) {
@@ -125,6 +136,16 @@ export function tracePhotons(options) {
     atmosphere, source, sunElevationDeg, observerZ = 0,
     well = null,
     count, span_m, halfWidth_m, skyExtent_m, seed = 12345,
+    // The star's apparent size, which is what turns its irradiance into a
+    // radiance and so decides how much brighter its disc is than the sky
+    // beside it. The Sun's 0.2665 degrees is the default.
+    starAngularRadiusDeg = 0.2665,
+    // How the drawn paths are shared out between the families. These change
+    // the PICTURE and nothing else: the measurement divides the light it
+    // collects by the number of directions it looked in, so tracing half as
+    // many arriving rays halves both and leaves the answer where it was. The
+    // test suite pins that invariance.
+    mix = null,
     // Scales the sun-leg cache cell. 1 is the working value; the test suite
     // drives it towards zero to compare against an effectively uncached trace.
     sunCacheScale = 1,
@@ -306,12 +327,32 @@ export function tracePhotons(options) {
   // simulator exists to contrast, so it must not be fudged.
   const scatters = tauScatter > 1e-4;
 
-  // Pedagogic proportions, not physical ones: in reality the unscattered light
-  // outnumbers the scattered several times over, and drawing that faithfully
-  // would leave too few arriving rays to read. The true fraction is returned in
-  // the tally and stated in the panel instead.
-  const nArriving = scatters ? Math.max(1, Math.round(count * 0.60)) : 0;
-  const nMissed = scatters ? Math.max(1, Math.round(count * 0.28)) : 0;
+  /**
+   * How the drawn paths are shared out, and why the default is not the truth.
+   *
+   * `scatterShare` is the fraction of drawn paths that are scattering events at
+   * all; `arrivingShare` is the fraction of those aimed at the observer. The
+   * defaults, 0.88 and 0.68, are pedagogic: in reality only about a sixth of
+   * the light crossing the air is scattered at any wavelength, so a faithful
+   * budget leaves five arriving rays out of six hundred and nothing to look at.
+   *
+   * Turn `physical` on and the budget becomes the honest one - `scatterShare`
+   * is replaced by the fraction of the incident light this atmosphere actually
+   * scatters, integrated over the source spectrum, and the picture fills with
+   * the unscattered beams that really do dominate it. That switch is the
+   * clearest statement the tool can make about its own exaggeration: it shows
+   * you what it has been leaving out.
+   *
+   * None of this touches the measurement. See the note on `mix` above.
+   */
+  const scatterShare = mix && mix.physical ? scatteredFraction
+    : clamp01(mix && mix.scatterShare != null ? mix.scatterShare : 0.88);
+  const arrivingShare = clamp01(
+    mix && mix.arrivingShare != null ? mix.arrivingShare : 0.6818);
+
+  const scatteredPaths = scatters ? Math.round(count * scatterShare) : 0;
+  const nArriving = scatters ? Math.max(1, Math.round(scatteredPaths * arrivingShare)) : 0;
+  const nMissed = scatters ? Math.max(0, scatteredPaths - nArriving) : 0;
   const nThrough = Math.max(1, count - nArriving - nMissed);
 
   const weights = new Float64Array(SPECTRUM_BINS);
@@ -739,11 +780,25 @@ export function tracePhotons(options) {
       transmittance[i] = Math.exp(-(betaR[i] * path.colR + betaAext[i] * path.colA));
       spectrum[i] = visible ? source[i] * transmittance[i] : 0;
     }
+    // The disc's radiance: irradiance spread over the solid angle it covers.
+    // This is the number that makes the drawn bundle a lie of scale and says by
+    // how much - the Sun's disc runs to some hundreds of thousands of times the
+    // radiance of the sky next to it.
+    const starSolidAngle = 2 * Math.PI
+      * (1 - Math.cos(starAngularRadiusDeg * Math.PI / 180));
+    const radiance = new Float64Array(SPECTRUM_BINS);
+    if (starSolidAngle > 0) {
+      for (let i = 0; i < SPECTRUM_BINS; i++) radiance[i] = spectrum[i] / starSolidAngle;
+    }
     return {
-      spectrum, transmittance, visible, belowHorizon, blockedByWall,
+      spectrum, transmittance, radiance, starSolidAngle,
+      visible, belowHorizon, blockedByWall,
       pathLength: length,
     };
   })();
+
+  /** Where the star sits, as an angle from the observer's local vertical. */
+  paths.starAngleRad = Math.atan2(toStar.x, toStar.y);
 
   /**
    * How much of the air is still above the observer, as a share of the whole
@@ -768,6 +823,87 @@ export function tracePhotons(options) {
   paths.columnFraction = surfaceColumnScale > 0
     ? Math.min(1, columnScale / surfaceColumnScale) : 1;
 
+  /* ---- 5. the beam that comes straight from the star into the eye ---- */
+
+  /**
+   * Light that crossed the whole atmosphere without being turned once, and
+   * landed on the observer.
+   *
+   * This was missing, and its absence said something false: point the view at
+   * the star and every ray in the cone had scattered somewhere, as though
+   * nothing ever arrives in a straight line. The overwhelming majority of what
+   * reaches an observer looking at the Sun has never been scattered at all.
+   *
+   * It is drawn as a narrow bundle of parallel lines rather than one, because
+   * that is what a collimated beam looks like and because one line reads as one
+   * ray - and one ray is the wrong impression by four orders of magnitude. The
+   * bundle is NOT to scale and cannot be: the beam's irradiance is thousands of
+   * times the whole sky's, and honouring the count-is-brightness rule here
+   * would need a hundred thousand lines. The number is stated in the panel
+   * instead, which is the only place it fits.
+   *
+   * Each line takes a band sampled from the beam's own spectrum, so the bundle
+   * reddens as the star sinks in the same eight colours as everything else.
+   */
+  const beam = paths.observerBeam;
+  if (beam.visible && count > 0) {
+    const starAngle = Math.atan2(toStar.x, toStar.y);
+    let beamTotal = 0;
+    for (let i = 0; i < SPECTRUM_BINS; i++) {
+      weights[i] = beam.spectrum[i];
+      beamTotal += weights[i];
+    }
+    // Perpendicular to the beam, for the width of the bundle.
+    const across = { x: -toStar.y, y: toStar.x };
+    const width = halfWidth_m * 0.007;
+    for (let n = 0; n < DIRECT_BUNDLE; n++) {
+      const offset = (n - (DIRECT_BUNDLE - 1) / 2) * width;
+      const through = {
+        x: observer.x + across.x * offset,
+        y: observer.y + across.y * offset,
+      };
+      // Upstream first, to the edge of the frame, then back down the line the
+      // light actually travels. Stopping at whichever comes first - the
+      // observer, or the ground - is what keeps the outer lines of the bundle
+      // out of the rock: an observer standing on the surface has neighbours
+      // whose share of the beam lands on the ground beside them, not below it.
+      const from = clipToFrame(through, toStar);
+      const back = { x: -toStar.x, y: -toStar.y };
+      const reach = Math.min(
+        Math.hypot(from.x - through.x, from.y - through.y),
+        groundLimit(from, back));
+      const eye = {
+        x: from.x + back.x * reach,
+        y: from.y + back.y * reach,
+      };
+      const bin = beamTotal > 0 ? sampleWeighted(weights, beamTotal, rng()) : 17;
+      paths.push({
+        kind: 'direct',
+        lambda: WAVELENGTHS_NM[bin], bin, band: BAND_OF_BIN[bin],
+        weight: beamTotal,
+        pathLength: beam.pathLength,
+        // The bundle is a drawing; every line of it stands for the same one
+        // direction, which is the star's.
+        arrivalAngleRad: starAngle,
+        points: [from, eye],
+        events: [
+          {
+            type: 'enter', x: from.x, y: from.y,
+            altitude: altitudeOf(from), lambda: WAVELENGTHS_NM[bin],
+          },
+          {
+            type: 'observed', x: eye.x, y: eye.y,
+            altitude: observerAltitude, lambda: WAVELENGTHS_NM[bin],
+          },
+        ],
+        outcome: 'observed',
+        scatterCount: 0,
+      });
+    }
+  }
+
+  paths.scatterShare = scatterShare;
+  paths.arrivingShare = arrivingShare;
   paths.scatteredFraction = scatteredFraction;
   paths.arrivingSpectra = arrivingSpectra;
   paths.castAngles = castAngles.subarray(0, castCount);
@@ -883,6 +1019,13 @@ export function histogramPhotons(paths, axisRad, halfRad) {
     }
   }
 
+  // Is the star itself inside the cone? When it is, the direct beam is by far
+  // the largest thing in the field of view, and saying so is the only way the
+  // panel can be honest about a bundle it cannot draw to scale.
+  const starInCone = paths.starAngleRad != null
+    && paths.observerBeam != null && paths.observerBeam.visible
+    && Math.abs(paths.starAngleRad - axisRad) <= halfRad;
+
   const spectra = paths.arrivingSpectra;
   let coneRays = 0, blockedRays = 0, directRays = 0;
   let directSum = 0, directWeighted = 0;
@@ -949,6 +1092,7 @@ export function histogramPhotons(paths, axisRad, halfRad) {
     coneSpectrum, coneBandRays,
     // The star as this observer receives it, marched rather than sampled.
     beam: paths.observerBeam ?? null,
+    starInCone,
     coneRays, coneCast, elsewhereCast, blockedRays, directRays,
     // How many rays the cross-section actually puts inside the cone. Their
     // share of the directions looked in is, to within the noise of a few dozen

@@ -630,7 +630,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const share = drawnRayShare(paths);
     const drawnArriving = (index) => isRayDrawn(index, share);
 
-    const GREY = '#8a93a6';
+    const GREY = CONTEXT_GREY;
     // Grey, but not invisible: zoomed out, the long chord an unscattered beam
     // has to cross IS the demonstration, so it gets the strongest of the greys.
     const contextAlpha = { through: 0.30, missed: 0.16, arriving: 0.13 };
@@ -793,6 +793,10 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
     ctx.restore();
 
+    /* ---- light that never turned at all, and landed on the observer ---- */
+
+    drawDirectBeam(paths, project, axis, half);
+
     /* ---- hover and selection ---- */
 
     for (const index of [hoveredPath, selectedPath]) {
@@ -820,6 +824,50 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
 
     drawPathLegend(plot);
+  }
+
+  /**
+   * The star's own beam, arriving unturned.
+   *
+   * Point the view at the star and, before this existed, every ray in the cone
+   * had scattered somewhere - as though light never arrives in a straight line.
+   * The truth is the other way round: almost everything reaching an observer
+   * looking at the Sun has never been scattered at all.
+   *
+   * The bundle is drawn in band colours when the star is inside the viewing
+   * cone, obeying the rule that governs everything else on screen, and in grey
+   * when it is not. It is deliberately NOT to scale, and it is the one place in
+   * the picture where the number of lines is not the amount of light: the
+   * beam's irradiance runs to thousands of times the whole sky's, and drawing
+   * that many lines is not possible. The ratio is printed in the panel instead,
+   * which is the only place it fits.
+   */
+  function drawDirectBeam(paths, project, axis, half) {
+    const direct = [];
+    for (const p of paths) if (p.kind === 'direct') direct.push(p);
+    if (direct.length === 0) return;
+    const inView = Math.abs(direct[0].arrivalAngleRad - axis) <= half;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const p of direct) {
+      const from = project(p.points[0]);
+      const to = project(p.points[1]);
+      if (inView) {
+        ctx.strokeStyle = RAY_BANDS[p.band ?? 0].css;
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = 1.8;
+      } else {
+        ctx.strokeStyle = CONTEXT_GREY;
+        ctx.globalAlpha = 0.34;
+        ctx.lineWidth = 1.2;
+      }
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /**
@@ -887,6 +935,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   function drawPathLegend(plot) {
     const rows = [
       { key: 'canvas.legendArriving', style: 'bands', width: 2.4 },
+      { key: 'canvas.legendDirect', style: 'bands', width: 1.4 },
       { key: 'canvas.legendInCone', style: 'ring', width: 1 },
       { key: 'canvas.legendOffView', style: 'grey', width: 1 },
       { key: 'canvas.legendMissed', style: 'grey', width: 1 },
@@ -1035,6 +1084,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     getSelected() { return selectedPath; },
   };
 }
+
+/** The one grey everything outside the viewing cone is drawn in. */
+const CONTEXT_GREY = '#8a93a6';
 
 /* Shared constants and helpers -------------------------------------- */
 

@@ -267,6 +267,25 @@ export function createControls(root, { store, i18n, config }) {
           format: (v) => `${v < 10 ? v.toFixed(2) : Math.round(v)} ×`,
         },
         {
+          id: 'ctl-mix-physical', type: 'checkbox', advanced: true,
+          labelKey: 'controls.rays.physicalMix',
+          helpKey: 'controls.rays.physicalMixHelp', path: 'rays.mix.physical',
+        },
+        {
+          id: 'ctl-mix-scatter', type: 'range', advanced: true,
+          labelKey: 'controls.rays.scatterShare',
+          helpKey: 'controls.rays.scatterShareHelp', path: 'rays.mix.scatterShare',
+          min: 0, max: 1, step: 0.01,
+          format: (v) => `${Math.round(v * 100)} %`,
+        },
+        {
+          id: 'ctl-mix-arriving', type: 'range', advanced: true,
+          labelKey: 'controls.rays.arrivingShare',
+          helpKey: 'controls.rays.arrivingShareHelp', path: 'rays.mix.arrivingShare',
+          min: 0, max: 1, step: 0.01,
+          format: (v) => `${Math.round(v * 100)} %`,
+        },
+        {
           id: 'ctl-quality', type: 'select', labelKey: 'controls.rays.quality',
           path: 'rays.quality', advanced: true,
           options: () => [
