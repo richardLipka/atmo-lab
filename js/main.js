@@ -148,11 +148,12 @@ async function start() {
       panels.update(result, photonTally, histogram);
     }
     if (touches(changed, 'atmosphere.presetId', 'star.presetId', 'star.temperatureK')) {
-      // The held scales - the histogram's axis and the brightness the rays are
-      // drawn against - belong to one world lit by one star. Carrying them
-      // across to another would say something false about the new one.
+      // The histogram's held axis belongs to one world lit by one star, and
+      // carrying it across to another would say something false about the new
+      // one. The cross-section no longer holds anything: how many rays it draws
+      // is now read off the air still above the observer, so it needs no memory
+      // of how bright this world has ever been.
       beamHistogram.resetScale();
-      sceneRenderer.resetScale();
     }
     controls.update();
     syncHeader();

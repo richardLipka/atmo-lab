@@ -416,6 +416,60 @@ button:disabled { opacity: 0.4; cursor: default; }
 }
 .swatch.is-dim .swatch-chip { opacity: 0.45; }
 
+/* The measured swatch is the headline, so it gets the bigger chip: what the
+   simulation says is the answer, and the theory beside it is the check. */
+#swatch-measured .swatch-chip { height: 66px; }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 8px 5px;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--text-dim); }
+.tab.is-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* How many rays of each colour arrive: the count the sky colour is built from,
+   spelled out beside the swatch it produced. */
+.band-tally {
+  display: flex;
+  gap: 2px;
+  margin-top: 10px;
+  align-items: flex-end;
+}
+.band-tally-item {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+.band-tally-bar {
+  height: 4px;
+  border-radius: 1px;
+  margin-bottom: 3px;
+}
+.band-tally-count {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-faint);
+}
+.band-tally-item.is-empty .band-tally-bar { opacity: 0.22; }
+.band-tally-item.is-empty .band-tally-count { opacity: 0.4; }
+
 .note { margin: 8px 0 0; font-size: 10.5px; color: var(--text-faint); }
 .note-tally { color: var(--accent-green); }
 

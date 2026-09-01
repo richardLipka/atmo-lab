@@ -33,7 +33,9 @@
  * time which of them fall inside the current viewing cone.
  */
 
-import { SPECTRUM_BINS, WAVELENGTHS_NM } from '../physics/spectrum.js';
+import {
+  SPECTRUM_BINS, WAVELENGTHS_NM, BAND_OF_BIN, RAY_BANDS, RAY_BAND_COUNT,
+} from '../physics/spectrum.js';
 import {
   rayleighPhase, henyeyGreensteinPhase, sampleRayleighCosine, sampleHenyeyGreensteinCosine,
 } from '../physics/scattering.js';
@@ -47,6 +49,33 @@ import {
  * it is wide enough to read at the scale the cross-section is drawn.
  */
 export const VIEW_CONE_HALF_DEG = 12;
+
+/**
+ * How many of the arriving rays are worth drawing, and which ones.
+ *
+ * One rule, in one place, used by the picture and by the caption that invites
+ * you to count what the picture shows. The share is the fraction of the air
+ * still above the observer (see paths.columnFraction): light only reaches you
+ * from a direction if air in that direction turned it towards you, so with a
+ * tenth of the atmosphere left overhead there are a tenth as many rays, and -
+ * the sky being optically thin - a tenth of the brightness. Rays and colour
+ * fall together, by the same factor, for the same reason.
+ *
+ * The survivors are chosen by a fixed hash of the ray's index rather than by a
+ * counter or a prefix, so that the set at 20 km is a subset of the set at 10 km
+ * instead of a fresh draw: climbing thins the fan smoothly rather than making
+ * it flicker.
+ */
+export function drawnRayShare(paths) {
+  const fraction = paths && paths.columnFraction != null ? paths.columnFraction : 1;
+  return Math.max(0, Math.min(1, fraction));
+}
+
+export function isRayDrawn(index, share) {
+  if (share >= 1) return true;
+  if (!(share > 0)) return false;
+  return (((index * 2654435761) >>> 0) / 4294967296) < share;
+}
 
 /** How far from the zenith arriving rays are sampled, short of the horizon. */
 const MAX_SKY_ANGLE_DEG = 85;
@@ -300,6 +329,22 @@ export function tracePhotons(options) {
   const arrivingSpectra = new Float64Array(Math.max(1, nArriving) * SPECTRUM_BINS);
   let arrivingCount = 0;
 
+  /**
+   * Every direction the observer looked in, recorded before anything is allowed
+   * to stop it.
+   *
+   * This is what makes the measurement a measurement rather than an average of
+   * the survivors. A direction that ends in rock, or in air the planet's own
+   * shadow has already darkened, delivers nothing - and nothing is a number. If
+   * only the rays that got through were averaged, a well with one ray coming in
+   * would report the same sky as open ground with three hundred, which is the
+   * complaint this answers. Dividing the light collected by the directions
+   * looked in, rather than by the directions that paid out, is the difference
+   * between "how bright is that patch of sky" and "how bright is it here".
+   */
+  const castAngles = new Float64Array(Math.max(1, nArriving));
+  let castCount = 0;
+
   /** The tallest air worth drawing at this zoom. */
   const drawTop = drawTopFor();
 
@@ -323,6 +368,9 @@ export function tracePhotons(options) {
    */
   const columnScale = HR * (Math.exp(-observerAltitude / HR)
     - Math.exp(-atmosphere.topAltitude / HR));
+
+  /** The same integral for an observer standing on the ground, as a reference. */
+  const surfaceColumnScale = HR * (1 - Math.exp(-atmosphere.topAltitude / HR));
 
   /**
    * How far a ray gets before it meets the ground.
@@ -368,6 +416,7 @@ export function tracePhotons(options) {
 
   for (let n = 0; n < nArriving; n++) {
     const angle = (rng() * 2 - 1) * MAX_SKY_ANGLE_DEG * Math.PI / 180;
+    castAngles[castCount++] = angle;
     // Line of sight in world coordinates. The observer sits on the x = 0 axis,
     // so its local "up" is +y and this is just a rotation of it.
     const d = { x: Math.sin(angle), y: Math.cos(angle) };
@@ -381,7 +430,7 @@ export function tracePhotons(options) {
       const hit = { x: observer.x + d.x * along, y: observer.y + d.y * along };
       paths.push({
         kind: 'blocked',
-        lambda: 550, bin: 17,
+        lambda: 550, bin: 17, band: BAND_OF_BIN[17],
         weight: 0, radiance: 0,
         arrivalAngleRad: angle,
         points: [hit, observer],
@@ -441,6 +490,11 @@ export function tracePhotons(options) {
     if (!(total > 0)) continue;
     const bin = sampleWeighted(weights, total, rng());
     const lambda = WAVELENGTHS_NM[bin];
+    // The colour this ray is drawn in. The bin was drawn in proportion to the
+    // ray's own spectrum, so the bands come out in the ratio the spectrum
+    // holds: count the violet rays against the red ones and you have read the
+    // spectrum off the picture.
+    const band = BAND_OF_BIN[bin];
 
     // Turn this sample into an estimate of the whole integral along the ray.
     //
@@ -479,7 +533,7 @@ export function tracePhotons(options) {
 
     paths.push({
       kind: 'arriving',
-      lambda, bin,
+      lambda, bin, band,
       weight: total,
       spectrumOffset,
       // An unbiased single-sample estimate of this ray's contribution to the
@@ -553,6 +607,7 @@ export function tracePhotons(options) {
     if (!(total > 0)) continue;
     const bin = sampleWeighted(weights, total, rng());
     const lambda = WAVELENGTHS_NM[bin];
+    const band = BAND_OF_BIN[bin];
 
     // Both legs are stubs. A missed event is about the turn, not about where
     // that particular photon came from or ends up.
@@ -562,7 +617,7 @@ export function tracePhotons(options) {
 
     paths.push({
       kind: 'missed',
-      lambda, bin,
+      lambda, bin, band,
       weight: total,
       points: [entry, P, end],
       events: [
@@ -614,6 +669,7 @@ export function tracePhotons(options) {
     if (!(total > 0)) continue;
     const bin = sampleWeighted(weights, total, rng());
     const lambda = WAVELENGTHS_NM[bin];
+    const band = BAND_OF_BIN[bin];
 
     // Draw the part of that chord which is inside the frame: clipped from the
     // anchor in both directions, never bent, and never past the real endpoints.
@@ -622,7 +678,7 @@ export function tracePhotons(options) {
 
     paths.push({
       kind: 'through',
-      lambda, bin,
+      lambda, bin, band,
       weight: total,
       pathLength: travel,
       points: [drawnStart, drawnEnd],
@@ -638,8 +694,83 @@ export function tracePhotons(options) {
     });
   }
 
+  /* ---- 4. the star's own beam, as THIS observer receives it ---- */
+
+  /**
+   * The direct beam is not sampled, because there is nothing to sample: one
+   * star, one direction, one chord. It is marched with the same integrator the
+   * scattered paths use, through the same air, stopped by the same rock - so it
+   * belongs to the trace and not to the theory beside it, and the interface can
+   * show a star colour without leaving the simulation.
+   *
+   * Two ways to lose it, and they are different facts. Below the horizon the
+   * planet is in the way; down a shaft the wall can take a star that is well up
+   * in the sky, which is why a deep enough well shows only a few minutes of Sun
+   * a day.
+   */
+  paths.observerBeam = (() => {
+    const transmittance = new Float64Array(SPECTRUM_BINS);
+    const spectrum = new Float64Array(SPECTRUM_BINS);
+    // Not raySphere: an observer standing ON the surface is the degenerate case
+    // that function cannot answer, both its roots being zero to within rounding.
+    // groundLimit already knows how to read that - a star below the local
+    // horizon is simply one whose line to you passes through the planet.
+    const belowHorizon = Number.isFinite(groundLimit(observer, toStar));
+    // The star's angle from the observer's local vertical, which is the only
+    // thing the shaft wall cares about.
+    const starAngle = Math.atan2(toStar.x, toStar.y);
+    const blockedByWall = shaft != null
+      && Math.abs(Math.tan(starAngle)) * shaft.depth > shaft.radius;
+
+    const exit = raySphere(observer, toStar, topR, true);
+    // Inside a shaft the metres between the observer and the mouth are rock and
+    // empty air, not atmosphere, so the column starts where the hole ends.
+    const mouth = shaft ? raySphere(observer, toStar, R, true) : null;
+    const airStart = mouth != null && mouth > 0 ? mouth : 0;
+    const length = exit != null ? Math.max(0, exit - airStart) : 0;
+    const from = {
+      x: observer.x + toStar.x * airStart,
+      y: observer.y + toStar.y * airStart,
+    };
+    const path = length > 0 ? columns(from, toStar, length) : { colR: 0, colA: 0 };
+
+    const visible = !belowHorizon && !blockedByWall;
+    for (let i = 0; i < SPECTRUM_BINS; i++) {
+      transmittance[i] = Math.exp(-(betaR[i] * path.colR + betaAext[i] * path.colA));
+      spectrum[i] = visible ? source[i] * transmittance[i] : 0;
+    }
+    return {
+      spectrum, transmittance, visible, belowHorizon, blockedByWall,
+      pathLength: length,
+    };
+  })();
+
+  /**
+   * How much of the air is still above the observer, as a share of the whole
+   * column from the surface.
+   *
+   * This is the one number that says how many rays there ought to be. Light
+   * only reaches you from a direction if something in that direction turned it
+   * towards you, and what does the turning is air: an observer with a tenth of
+   * the atmosphere left overhead is looked at by a tenth as many scattering
+   * events, and sees a tenth of the sky brightness. In the optically thin case
+   * - which is the whole visible sky, since the vertical optical depth is well
+   * under one - radiance is proportional to this column, so the count of rays
+   * and the brightness fall together and by the same factor.
+   *
+   * The renderer draws this share of the arriving rays. That is not a display
+   * heuristic dressed up: it is the physical chance that the direction has
+   * anything to give, and a well multiplies it by a second, independent count -
+   * how many directions the rock leaves open. Fewer rays for both reasons, one
+   * rule, and the swatch follows the rays rather than the rays following the
+   * swatch.
+   */
+  paths.columnFraction = surfaceColumnScale > 0
+    ? Math.min(1, columnScale / surfaceColumnScale) : 1;
+
   paths.scatteredFraction = scatteredFraction;
   paths.arrivingSpectra = arrivingSpectra;
+  paths.castAngles = castAngles.subarray(0, castCount);
   return paths;
 }
 
@@ -684,44 +815,80 @@ export function summarisePhotons(paths, options = {}) {
 }
 
 /**
- * The spectrum of the light the drawn rays actually deliver, binned for a chart.
+ * What the drawn rays deliver, measured.
  *
- * This is not a count. Each arriving ray carries an unbiased estimate of its
- * contribution to the radiance, so summing those estimates per wavelength gives
- * a Monte Carlo measurement of the same spectrum the integrator computes - and
- * the colour that measurement implies is shown beside the integrator's own, so
- * a student can see that the picture and the theory are one thing.
+ * This is the only source the interface uses for the colour it calls the sky.
+ * Nothing here consults the integrator; every number comes from paths that were
+ * traced, one scattering event at a time, through the same air the picture
+ * draws. The integrator's answer is shown beside it for comparison, and the
+ * agreement is then evidence rather than assumption.
  *
- * Counting instead of measuring was the flaw this replaces. A fixed number of
- * rays is drawn whatever the state, so a count could never fall when the sky
- * darkened: climbing to 40 km emptied the sky of light without moving a single
- * bar. Weighted by energy, the bars collapse with it.
+ * Two things set the result, and they are the two things a student can see:
+ *
+ *   WHICH COLOURS.  Each ray was assigned one of eight bands, drawn in
+ *      proportion to its own spectrum, so the mix of bands in the cone is the
+ *      mix of colours in the light. Count them on screen and you have the hue.
+ *
+ *   HOW MANY.  The light collected is divided by the number of directions
+ *      LOOKED IN, not by the number that paid out. A direction that ends in
+ *      rock, or in shadow, contributes its nothing to the average like any
+ *      other. So a well with five rays coming in out of fifty is a tenth as
+ *      bright as open ground, and forty kilometres up, where each ray carries
+ *      almost nothing, the sky goes out. Averaging only over the arrivals - the
+ *      old behaviour - reported a bright blue sky at the bottom of a mine,
+ *      because the patch of sky you can still see through the mouth is, in
+ *      fact, as blue as ever. That is a true statement about a patch of sky and
+ *      a false one about a place.
+ *
+ * The bars are per band rather than per 10 nm bin so that the histogram and the
+ * rays in the picture are the same eight colours; the swatch beside them is
+ * still built on the full spectral grid each ray carries, which costs nothing
+ * and keeps the colour steady when only a few dozen rays are in view.
  *
  * @param {Array}  paths    traced paths
  * @param {number} axisRad  signed direction the observer is looking
  * @param {number} halfRad  half-angle of the viewing cone
- * @param {number} groupNm  width of one histogram bin, in nanometres
  */
-export function histogramPhotons(paths, axisRad, halfRad, groupNm = 20) {
-  const perBin = Math.max(1, Math.round(groupNm / 10));
-  const bins = Math.ceil(SPECTRUM_BINS / perBin);
-  const inCone = new Float64Array(bins);
-  const elsewhere = new Float64Array(bins);
-  const direct = new Float64Array(bins);
-  const centres = new Float64Array(bins);
+export function histogramPhotons(paths, axisRad, halfRad) {
+  const bands = RAY_BAND_COUNT;
+  const inCone = new Float64Array(bands);
+  const elsewhere = new Float64Array(bands);
+  const direct = new Float64Array(bands);
+  const centres = new Float64Array(bands);
+  /**
+   * How many rays of each colour are DRAWN arriving from inside the cone.
+   *
+   * Drawn, not traced: the panel puts these numbers beside a picture and says
+   * they are countable in it, so they have to be the ones on screen. The
+   * measurement behind the colour still uses every traced ray, because a
+   * measurement should be as precise as it can be while a picture should be as
+   * honest as it can be, and those are different jobs.
+   */
+  const coneBandRays = new Int32Array(bands);
+  const drawShare = drawnRayShare(paths);
+  let drawnInCone = 0;
   /** The cone's spectrum on the engine's own grid, for the colour swatch. */
   const coneSpectrum = new Float64Array(SPECTRUM_BINS);
 
-  for (let b = 0; b < bins; b++) {
-    const first = b * perBin;
-    const last = Math.min(SPECTRUM_BINS - 1, first + perBin - 1);
-    centres[b] = (WAVELENGTHS_NM[first] + WAVELENGTHS_NM[last]) / 2;
+  for (let b = 0; b < bands; b++) centres[b] = RAY_BANDS[b].centreNm;
+
+  // How many directions were looked in, inside the cone and outside it. These
+  // are the divisors, and they are what turn a sum of rays into a brightness.
+  let coneCast = 0, elsewhereCast = 0;
+  const cast = paths.castAngles;
+  if (cast) {
+    for (let i = 0; i < cast.length; i++) {
+      if (Math.abs(cast[i] - axisRad) <= halfRad) coneCast++;
+      else elsewhereCast++;
+    }
   }
 
   const spectra = paths.arrivingSpectra;
-  let coneRays = 0, directRays = 0, directSum = 0, directWeighted = 0;
-  for (const p of paths) {
-    const b = Math.min(bins - 1, Math.floor(p.bin / perBin));
+  let coneRays = 0, blockedRays = 0, directRays = 0;
+  let directSum = 0, directWeighted = 0;
+  for (let pathIndex = 0; pathIndex < paths.length; pathIndex++) {
+    const p = paths[pathIndex];
+    const b = Math.min(bands - 1, p.band ?? 0);
     if (p.kind === 'arriving') {
       const inView = Math.abs(p.arrivalAngleRad - axisRad) <= halfRad;
       if (spectra && p.spectrumOffset != null) {
@@ -729,9 +896,9 @@ export function histogramPhotons(paths, axisRad, halfRad, groupNm = 20) {
         // enough to put a colour swatch next to the integrator's.
         for (let i = 0; i < SPECTRUM_BINS; i++) {
           const value = spectra[p.spectrumOffset + i];
-          if (inView) coneSpectrum[i] += value;
-          const bb = Math.min(bins - 1, Math.floor(i / perBin));
-          if (inView) inCone[bb] += value; else elsewhere[bb] += value;
+          const bb = BAND_OF_BIN[i];
+          if (inView) { coneSpectrum[i] += value; inCone[bb] += value; }
+          else elsewhere[bb] += value;
         }
       } else if (inView) {
         inCone[b] += p.radiance;
@@ -739,7 +906,12 @@ export function histogramPhotons(paths, axisRad, halfRad, groupNm = 20) {
       } else {
         elsewhere[b] += p.radiance;
       }
-      if (inView) coneRays++;
+      if (inView) {
+        coneRays++;
+        if (isRayDrawn(pathIndex, drawShare)) { drawnInCone++; coneBandRays[b]++; }
+      }
+    } else if (p.kind === 'blocked') {
+      if (Math.abs(p.arrivalAngleRad - axisRad) <= halfRad) blockedRays++;
     } else if (p.kind === 'through') {
       direct[b] += p.weight;
       directSum += p.weight;
@@ -748,15 +920,24 @@ export function histogramPhotons(paths, axisRad, halfRad, groupNm = 20) {
     }
   }
 
-  // An average over the rays in the cone, which makes it a radiance rather than
-  // a sum that grows with however many rays happen to be drawn.
-  if (coneRays > 0) {
-    for (let i = 0; i < SPECTRUM_BINS; i++) coneSpectrum[i] /= coneRays;
-    for (let b = 0; b < bins; b++) inCone[b] /= coneRays;
+  // Directions looked in, not arrivals collected. When the tracer is too old or
+  // too small to have recorded any, fall back to the arrivals so the panel
+  // still shows something rather than dividing by zero.
+  const divisor = coneCast > 0 ? coneCast : coneRays;
+  if (divisor > 0) {
+    for (let i = 0; i < SPECTRUM_BINS; i++) coneSpectrum[i] /= divisor;
+    for (let b = 0; b < bands; b++) inCone[b] /= divisor;
+  }
+  // The rest of the sky gets the same treatment against its own direction
+  // count, so the two series are the same quantity and can be stacked. Left
+  // as a raw sum it was the total over three hundred rays sitting on top of an
+  // average over fifty, and the coloured part of every bar vanished under it.
+  if (elsewhereCast > 0) {
+    for (let b = 0; b < bands; b++) elsewhere[b] /= elsewhereCast;
   }
 
   let peak = 0, directPeak = 0, coneSum = 0, coneWeighted = 0;
-  for (let b = 0; b < bins; b++) {
+  for (let b = 0; b < bands; b++) {
     peak = Math.max(peak, inCone[b] + elsewhere[b]);
     directPeak = Math.max(directPeak, direct[b]);
     coneSum += inCone[b];
@@ -764,9 +945,18 @@ export function histogramPhotons(paths, axisRad, halfRad, groupNm = 20) {
   }
 
   return {
-    centres, inCone, elsewhere, direct, peak, directPeak, coneSpectrum,
-    coneRays, directRays,
-    binWidthNm: perBin * 10,
+    bands: RAY_BANDS, centres, inCone, elsewhere, direct, peak, directPeak,
+    coneSpectrum, coneBandRays,
+    // The star as this observer receives it, marched rather than sampled.
+    beam: paths.observerBeam ?? null,
+    coneRays, coneCast, elsewhereCast, blockedRays, directRays,
+    // How many rays the cross-section actually puts inside the cone. Their
+    // share of the directions looked in is, to within the noise of a few dozen
+    // samples, the brightness of the swatch beside them.
+    drawnInCone, drawShare,
+    // The share of the directions looked in that had any sky down them at all.
+    // In the open this is one; down a shaft it is the whole story.
+    arrivingShare: coneCast > 0 ? coneRays / coneCast : null,
     coneMeanNm: coneSum > 0 ? coneWeighted / coneSum : null,
     directMeanNm: directSum > 0 ? directWeighted / directSum : null,
   };

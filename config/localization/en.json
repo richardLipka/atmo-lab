@@ -122,7 +122,8 @@
     "shaftPatch": "the only sky left",
     "coneExaggerated": "cone widened to be drawable",
     "trueRatio": "true depth : radius",
-    "drawnRatio": "drawn as"
+    "drawnRatio": "drawn as",
+    "legendInCone": "turns in view, but goes elsewhere"
   },
   "spectrum": {
     "title": "Spectrum",
@@ -143,10 +144,17 @@
     "chromaticity": "Chromaticity diagram",
     "blockedByWall": "The shaft wall blocks this direction, so no light arrives at all.",
     "darkness": "Too little light to show a colour.",
-    "measured": "Measured from the drawn rays",
-    "fromRays": "from",
+    "measured": "Sky, measured from the rays",
     "perceived": "How bright it looks here",
-    "skyShare": "of your view:"
+    "skyShare": "of your view:",
+    "tabMeasured": "From the simulation",
+    "tabTheory": "Theory, for comparison",
+    "raysArriving": "{drawn} rays across {cast} directions in view",
+    "noneArrive": "Not one ray comes down any of the {cast} directions in view.",
+    "noRays": "No rays were traced in this direction.",
+    "measuredNote": "Built only from the rays on screen. The mix of their eight colours is the hue; how many of them there are, against every direction looked in, is the brightness. Climbing leaves fewer of them because there is less air left to scatter; a shaft leaves fewer because the rock takes the directions.",
+    "agreement": "The integrator differs by dxy = {dxy}; brightness ratio {ratio} from {rays} rays.",
+    "belowOneRay": "Less light than one ray stands for, across {cast} directions in view."
   },
   "data": {
     "title": "Physical quantities",

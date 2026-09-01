@@ -122,7 +122,8 @@
     "shaftPatch": "jediný zbytek oblohy",
     "coneExaggerated": "kužel rozšířen, aby šel nakreslit",
     "trueRatio": "skutečná hloubka : poloměr",
-    "drawnRatio": "nakresleno jako"
+    "drawnRatio": "nakresleno jako",
+    "legendInCone": "rozptyl v kuželu, ale míří jinam"
   },
   "spectrum": {
     "title": "Spektrum",
@@ -138,15 +139,22 @@
   "color": {
     "title": "Vnímaná barva",
     "sky": "Obloha ve směru pohledu",
-    "star": "Hvězda, jak ji vidíme",
+    "star": "Hvězda, jak ji vidíš",
     "computed": "Spočítáno ze spektra přes CIE 1931 XYZ, nikdy nevybráno ručně.",
     "chromaticity": "Diagram chromatičnosti",
     "blockedByWall": "Stěna šachty tento směr zakrývá, nedorazí odsud žádné světlo.",
     "darkness": "Příliš málo světla na zobrazení barvy.",
-    "measured": "Změřeno z nakreslených paprsků",
-    "fromRays": "z",
+    "measured": "Obloha změřená z paprsků",
     "perceived": "Jak je tu jasno",
-    "skyShare": "ze zorného pole:"
+    "skyShare": "ze zorného pole:",
+    "tabMeasured": "Ze simulace",
+    "tabTheory": "Teorie pro srovnání",
+    "raysArriving": "{drawn} paprsků na {cast} směrů v zorném poli",
+    "noneArrive": "Ani jedním z {cast} směrů v zorném poli nepřichází jediný paprsek.",
+    "noRays": "Tímto směrem nebyl trasován žádný paprsek.",
+    "measuredNote": "Sestaveno jen z paprsků na obrazovce. Poměr jejich osmi barev určuje odstín; jejich počet vůči všem směrům, kam se pozorovatel díval, určuje jas. Výš jich je méně, protože zbývá méně vzduchu, který by rozptyloval; v šachtě proto, že skála zabere směry.",
+    "agreement": "Integrátor se liší o dxy = {dxy}; poměr jasu {ratio} z {rays} paprsků.",
+    "belowOneRay": "Na {cast} směrů v zorném poli připadá méně světla, než zastupuje jeden paprsek."
   },
   "data": {
     "title": "Fyzikální veličiny",

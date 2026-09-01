@@ -12,6 +12,9 @@ import {
   specConst, specIntegral,
 } from '../js/physics/spectrum.js';
 import {
+  RAY_BANDS, RAY_BAND_COUNT, BAND_OF_BIN, bandOfWavelength,
+} from '../js/physics/spectrum.js';
+import {
   rayleighBetaSpectrum, aerosolBetaSpectrum, resolveAlbedoSpectrum,
   rayleighPhase, henyeyGreensteinPhase, sampleRayleighCosine,
 } from '../js/physics/scattering.js';
@@ -32,6 +35,7 @@ import {
 } from '../js/state.js';
 import {
   tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
+  drawnRayShare, isRayDrawn,
 } from '../js/render/photons.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
@@ -644,6 +648,234 @@ export function registerTests({ group, test, assert }, config) {
 
     test('arriving light is bluer than the light that got through, by a wide margin', () => {
       assert.greater(arrivingBlue, throughBlue * 1.6);
+    });
+
+    test('every ray is drawn in one of eight colours, and they tile the spectrum', () => {
+      // Thirty-eight shades running smoothly from violet to red read as one
+      // continuous wash and cannot be counted. Eight can, which is the whole
+      // reason for the bands - so they have to be a partition: every bin in
+      // exactly one band, no gaps, no overlaps, and no two bands so close in
+      // colour that counting them is guesswork.
+      assert.between(RAY_BAND_COUNT, 7, 10);
+      assert.equal(RAY_BANDS[0].fromNm, SPECTRUM_MIN_NM);
+      assert.greater(RAY_BANDS[RAY_BAND_COUNT - 1].edgeNm, SPECTRUM_MAX_NM);
+      for (let b = 1; b < RAY_BAND_COUNT; b++) {
+        assert.equal(RAY_BANDS[b].fromNm, RAY_BANDS[b - 1].edgeNm,
+          `band ${b} must start where band ${b - 1} ends`);
+      }
+      for (let i = 0; i < SPECTRUM_BINS; i++) {
+        const band = RAY_BANDS[BAND_OF_BIN[i]];
+        assert.between(WAVELENGTHS_NM[i], band.fromNm, band.toNm,
+          `${WAVELENGTHS_NM[i]} nm was filed under ${band.fromNm}-${band.toNm}`);
+        assert.equal(bandOfWavelength(WAVELENGTHS_NM[i]), BAND_OF_BIN[i]);
+      }
+      for (let a = 0; a < RAY_BAND_COUNT; a++) {
+        for (let b = a + 1; b < RAY_BAND_COUNT; b++) {
+          const distance = Math.hypot(
+            RAY_BANDS[a].rgb[0] - RAY_BANDS[b].rgb[0],
+            RAY_BANDS[a].rgb[1] - RAY_BANDS[b].rgb[1],
+            RAY_BANDS[a].rgb[2] - RAY_BANDS[b].rgb[2]);
+          assert.greater(distance, 40,
+            `bands ${a} and ${b} are too close to tell apart on screen`);
+        }
+      }
+      for (const path of trace({ count: 400 })) {
+        assert.between(path.band, 0, RAY_BAND_COUNT - 1);
+      }
+    });
+
+    test('the eight colours come out in the ratio the spectrum holds', () => {
+      // The claim the picture makes: count the violet rays against the red ones
+      // and you have read the spectrum off the screen. That is only true if the
+      // band a ray is drawn in was picked in proportion to the light it carries.
+      const paths = trace({ count: 30000 });
+      const h = histogramPhotons(paths, 0, VIEW_CONE_HALF_DEG * Math.PI / 180);
+
+      const energy = new Float64Array(RAY_BAND_COUNT);
+      let total = 0;
+      for (let i = 0; i < SPECTRUM_BINS; i++) {
+        energy[BAND_OF_BIN[i]] += h.coneSpectrum[i];
+        total += h.coneSpectrum[i];
+      }
+      // Counted over every arriving ray, not only the drawn ones, because this
+      // is a statement about the sampling and wants all the samples it has.
+      const counts = new Int32Array(RAY_BAND_COUNT);
+      let rays = 0;
+      for (const p of paths) {
+        if (p.kind !== 'arriving') continue;
+        counts[p.band]++;
+        rays++;
+      }
+      assert.greater(rays, 5000);
+      for (let b = 0; b < RAY_BAND_COUNT; b++) {
+        const byCount = counts[b] / rays;
+        const byEnergy = energy[b] / total;
+        assert.less(Math.abs(byCount - byEnergy), 0.04,
+          `band ${b}: ${(byCount * 100).toFixed(1)}% of the rays but `
+          + `${(byEnergy * 100).toFixed(1)}% of the light`);
+      }
+    });
+
+    test('how bright the sky is measured to be follows how many rays there are', () => {
+      // The request this answers, and the one before it: the colour must come
+      // out of the picture rather than sit beside it. Both ways of losing light
+      // - climbing out of the air, and letting rock take the directions - have
+      // to show up as the same thing, fewer rays, and the brightness has to
+      // follow that count and not something computed behind it.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const at = (options, zenithDeg = 0) => {
+        const paths = trace({ count: 6000, ...options });
+        const h = histogramPhotons(paths, -zenithDeg * Math.PI / 180, cone);
+        return {
+          h,
+          luminance: colorimetry.luminance(h.coneSpectrum),
+          rayShare: h.coneCast > 0 ? h.drawnInCone / h.coneCast : 0,
+        };
+      };
+
+      const ground = at({});
+      assert.close(ground.rayShare, 1, 0.02, 'every direction pays out at the ground');
+
+      for (const [label, options] of [
+        ['10 km up', { observerZ: 10000 }],
+        ['25 km up', { observerZ: 25000 }],
+        ['a 20 m shaft', { observerZ: -20, well: { enabled: true, radius_m: 1.5, depth_m: 20 } }],
+        ['a 60 m shaft', { observerZ: -60, well: { enabled: true, radius_m: 1.5, depth_m: 60 } }],
+      ]) {
+        const here = at(options);
+        const brightness = here.luminance / ground.luminance;
+        const rays = here.rayShare;
+        assert.less(brightness, 0.75, `${label} must be visibly darker`);
+        // The two agree to within a factor of two across a hundredfold range of
+        // brightness. They are not the same quantity - one counts directions,
+        // the other weighs what came down them - but if they ever parted
+        // company the picture would be telling a different story from the
+        // swatch, which is the whole complaint this design answers.
+        assert.between(brightness / Math.max(1e-9, rays), 0.5, 2,
+          `${label}: ${(brightness * 100).toFixed(1)}% as bright from `
+          + `${(rays * 100).toFixed(1)}% as many rays`);
+      }
+    });
+
+    test('a shaft takes the light away without changing its colour', () => {
+      // What a well does is subtract directions. The patch of sky left at the
+      // top is exactly as blue as it ever was, which is the paradox; what
+      // collapses is how much of your view has any sky in it. So the hue must
+      // hold while the brightness falls.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const xy = (spectrum) => {
+        const v = colorimetry.spectrumToXYZ(spectrum);
+        const sum = v[0] + v[1] + v[2];
+        return [v[0] / sum, v[1] / sum];
+      };
+      const open = histogramPhotons(trace({ count: 8000 }), 0, cone);
+      const deep = histogramPhotons(trace({
+        count: 8000, observerZ: -25,
+        well: { enabled: true, radius_m: 2, depth_m: 25 },
+      }), 0, cone);
+
+      assert.greater(deep.coneRays, 0, 'some light still comes down the shaft');
+      assert.less(colorimetry.luminance(deep.coneSpectrum),
+        colorimetry.luminance(open.coneSpectrum) * 0.6);
+      const [ax, ay] = xy(open.coneSpectrum);
+      const [bx, by] = xy(deep.coneSpectrum);
+      assert.less(Math.hypot(ax - bx, ay - by), 0.03,
+        'the sky down a shaft is the same colour, only less of it');
+    });
+
+    test('looking away from the mouth of a deep shaft measures exactly nothing', () => {
+      // Not "nearly nothing". Every direction ends in rock, so the sum of what
+      // arrives has no terms in it, and the swatch has to be black rather than
+      // a dark blue borrowed from a patch of sky nobody can see.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const paths = trace({
+        count: 4000, observerZ: -50,
+        well: { enabled: true, radius_m: 1.5, depth_m: 50 },
+      });
+      const away = histogramPhotons(paths, -35 * Math.PI / 180, cone);
+      assert.equal(away.coneRays, 0);
+      assert.greater(away.coneCast, 10, 'directions were looked in');
+      assert.greater(away.blockedRays, 10, 'and the wall stopped them');
+      for (let i = 0; i < SPECTRUM_BINS; i++) assert.equal(away.coneSpectrum[i], 0);
+    });
+
+    test('the measured sky divides by the directions looked in, not the ones that paid', () => {
+      // The bug this pins: averaging over the arrivals reports the radiance of
+      // whatever patch of sky is still visible, which down a fifty-metre shaft
+      // is as blue as open ground. Averaging over the directions looked in
+      // reports how bright the place is.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const paths = trace({
+        count: 6000, observerZ: -40,
+        well: { enabled: true, radius_m: 1.5, depth_m: 40 },
+      });
+      const h = histogramPhotons(paths, 0, cone);
+      assert.greater(h.coneCast, h.coneRays * 2, 'most directions end in rock');
+
+      let sum = 0;
+      for (const p of paths) {
+        if (p.kind !== 'arriving') continue;
+        if (Math.abs(p.arrivalAngleRad) > cone) continue;
+        sum += p.radiance;
+      }
+      let measured = 0;
+      for (let i = 0; i < SPECTRUM_BINS; i++) measured += h.coneSpectrum[i];
+      assert.close(measured, sum / h.coneCast, 0.02,
+        'the divisor is the number of directions looked in');
+    });
+
+    test('how many rays are drawn is the air left overhead, and thins smoothly', () => {
+      // A held maximum used to decide this, which made the picture depend on
+      // where the observer had been. It is now read off the atmosphere: the
+      // share of the column still above you, which in an optically thin sky is
+      // the share of the brightness too.
+      const surface = trace({ count: 600 });
+      assert.close(drawnRayShare(surface), 1, 1e-9);
+
+      const shares = [];
+      for (const z of [0, 5000, 10000, 20000, 30000]) {
+        shares.push(drawnRayShare(trace({ count: 600, observerZ: z })));
+      }
+      assert.decreasing(shares);
+      // Roughly exp(-z/H): four scale heights up, under two percent is left.
+      assert.less(shares[4], 0.03);
+
+      // Climbing must thin the fan, never reshuffle it: the rays drawn higher
+      // up are a subset of the ones drawn lower down, so they fade out one at a
+      // time instead of flickering.
+      const low = [], high = [];
+      for (let i = 0; i < 400; i++) {
+        if (isRayDrawn(i, shares[2])) low.push(i);
+        if (isRayDrawn(i, shares[3])) high.push(i);
+      }
+      assert.greater(low.length, high.length);
+      for (const index of high) {
+        assert.ok(low.includes(index), `ray ${index} appeared on the way up`);
+      }
+    });
+
+    test('the star the trace delivers is the one the integrator computes', () => {
+      // The colour panel shows a star without leaving the simulation, so the
+      // beam has to be marched by the tracer - through the same air, stopped by
+      // the same rock. This is the check that doing it twice gives one answer.
+      for (const [elevation, z, well] of [
+        [55, 0, null], [4, 0, null], [55, 20000, null],
+        [-6, 0, null],
+        [55, -20, { enabled: true, radius_m: 1.5, depth_m: 20 }],
+      ]) {
+        const traced = trace({ count: 400, sunElevationDeg: elevation, observerZ: z, well })
+          .observerBeam;
+        const scene = sceneAt({ elevation, z, well });
+        const analytic = computeDirectBeam(scene, QUALITY_PRESETS.high);
+        const where = `elevation ${elevation}, z ${z}${well ? ', in a shaft' : ''}`;
+        assert.equal(traced.visible, analytic.visible, `${where}: visibility`);
+        if (!traced.visible) continue;
+        for (const nm of [450, 550, 650]) {
+          const i = Math.round((nm - 380) / 10);
+          assert.close(traced.spectrum[i], analytic.spectrum[i], 0.02,
+            `${where}: ${nm} nm`);
+        }
+      }
     });
 
     test('the traced paths do not depend on where the observer is looking', () => {

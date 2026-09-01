@@ -109,29 +109,51 @@
 
         <section class="panel-section">
           <h2 data-i18n="color.title"></h2>
-          <div class="swatches">
-            <div class="swatch" id="swatch-sky">
-              <div class="swatch-chip"></div>
-              <div class="swatch-caption"></div>
-              <div class="swatch-detail"></div>
-            </div>
-            <div class="swatch" id="swatch-perceived">
-              <div class="swatch-chip"></div>
-              <div class="swatch-caption"></div>
-              <div class="swatch-detail"></div>
-            </div>
-            <div class="swatch" id="swatch-measured">
-              <div class="swatch-chip"></div>
-              <div class="swatch-caption"></div>
-              <div class="swatch-detail"></div>
-            </div>
-            <div class="swatch" id="swatch-star">
-              <div class="swatch-chip"></div>
-              <div class="swatch-caption"></div>
-              <div class="swatch-detail"></div>
-            </div>
+          <div class="tabs" id="color-tabs" role="tablist">
+            <button type="button" class="tab is-active" data-tab="measured"
+                    role="tab" data-i18n="color.tabMeasured"></button>
+            <button type="button" class="tab" data-tab="theory"
+                    role="tab" data-i18n="color.tabTheory"></button>
           </div>
-          <p class="note" id="swatch-note"></p>
+
+          <div class="tab-panel" data-panel="measured">
+            <div class="swatches">
+              <div class="swatch" id="swatch-measured">
+                <div class="swatch-chip"></div>
+                <div class="swatch-caption"></div>
+                <div class="swatch-detail"></div>
+              </div>
+              <div class="swatch" id="swatch-star">
+                <div class="swatch-chip"></div>
+                <div class="swatch-caption"></div>
+                <div class="swatch-detail"></div>
+              </div>
+            </div>
+            <p class="note" id="measured-note"></p>
+            <div class="band-tally" id="band-tally"></div>
+          </div>
+
+          <div class="tab-panel" data-panel="theory" hidden>
+            <div class="swatches">
+              <div class="swatch" id="swatch-sky">
+                <div class="swatch-chip"></div>
+                <div class="swatch-caption"></div>
+                <div class="swatch-detail"></div>
+              </div>
+              <div class="swatch" id="swatch-perceived">
+                <div class="swatch-chip"></div>
+                <div class="swatch-caption"></div>
+                <div class="swatch-detail"></div>
+              </div>
+              <div class="swatch" id="swatch-theory-star">
+                <div class="swatch-chip"></div>
+                <div class="swatch-caption"></div>
+                <div class="swatch-detail"></div>
+              </div>
+            </div>
+            <p class="note" id="swatch-note"></p>
+            <p class="note" id="theory-agreement"></p>
+          </div>
           <p class="note note-tally" id="photon-tally" hidden></p>
         </section>
 

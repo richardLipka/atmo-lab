@@ -157,17 +157,42 @@ The scattering events are traced **independently of where the observer is lookin
 are a property of the air and the star, not of which way someone happens to face. Turning
 the view never reshuffles the scene. What moves is the emphasis: a dashed wedge marks the
 **observer's field of view**, a cone of half-angle 12° following both the zenith angle and
-the azimuth, and the rays arriving from inside it are drawn **in their own wavelength
-colours** while everything else goes **grey**. The rule is one sentence and it is the whole
-legend: *coloured means this light enters your eye from the direction you are facing.*
-Turning the view is a repaint, 0.8 ms, not a retrace.
+the azimuth. What decides whether a ray belongs to that cone is **where its scattering
+event happened**, not where the light came from: the light feeding those events arrives
+along the line to the star, which at a low Sun is nearly at right angles to where you are
+looking. A ray can enter the cone from any direction at all; what makes it yours is that
+it turned inside the cone and left along the line to your eye.
+
+Rays that do are drawn **in one of eight colours**; everything else goes **grey**. The rule
+is one sentence and it is the whole legend: *coloured means this light enters your eye from
+the direction you are facing.* Turning the view is a repaint, 0.8 ms, not a retrace.
 
 | | what it is | how it is drawn |
 |---|---|---|
-| **in the cone** | scattered once and turned into the eye from where you are looking | wavelength colour; heavy final leg into the observer, white vertex where it turned |
+| **in the cone** | turned inside the cone *and* turned into the eye | band colour; heavy final leg into the observer, white vertex where it turned |
+| **turned in view, gone elsewhere** | the same turn, made a few degrees the wrong way | brighter grey, ringed vertex, arrowhead — the control group |
 | **elsewhere in the sky** | also reaches the eye, from every other direction — this is what lights the ground | grey |
 | **missed** | scattered somewhere else and left in another direction | grey kink with an arrowhead, rejection-sampled away from the eye |
 | **through** | crossed the whole atmosphere without scattering and hit the ground | grey line, top to bottom |
+
+### Eight colours, in the ratio the spectrum holds
+
+A ray's wavelength is sampled on the 10 nm grid, which is right for the physics and wrong
+for the picture: thirty-eight shades running smoothly from violet to red read as one
+continuous wash, and nobody can count them. So a ray is *drawn* in the colour of the band
+its wavelength fell in, and there are eight bands — violet, blue, cyan, green, chartreuse,
+yellow, orange, red.
+
+The bands are deliberately **not** of equal width. They are narrow across the blue-green,
+where a small change of wavelength is a large change of colour, and wide out past 635 nm
+where the eye stops discriminating; equal widths would have spent three of the eight
+colours on reds nobody can tell apart. Because the band is picked in proportion to the
+ray's own spectrum, **the mix of colours on screen is the spectrum** — counting violet rays
+against red ones reads it off the picture, and the test suite pins the two to within four
+percentage points per band.
+
+Nothing here enters the physics. Each ray still carries its whole 38-bin spectrum into
+every measurement.
 
 **Straight rays stay straight, and the ground curves.** The cross-section is drawn in true
 spherical geometry — planet centre at the origin of world coordinates — under a plain
@@ -191,15 +216,14 @@ Each arriving ray has exactly one scattering vertex, which is not a shortcut: it
 precisely the single-scattering approximation the engine integrates, so the picture and the
 numbers describe the same model.
 
-The panel beside it states the outcome, and those percentages are **integrated off the
-spectra, not counted from the drawn rays**, so they are exact and agree with the plot
-above them: at a 55° Sun, looking 35° from the zenith away from it, **63 % of the light
-arriving from the viewing cone is blue (< 520 nm), against 33 % of the light that crosses
-unscattered to the ground, from a star that emitted 39 % blue** — and only 16 % of the
-light crossing the air is scattered at all. On an airless world every path is a `through`
-path and no scattering vertex is drawn anywhere.
+The panel beside it states the outcome, taken off the rays: at a 55° Sun, looking 35° from
+the zenith away from it, most of the light arriving from the viewing cone is blue
+(< 520 nm) against a third of the light that crosses unscattered to the ground, from a star
+that emitted 39 % blue — and only 16 % of the light crossing the air is scattered at all.
+On an airless world every path is a `through` path and no scattering vertex is drawn
+anywhere.
 
-### The drawn rays are a measurement, not an illustration
+### The picture is the measurement, and the theory is one tab behind it
 
 Each arriving ray carries an unbiased Monte Carlo estimate of what it
 contributes to the radiance. The scattering altitude is drawn with probability
@@ -208,35 +232,69 @@ one in the sampling distribution — importance sampling that is exact for an
 exponential atmosphere — and what remains is a factor of 1/cos between the ray
 and the local vertical, which is why a ray near the horizon carries so much more.
 
-That makes the picture checkable, and the interface checks it in front of you.
-Beside the perceived colour computed by the integrator sits a second swatch,
-**measured from the drawn rays alone**, with the distance between the two printed.
-With 53 rays in the viewing cone they agree to **Δxy ≤ 0.002** at the ground, at
-20 km, at 40 km and at a 4° Sun; the test suite requires better than 0.01 in
-chromaticity and 10 % in luminance, and checks it through the same code path the
+**The colour the interface calls the sky is now built from the rays and from
+nothing else.** The integrator's answer has not gone away — it sits one tab
+across, labelled *theory, for comparison*, with the difference between the two
+printed. That separation is the point: when the two agree to a thousandth of a
+chromaticity, the agreement is *evidence about the model*, which it could not be
+if one of them were quietly derived from the other. With 53 rays in the cone they
+agree to **Δxy ≤ 0.002** and a luminance ratio of **1.02** at the ground, and the
+test suite requires better than 0.01 and 10 % through the same code path the
 interface uses.
 
-A ray is *drawn* in a single colour sampled from its own spectrum, because that
-is what one photon does. The *measurement* keeps each ray's whole spectrum,
-because throwing 37 of 38 numbers away left the estimate visibly noisy with only
-a few dozen rays in the cone.
+The star gets the same treatment. There is one star, one direction and one chord,
+so its beam is not sampled but **marched by the tracer** along that chord —
+through the same air, stopped by the same rock, with the same horizon test — and
+it reproduces the integrator's direct beam to within 2 % at 450, 550 and 650 nm,
+in daylight, at a 4° Sun, at 20 km, at night, and down a shaft.
 
-That estimate also sets **how many** arriving rays are drawn — and only how many.
-A ray either reaches the observer or it does not; the ones that do are perfectly
-ordinary rays, drawn at full strength. What changes with altitude is their
-number, so that is the only thing that changes on screen. Dimming them as well
-would say something different and wrong: that the light which does arrive
-somehow arrives weakened.
+Two numbers make the measured colour, and both are on the screen:
 
-The fraction drawn is linear in the delivered radiance, with no floor, and the
-survivors are chosen by a fixed hash of the ray index so none blinks in and out
-as unrelated things change. Above roughly 50 km the fan is simply not there; at
-100 km no arriving ray is traced at all, because there is no air above the
-observer to scatter one. The sky reads `rgb(0,0,0)`, the histogram reads 0 %, and
-the panel says in words that no scattered light reaches the observer.
+- **which colours** — the mix of the eight bands arriving from the cone;
+- **how many** — the light collected divided by the number of directions
+  *looked in*, not by the number that paid out.
+
+The second is the whole of the second question. A direction that ends in rock, or
+in air the planet's own shadow has already darkened, contributes its nothing to
+the average like any other. Averaging over the arrivals instead reported a bright
+blue sky at the bottom of a fifty-metre mine — a true statement about the patch of
+sky still visible through the mouth, and a false one about the place.
+
+### One reason for two kinds of darkness
+
+How many arriving rays get drawn is read off the atmosphere: **the share of the
+air still above the observer.** Light only reaches you from a direction if
+something in that direction turned it towards you, and what does the turning is
+air, so an observer with a tenth of the column overhead is looked at by a tenth
+as many scattering events. The sky being optically thin, that is also a tenth of
+the brightness — so the rays on screen and the colour beside them fall by the
+same factor, for the same reason.
+
+A shaft multiplies that by a second, independent count: how many directions the
+rock leaves open. Fewer rays for both reasons, one rule, and the panel reports
+what you can count — *"5 rays across 50 directions in view"*.
+
+| observer | rays drawn / directions in view | measured sky |
+|---|---|---|
+| open ground | 48 / 48 | `rgb(168,197,246)` |
+| 10 km up | 17 / 48 | `rgb(85,109,153)` |
+| 20 km up | 3 / 48 | `rgb(47,62,91)` |
+| 40 km up | 0 / 48 | `rgb(9,15,26)` |
+| 20 m down a 1.5 m shaft | 21 / 53 | `rgb(106,127,161)` |
+| 50 m down, looking up | 5 / 50 | `rgb(46,60,81)` |
+| 50 m down, looking 35° off | 0 / 48 | `rgb(0,0,0)` |
+
+An earlier version thinned the fan against **the brightest sky it had ever seen**,
+which made the picture depend on where the observer had been. Nothing is held now.
+Count alone, never opacity: a ray that reaches you is an ordinary ray, and drawing
+it faintly would say the light arrives weakened, which is a different claim and a
+false one. The survivors are chosen by a fixed hash of the ray index, so climbing
+thins the fan smoothly — the set at 20 km is a subset of the set at 10 km rather
+than a fresh draw — and none of them blinks as unrelated things change.
 
 Only the drawing thins. The histogram and the measured colour still use every
-traced ray, so the measurement is exactly as precise as before.
+traced ray, because a measurement should be as precise as it can be while a
+picture should be as honest as it can be, and those are different jobs.
 
 The events *below* the observer do not thin out, and that asymmetry is the point
 of the altitude experiment: the air is still there, still lit, still scattering.
@@ -251,16 +309,21 @@ the stubs of everything scattered downwards near the limb.
 
 ### The beam histogram
 
-Below the cross-section is the spectrum of the light those rays deliver —
-measured, not computed. Filled bars are the light arriving at the observer:
-coloured from the viewing cone, grey from the rest of the sky. The dashed outline
-is the unscattered direct beam, scaled to its own peak because it carries
-thousands of times more energy than the sky and is there for its shape.
+Below the cross-section is the light those rays deliver, **counted by colour** —
+one bar per band, the same eight colours as the rays, each labelled with how many
+of them are arriving from the cone, so a bar can be checked against the rays it
+is made of. Bars are as wide as their band, on a true wavelength axis: the deep
+red covers a third of the spectrum and is drawn a third of the chart wide. Filled
+means the light came from inside the viewing cone; the grey stacked on top is the
+rest of the sky, divided by its own direction count so the two are the same
+quantity and can be stacked at all.
 
 The vertical scale is **held at the brightest sky seen so far** rather than
-refitted each frame, and this matters. An earlier version counted rays: a fixed
-number is drawn whatever the state, so climbing to 40 km emptied the sky of light
-without moving a single bar, while the colour swatch beside it went black. Now
+refitted each frame, and this matters. Two earlier versions were wrong in
+instructive ways. The first counted rays: a fixed number is traced whatever the
+state, so climbing to 40 km emptied the sky without moving a single bar. The
+second weighed them but divided by the rays that *arrived*, so five rays out of
+fifty at the bottom of a shaft reported the same bright sky as open ground. Now
 the bars fall with it — the percentage in the corner reads 100 % at the ground
 and 0 % at 30 km — and the two mean wavelengths under the axis move apart as the
 star sinks: at a 55° Sun the sky averages **501 nm** and the direct beam

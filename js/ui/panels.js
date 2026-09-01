@@ -8,6 +8,7 @@
  */
 
 import { formatAltitude, formatAngle } from '../render/scene-renderer.js';
+import { RAY_BANDS } from '../physics/spectrum.js';
 
 export function createPanels(root, { i18n, store, spectrumChart, chromaticity, colorimetry }) {
   const legend = root.querySelector('#spectrum-legend');
@@ -15,13 +16,43 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
   const swatchPerceived = root.querySelector('#swatch-perceived');
   const swatchMeasured = root.querySelector('#swatch-measured');
   const swatchStar = root.querySelector('#swatch-star');
+  const swatchTheoryStar = root.querySelector('#swatch-theory-star');
   const swatchNote = root.querySelector('#swatch-note');
+  const measuredNote = root.querySelector('#measured-note');
+  const bandTally = root.querySelector('#band-tally');
+  const theoryAgreement = root.querySelector('#theory-agreement');
+  const colorTabs = root.querySelector('#color-tabs');
   const dataBody = root.querySelector('#data-rows');
   const dataSection = root.querySelector('#data-section');
   const chromaSection = root.querySelector('#chroma-section');
   const photonTally = root.querySelector('#photon-tally');
 
   buildLegend();
+  wireTabs();
+
+  /**
+   * Two tabs, and which one is first is the argument.
+   *
+   * What the interface calls the sky colour is now measured from the rays on
+   * screen and from nothing else. The integrator's answer has not gone away -
+   * it is one click behind, with the difference between the two spelled out -
+   * but it is no longer what is shown by default, because a picture that has no
+   * say in the number beside it is decoration.
+   */
+  function wireTabs() {
+    if (!colorTabs) return;
+    colorTabs.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-tab]');
+      if (!button) return;
+      const wanted = button.dataset.tab;
+      colorTabs.querySelectorAll('button[data-tab]').forEach((b) => {
+        b.classList.toggle('is-active', b.dataset.tab === wanted);
+      });
+      root.querySelectorAll('.tab-panel').forEach((panel) => {
+        panel.hidden = panel.dataset.panel !== wanted;
+      });
+    });
+  }
 
   function buildLegend() {
     legend.textContent = '';
@@ -166,7 +197,140 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     });
   }
 
-  function renderSwatches(result, state) {
+  /**
+   * The sky, measured from the rays and from nothing else.
+   *
+   * Two numbers make this colour, and both are visible on screen:
+   *
+   *   WHICH COLOURS. Every ray was drawn in one of eight bands, in proportion
+   *     to its own spectrum, so the mix of bands arriving from the cone is the
+   *     hue. The tally underneath counts them.
+   *
+   *   HOW MANY. The light is divided by the number of DIRECTIONS looked in, not
+   *     by the number that delivered. Five rays out of fifty is a tenth of a
+   *     sky, and reads as one. That is why a well goes dark: not because the
+   *     light coming down it changes colour, but because there is so much less
+   *     of it per direction you can look in.
+   */
+  function renderMeasured(result, histogram) {
+    const chip = swatchMeasured.querySelector('.swatch-chip');
+    const caption = swatchMeasured.querySelector('.swatch-caption');
+    const detail = swatchMeasured.querySelector('.swatch-detail');
+    caption.textContent = i18n.t('color.measured');
+
+    if (!histogram || !colorimetry) {
+      chip.style.background = '#000';
+      detail.textContent = '-';
+      return;
+    }
+
+    const measured = colorimetry.spectrumToSrgb(histogram.coneSpectrum, result.exposure);
+    chip.style.background = measured.css;
+
+    // The two counts the brightness is made of, and both are on the screen: how
+    // many rays are drawn coming into the cone, and how many directions the
+    // cone covers. Their ratio is the brightness, to within the noise of a few
+    // dozen samples - which is why climbing and going down a shaft look the
+    // same on screen even though one thins the rays and the other blocks them.
+    const cast = histogram.coneCast ?? 0;
+    const drawn = histogram.drawnInCone ?? histogram.coneRays ?? 0;
+    if (drawn === 0) {
+      // Two different nothings. Either no light arrives at all - the rock has
+      // taken every direction, or the star is down - or light does arrive but
+      // there is less of it than one drawn ray stands for, which is what the
+      // top of the atmosphere looks like.
+      detail.textContent = cast === 0 ? i18n.t('color.noRays')
+        : histogram.coneRays > 0 ? i18n.t('color.belowOneRay', { cast })
+          : i18n.t('color.noneArrive', { cast });
+    } else {
+      detail.textContent = `${measured.css}  ·  `
+        + i18n.t('color.raysArriving', { drawn, cast });
+    }
+
+    renderMeasuredStar(result, histogram);
+    renderBandTally(histogram);
+
+    // The one sentence that says where the number came from. It matters that it
+    // is not the same sentence as the one on the theory tab.
+    measuredNote.textContent = i18n.t('color.measuredNote');
+  }
+
+  /**
+   * The star, marched from the observer out through the air.
+   *
+   * Not sampled: there is one star, one direction and one chord, so the beam is
+   * integrated along it with the same marcher the scattered paths use. It is
+   * still the trace's own answer rather than the panel's - the same air, the
+   * same rock, the same horizon test.
+   */
+  function renderMeasuredStar(result, histogram) {
+    const beam = histogram.beam;
+    const chip = swatchStar.querySelector('.swatch-chip');
+    const caption = swatchStar.querySelector('.swatch-caption');
+    const detail = swatchStar.querySelector('.swatch-detail');
+    caption.textContent = i18n.t('color.star');
+
+    if (!beam) {
+      chip.style.background = '#000';
+      detail.textContent = '-';
+      swatchStar.classList.add('is-dim');
+      return;
+    }
+    const scale = 1 / Math.max(1e-6, colorimetry.luminance(result.source));
+    const colour = colorimetry.spectrumToSrgb(beam.spectrum, scale);
+    chip.style.background = beam.visible ? colour.css : '#000';
+    swatchStar.classList.toggle('is-dim', !beam.visible);
+    detail.textContent = beam.visible
+      ? `${colour.css}  ·  ${formatAltitude(beam.pathLength)}`
+      // The horizon first: at night the wall is also in the way, but "the star
+      // has set" is the fact that explains the other one.
+      : (beam.belowHorizon
+        ? i18n.t('controls.star.belowHorizon')
+        : i18n.t('color.blockedByWall'));
+  }
+
+  /**
+   * How many rays of each colour arrived, laid out as the spectrum.
+   *
+   * This is the bridge between the picture and the swatch above it: the numbers
+   * here are countable on the cross-section. When a shaft closes down, watch
+   * which columns empty first - they do not. The mix stays; the total goes, and
+   * the total is the brightness.
+   */
+  function renderBandTally(histogram) {
+    if (!bandTally) return;
+    bandTally.textContent = '';
+    const counts = histogram.coneBandRays;
+    if (!counts) return;
+    for (const band of RAY_BANDS) {
+      const item = document.createElement('div');
+      item.className = 'band-tally-item';
+      const n = counts[band.index] ?? 0;
+      if (n === 0) item.classList.add('is-empty');
+      item.title = `${band.fromNm}-${band.toNm} nm`;
+
+      const bar = document.createElement('div');
+      bar.className = 'band-tally-bar';
+      bar.style.background = band.css;
+
+      const count = document.createElement('div');
+      count.className = 'band-tally-count';
+      count.textContent = String(n);
+
+      item.append(bar, count);
+      bandTally.appendChild(item);
+    }
+  }
+
+  /**
+   * The integrator's answer, kept for comparison.
+   *
+   * Everything here is computed rather than traced. It is worth keeping, and
+   * worth keeping visibly separate: when the measured colour and this one agree
+   * to a thousandth of a chromaticity, that agreement is evidence about the
+   * model, which it could not be if either were quietly derived from the other.
+   */
+  function renderTheory(result, histogram) {
     const primary = result.primary;
     const blocked = primary.view.blocked;
     const sky = primary.colors.sky;
@@ -178,10 +342,9 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
       ? i18n.t('color.blockedByWall')
       : `${sky.css}  ·  x=${sky.chromaticity[0].toFixed(3)} y=${sky.chromaticity[1].toFixed(3)}`;
 
-    // What the whole field of view amounts to, which is what "how bright is it
-    // here" means. In the open these two agree closely; down a shaft the first
-    // stays the colour of the patch you can still see and this one collapses
-    // with how much of the sky is left.
+    // What the whole field of view amounts to, worked out from the geometry of
+    // the aperture rather than from the rays. The measured colour gets the same
+    // fact for free, by dividing over the directions it looked in.
     const perceived = primary.colors.perceived;
     swatchPerceived.querySelector('.swatch-chip').style.background = perceived.css;
     swatchPerceived.querySelector('.swatch-caption').textContent = i18n.t('color.perceived');
@@ -189,48 +352,43 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
       `${perceived.css}  ·  ${i18n.t('color.skyShare')} `
       + formatShare(primary.metrics.fieldOfViewShare);
 
-    swatchStar.querySelector('.swatch-chip').style.background = star.css;
-    swatchStar.querySelector('.swatch-caption').textContent = i18n.t('color.star');
-    swatchStar.querySelector('.swatch-detail').textContent = primary.beam.visible
+    swatchTheoryStar.querySelector('.swatch-chip').style.background = star.css;
+    swatchTheoryStar.querySelector('.swatch-caption').textContent = i18n.t('color.star');
+    swatchTheoryStar.querySelector('.swatch-detail').textContent = primary.beam.visible
       ? `${star.css}  ·  x=${star.chromaticity[0].toFixed(3)} y=${star.chromaticity[1].toFixed(3)}`
-      : (primary.beam.blockedByWell ? i18n.t('color.blockedByWall') : i18n.t('controls.star.belowHorizon'));
-    swatchStar.classList.toggle('is-dim', !primary.beam.visible);
+      : (primary.beam.blockedByWell
+        ? i18n.t('color.blockedByWall') : i18n.t('controls.star.belowHorizon'));
+    swatchTheoryStar.classList.toggle('is-dim', !primary.beam.visible);
 
     swatchNote.textContent = i18n.t('color.computed');
+    renderAgreement(result, histogram);
   }
 
   /**
-   * The same colour, measured from the drawn rays instead of integrated.
+   * How far apart the two answers are.
    *
-   * Each ray carries an unbiased estimate of what it contributes, so averaging
-   * those over the viewing cone is a Monte Carlo measurement of the spectrum
-   * next to it. Showing both answers the fair objection that the swatch is a
-   * result of theory sitting beside a picture that had no say in it: this one
-   * is what the picture says, and the agreement is the evidence.
+   * A few dozen rays is a noisy instrument, so this wanders by a percent or so
+   * as a slider moves, and that is worth seeing: it is the size of the error bar
+   * on the picture. What it must not do is drift.
    */
-  function renderMeasuredSwatch(result, histogram) {
-    const chip = swatchMeasured.querySelector('.swatch-chip');
-    const caption = swatchMeasured.querySelector('.swatch-caption');
-    const detail = swatchMeasured.querySelector('.swatch-detail');
-    caption.textContent = i18n.t('color.measured');
-
+  function renderAgreement(result, histogram) {
+    if (!theoryAgreement) return;
     if (!histogram || !(histogram.coneRays > 0) || !colorimetry) {
-      swatchMeasured.hidden = true;
+      theoryAgreement.textContent = '';
       return;
     }
-    swatchMeasured.hidden = false;
     const measured = colorimetry.spectrumToSrgb(histogram.coneSpectrum, result.exposure);
-    chip.style.background = measured.css;
-
-    // How far the measurement sits from the integrator, in the plane where
-    // colour lives. A handful of rays is a noisy instrument, so the number
-    // wanders by a percent or so - and that is worth seeing too.
     const target = result.primary.colors.sky.chromaticity;
-    const dx = measured.chromaticity[0] - target[0];
-    const dy = measured.chromaticity[1] - target[1];
-    const distance = Math.hypot(dx, dy);
-    detail.textContent = `${measured.css}  ·  ${i18n.t('color.fromRays')} `
-      + `${histogram.coneRays}  ·  Δxy = ${distance.toFixed(3)}`;
+    const distance = Math.hypot(
+      measured.chromaticity[0] - target[0], measured.chromaticity[1] - target[1]);
+    const measuredY = colorimetry.luminance(histogram.coneSpectrum);
+    const theoryY = colorimetry.luminance(result.primary.perceived);
+    const ratio = theoryY > 0 ? measuredY / theoryY : null;
+    theoryAgreement.textContent = i18n.t('color.agreement', {
+      dxy: distance.toFixed(3),
+      ratio: ratio == null ? '-' : ratio.toFixed(2),
+      rays: histogram.coneRays,
+    });
   }
 
   /** A fraction as a percentage, down to the very small ones a shaft produces. */
@@ -255,12 +413,13 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
   /**
    * The sentence that makes the picture quantitative.
    *
-   * The percentages are integrated off the spectra the engine already computed,
-   * not counted from the drawn rays: the drawing samples a few hundred paths and
-   * would wobble by a few percent as you move a slider, while these numbers are
-   * exact and agree with the spectrum plot immediately above them.
+   * Taken off the rays, like everything else on this side of the tabs: the
+   * spectrum they deliver from the cone, and the spectrum the star's own beam
+   * still has when it arrives. Both wobble by a percent or two as a slider
+   * moves, which is what a measurement of a few hundred samples does, and is
+   * the honest price of the sentence being about the picture.
    */
-  function renderPhotonTally(result, tally, state) {
+  function renderPhotonTally(result, tally, state, histogram) {
     if (!tally || !state.rays.showScattering) {
       photonTally.hidden = true;
       return;
@@ -268,28 +427,45 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     photonTally.hidden = false;
     const cs = i18n.getLanguage() === 'cs';
     const pct = (v) => (v == null ? null : Math.round(v * 100));
-    const arriving = pct(blueShare(result.primary.view.scattered));
-    const through = pct(blueShare(result.primary.beam.spectrum));
+    const arriving = histogram && histogram.coneRays > 0
+      ? pct(blueShare(histogram.coneSpectrum)) : null;
+    const through = histogram && histogram.beam
+      ? pct(blueShare(histogram.beam.spectrum)) : null;
     const emitted = pct(blueShare(result.source));
 
-    if (arriving == null || through == null) {
+    if (arriving == null) {
       photonTally.textContent = cs
         ? 'Z tohoto směru k pozorovateli nedopadá žádné rozptýlené světlo.'
         : 'No scattered light reaches the observer from this direction.';
       return;
     }
+
+    // Each clause stands on its own, because they can fail separately. Down a
+    // shaft the sky is still there and the star is not, and an earlier version
+    // dropped the whole sentence on that - reporting no scattered light at the
+    // bottom of a well while twenty-one rays were coming down it.
+    const parts = [];
+    parts.push(cs
+      ? `Ze světla, které dopadá k pozorovateli ze zorného kužele, je ${arriving} % modré `
+        + '(< 520 nm)'
+      : `Of the light arriving at the observer from the viewing cone, ${arriving}% is blue `
+        + '(< 520 nm)');
+    if (through != null) {
+      parts.push(cs
+        ? `ze světla, které projde bez rozptylu až k pozorovateli, jen ${through} %`
+        : `of the light that crosses unscattered to the observer, only ${through}%`);
+    }
+    let text = `${parts.join('; ')}. `;
+    text += cs ? `Hvězda přitom vyzářila ${emitted} % modré.`
+      : `The star itself emitted ${emitted}% blue.`;
+
     const scattered = tally.scatteredFraction != null
       ? Math.round(tally.scatteredFraction * 100) : null;
-    const scatteredPart = scattered == null ? ''
-      : (cs ? ` Rozptýlí se přitom jen ${scattered} % světla, které vzduchem prochází.`
-        : ` Only ${scattered}% of the light crossing the air is scattered at all.`);
-    photonTally.textContent = cs
-      ? `Ze světla, které dopadá k pozorovateli ze zorného kužele, je ${arriving} % modré `
-        + `(< 520 nm); ze světla, které projde bez rozptylu až k zemi, jen ${through} %. `
-        + `Hvězda přitom vyzářila ${emitted} % modré.${scatteredPart}`
-      : `Of the light arriving at the observer from the viewing cone, ${arriving}% is blue `
-        + `(< 520 nm); of the light that crosses unscattered to the ground, only ${through}%. `
-        + `The star itself emitted ${emitted}% blue.${scatteredPart}`;
+    if (scattered != null) {
+      text += cs ? ` Rozptýlí se přitom jen ${scattered} % světla, které vzduchem prochází.`
+        : ` Only ${scattered}% of the light crossing the air is scattered at all.`;
+    }
+    photonTally.textContent = text;
   }
 
   function update(result, tally, histogram) {
@@ -307,9 +483,9 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     });
     spectrumChart.draw();
 
-    renderSwatches(result, state);
-    renderMeasuredSwatch(result, histogram);
-    renderPhotonTally(result, tally, state);
+    renderMeasured(result, histogram);
+    renderTheory(result, histogram);
+    renderPhotonTally(result, tally, state, histogram);
 
     dataSection.hidden = false;
     const columns = state.compare.enabled && result.compare
