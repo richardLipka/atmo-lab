@@ -393,7 +393,7 @@ higher — 6 % higher, which is what it does.
 | **No ozone at all** | the Chappuis band costs τ = 0.041 vertically at 600 nm — **4 % of the orange at the zenith, 39 % at 12 air masses** | the main reason a real twilight zenith is blue. This model has no such mechanism |
 | ~~The cross-section is a plane slice~~ — **fixed** by weighting each ray by the ring it stands for | a 50 m shaft now measures **1.5 %** against a round-shaft **2.1 %**; 100 m, 0.83 % against 0.5 % | was 6× too bright, a trench rather than a round shaft. What remains is Monte Carlo scatter on the four or five rays that get through, which straddles the theory rather than sitting above it |
 | **No refraction** | air mass at 0.5° elevation is **8.6 % below** Kasten–Young, and does not improve with quality | a very low Sun sits slightly wrong; the Sun should also set about two minutes later than drawn |
-| **Nothing is sampled within 5° of the horizon** | looking at 89°, only 29 of a nominal 51 directions are cast | the brightest part of a twilight sky is outside what the rays can see. The measurement divides by what it cast, so it is not biased — it simply cannot look there |
+| **Nothing is sampled within 5° of the horizon** | looking at 89°, only 29 of a nominal 51 directions are cast | the brightest part of a twilight sky is outside what the rays can see. The measurement divides by what it cast, so it is not biased — it simply cannot look there. On the strip those last five degrees at each end carry the nearest measurement outwards |
 | No multiple ground reflection, exponential density with no temperature structure, Henyey-Greenstein standing in for Mie | | ordinary simplifications, stated for completeness |
 
 **So: is the simulation correct as it is?** For what it sets out to teach — why
@@ -403,6 +403,52 @@ radiometric instrument, expect the sky brightness to be right to a factor of
 order 1.2 and twilight colour to be missing its most important ingredient. The
 error worth fixing next is **ozone**, without which no twilight zenith here can
 turn blue for the reason a real one does.
+
+### What the observer sees, and the rock that takes it away
+
+The strip under the cross-section is one column per viewing direction, horizon
+to horizon — and it is filled from **the same measurement the colour swatch
+uses**, run once per direction instead of once for the viewing cone. It used to
+be filled from the integrator while the swatch beside it was measured from the
+rays, so the two could disagree about the same sky and one of them was
+decoration.
+
+Brightness is averaged over a small window of directions, because a few rays per
+degree is a noisy instrument, and only over the directions in that window which
+**have sky down them** — so a shaft's aperture keeps its true brightness instead
+of being diluted by the rock either side of it. Whether the rock is in the way is
+taken from the direction's own bin and never smoothed, so a two-degree hole is
+drawn two degrees wide. Beyond 85° nothing is traced at all and the nearest
+measurement is carried outwards, brightness *and* rock together: carrying only
+the brightness gave a well a bright horizon it should not have.
+
+**A blocked direction is not black.** Black reads as an absence; what is there is
+rock, and rock has a colour. It is computed, not chosen — the ground's own
+reflectance from the world's config, under two lights:
+
+- **the sky at the mouth**, which reaches all the way down. How much of it a
+  point on the wall can see depends on how far below the mouth it is, and
+  averaged over the whole depth that has a closed form, **(R/d)·arctan(d/R)** —
+  38 % of the way to a full hemisphere for a 5 m shaft, 1.2 % for a 200 m one.
+- **the star**, which reaches only as far down as the geometry allows: a patch
+  2R/tan(z) deep on one side. Without it the wall came out a cool grey, because
+  blue sky on red-brown rock very nearly cancels.
+
+| shaft | Sun at 55° | Sun at 12° |
+|---|---|---|
+| 5 m | `rgb(255,196,148)` sunlit sandstone | `rgb(137,96,56)` |
+| 20 m | `rgb(155,118,88)` | `rgb(71,48,26)` |
+| 80 m | `rgb(81,60,44)` | `rgb(34,21,8)` |
+| 200 m | `rgb(51,37,25)` | `rgb(19,10,3)` |
+
+The cross-section paints the inside of the shaft with the same spectrum, so the
+hole in the ground and the wings of the strip cannot drift apart. A floor keeps
+it from quite reaching black — that one is a drawing decision, and the only one
+here.
+
+The side-by-side comparison is the exception: two observers, one set of traced
+rays, and only the integrator can answer for both. There the strip falls back to
+the computed dome.
 
 ### The beam histogram
 

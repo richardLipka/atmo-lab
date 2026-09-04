@@ -19,7 +19,8 @@ import { createSkyStrip } from './render/sky-strip.js';
 import { createSpectrumChart } from './render/spectrum-chart.js';
 import { createChromaticityPlot } from './render/chromaticity.js';
 import {
-  tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
+  tracePhotons, summarisePhotons, histogramPhotons, skyFromRays,
+  shaftWallSpectrum, VIEW_CONE_HALF_DEG,
 } from './render/photons.js';
 import { createBeamHistogram } from './render/beam-histogram.js';
 import { createControls } from './ui/controls.js';
@@ -44,7 +45,8 @@ async function start() {
 
   const sceneRenderer = createSceneRenderer(
     document.getElementById('scene-canvas'), { i18n, colorimetry });
-  const skyStrip = createSkyStrip(document.getElementById('sky-canvas'), { i18n });
+  const skyStrip = createSkyStrip(
+    document.getElementById('sky-canvas'), { i18n, colorimetry });
   const beamHistogram = createBeamHistogram(
     document.getElementById('histogram-canvas'), { i18n });
   const spectrumChart = createSpectrumChart(document.getElementById('spectrum-canvas'), { i18n });
@@ -67,6 +69,8 @@ async function start() {
   let result = null;
   let photons = null;
   let photonTally = null;
+  /** The sky measured from the rays, one direction at a time, for the strip. */
+  let skySamples = null;
   let needsPhysics = true;
   let needsPhotons = true;
   let needsPaint = true;
@@ -95,6 +99,10 @@ async function start() {
       seed: 20260828,
     });
     photonTally = summarisePhotons(photons, { source: result.source });
+    // The strip under the picture is filled from the same measurement the
+    // colour swatch uses, so the two cannot disagree. It depends only on the
+    // traced rays, so it is rebuilt exactly when they are.
+    skySamples = photons.length > 0 ? skyFromRays(photons) : null;
     needsPhotons = false;
   }
 
@@ -104,8 +112,20 @@ async function start() {
    * when something actually changed, never once per animation frame.
    */
   function publish({ photonsChanged }) {
-    const view = { state: store.state, result, photons };
     const histogram = beamHistogramFor(store.state);
+    const view = {
+      state: store.state, result, photons, sky: skySamples,
+      // The rock the shaft is cut through, lit by the sky that reaches it. One
+      // spectrum, shared by the strip and the cross-section, so the hole in the
+      // ground and the wings of the strip are the same colour.
+      wall: photons && photons.length > 0
+        ? shaftWallSpectrum(photons, result.atmosphere.groundReflectance, {
+          depth_m: store.state.observer.well.depth_m,
+          radius_m: store.state.observer.well.radius_m,
+          sunZenithRad: (90 - store.state.star.elevationDeg) * Math.PI / 180,
+        })
+        : null,
+    };
     sceneRenderer.update(view, { keepSelection: !photonsChanged });
     skyStrip.update(view);
     beamHistogram.update(histogram);

@@ -790,8 +790,16 @@ export function tracePhotons(options) {
     if (starSolidAngle > 0) {
       for (let i = 0; i < SPECTRUM_BINS; i++) radiance[i] = spectrum[i] / starSolidAngle;
     }
+    // What the beam delivers to anything the wall is NOT shading - the mouth of
+    // the shaft, and the rock down as far as the star can reach. `spectrum` is
+    // zeroed when the wall takes the beam from the observer, which is a fact
+    // about the observer at the bottom and not about the shaft as a whole.
+    const unblocked = new Float64Array(SPECTRUM_BINS);
+    if (!belowHorizon) {
+      for (let i = 0; i < SPECTRUM_BINS; i++) unblocked[i] = source[i] * transmittance[i];
+    }
     return {
-      spectrum, transmittance, radiance, starSolidAngle,
+      spectrum, transmittance, radiance, starSolidAngle, unblocked,
       visible, belowHorizon, blockedByWall,
       pathLength: length,
     };
@@ -1143,4 +1151,194 @@ export function histogramPhotons(paths, axisRad, halfRad) {
     coneMeanNm: coneSum > 0 ? coneWeighted / coneSum : null,
     directMeanNm: directSum > 0 ? directWeighted / directSum : null,
   };
+}
+
+/**
+ * The sky the drawn rays deliver, direction by direction, all the way round.
+ *
+ * The strip under the cross-section used to be filled from the integrator while
+ * the swatch beside it was measured from the rays, so the two could disagree and
+ * one of them was decoration. This is the same measurement the swatch uses, run
+ * once per direction instead of once for the viewing cone.
+ *
+ * Two numbers per direction, and they answer different questions. The RADIANCE
+ * is what that patch of sky is worth, averaged over the directions in a small
+ * window around it that actually have sky down them - so a shaft's aperture
+ * keeps its true brightness instead of being diluted by the rock either side of
+ * it, which is the paradox the well experiment exists to show. The BLOCKED
+ * fraction is taken from the direction's own bin and never smoothed, so an
+ * aperture stays exactly as narrow as it is.
+ *
+ * Beyond 85 degrees from the zenith nothing is traced at all, and there the
+ * nearest sampled direction is carried outwards. That last five degrees of
+ * strip is an extrapolation, and it is the part of a twilight sky that matters
+ * most - see the accuracy notes in the README.
+ *
+ * @param {Array}  paths      traced paths
+ * @param {object} options    binDeg, and the half-width of the smoothing window
+ */
+export function skyFromRays(paths, options = {}) {
+  const { binDeg = 1, smoothDeg = 4 } = options;
+  const bins = Math.max(1, Math.round(180 / binDeg));
+  const half = smoothDeg / binDeg;
+
+  const raw = new Float64Array(bins * SPECTRUM_BINS);
+  const cast = new Int32Array(bins);
+  const blocked = new Int32Array(bins);
+  const arrived = new Int32Array(bins);
+
+  const binOf = (rad) => {
+    const deg = Math.max(-90, Math.min(90, rad * 180 / Math.PI));
+    return Math.max(0, Math.min(bins - 1, Math.floor((deg + 90) / binDeg)));
+  };
+
+  const castAngles = paths.castAngles;
+  if (castAngles) for (let i = 0; i < castAngles.length; i++) cast[binOf(castAngles[i])]++;
+
+  const spectra = paths.arrivingSpectra;
+  for (const p of paths) {
+    if (p.kind === 'blocked') { blocked[binOf(p.arrivalAngleRad)]++; continue; }
+    if (p.kind !== 'arriving') continue;
+    const b = binOf(p.arrivalAngleRad);
+    arrived[b]++;
+    const offset = b * SPECTRUM_BINS;
+    if (spectra && p.spectrumOffset != null) {
+      for (let i = 0; i < SPECTRUM_BINS; i++) raw[offset + i] += spectra[p.spectrumOffset + i];
+    } else {
+      raw[offset + p.bin] += p.radiance;
+    }
+  }
+
+  const radiance = new Float64Array(bins * SPECTRUM_BINS);
+  /** Was this direction looked in at all? Beyond 85 degrees, nothing was. */
+  const sampled = new Uint8Array(bins);
+  const blockedFraction = new Float64Array(bins);
+  for (let b = 0; b < bins; b++) {
+    sampled[b] = cast[b] > 0 ? 1 : 0;
+    blockedFraction[b] = cast[b] > 0 ? blocked[b] / cast[b] : 0;
+    // Divided by the directions in the window that had sky down them, not by
+    // every direction in it: what this reports is the brightness of the sky
+    // there, and rock has no brightness to average in.
+    let open = 0;
+    for (let k = -half; k <= half; k++) {
+      const j = b + k;
+      if (j < 0 || j >= bins) continue;
+      open += cast[j] - blocked[j];
+    }
+    if (open <= 0) continue;
+    const offset = b * SPECTRUM_BINS;
+    for (let k = -half; k <= half; k++) {
+      const j = b + k;
+      if (j < 0 || j >= bins) continue;
+      const from = j * SPECTRUM_BINS;
+      for (let i = 0; i < SPECTRUM_BINS; i++) radiance[offset + i] += raw[from + i] / open;
+    }
+  }
+
+  // Carry the nearest measurement into the directions nothing was traced in -
+  // the last five degrees at each end, where the fan stops short of the
+  // horizon. Both halves of it travel together: the brightness AND whether the
+  // rock was in the way. Carrying only the brightness put a bright strip of sky
+  // at the horizon of a well, where the wall in fact reaches all the way round.
+  const carry = (from, to) => {
+    radiance.copyWithin(to * SPECTRUM_BINS, from * SPECTRUM_BINS, (from + 1) * SPECTRUM_BINS);
+    blockedFraction[to] = blockedFraction[from];
+  };
+  let last = -1;
+  for (let b = 0; b < bins; b++) {
+    if (sampled[b]) { last = b; continue; }
+    if (last >= 0) carry(last, b);
+  }
+  last = -1;
+  for (let b = bins - 1; b >= 0; b--) {
+    if (sampled[b]) { last = b; continue; }
+    if (last >= 0) carry(last, b);
+  }
+
+  return {
+    bins, binDeg, radiance, cast, blocked, arrived, sampled, blockedFraction,
+    /** Signed angle from the zenith, in degrees, at the middle of a bin. */
+    angleOf: (b) => -90 + (b + 0.5) * binDeg,
+    binOfAngle: (deg) => Math.max(0, Math.min(bins - 1,
+      Math.floor((Math.max(-90, Math.min(90, deg)) + 90) / binDeg))),
+    /** The spectrum of one bin, as a view into the packed array. */
+    spectrumAt(b) {
+      const i = Math.max(0, Math.min(bins - 1, b)) * SPECTRUM_BINS;
+      return radiance.subarray(i, i + SPECTRUM_BINS);
+    },
+  };
+}
+
+/**
+ * The colour of the rock the shaft is cut through, lit by what reaches it.
+ *
+ * Not black. Black says "nothing here"; what is there is rock, and rock has a
+ * colour. Two things light it, and which of them wins is the whole character of
+ * the picture:
+ *
+ *   THE SKY at the mouth, which reaches all the way down. How much of it a
+ *     point on the wall can see depends on how far below the mouth it is, and
+ *     averaged over the whole depth that comes out in closed form as
+ *     (R/d)·arctan(d/R) - 38 % of the way to a full hemisphere for a five-metre
+ *     shaft, 1 % for a two-hundred-metre one. Using the OBSERVER's aperture
+ *     instead was wrong twice over: it is the view from the very bottom, the
+ *     darkest point on the wall, and it sent a deep shaft to pure black.
+ *
+ *   THE STAR, which reaches only as far down as the geometry lets it - a patch
+ *     2R/tan(z) deep on one side, where z is the star's angle from the vertical.
+ *     At a high star that is most of a shallow shaft and none of a deep one.
+ *     Without it the wall came out a cool grey, because blue sky on red-brown
+ *     rock very nearly cancels; with it a shallow shaft is warm and lit and a
+ *     deep one is the cold grey-brown it should be.
+ *
+ * The reflectance is the world's own, from its config: dark in the blue, rising
+ * towards the red, which is what soil and most rock do.
+ *
+ * @param {Array}  paths        traced paths
+ * @param {Float64Array} reflectance  the ground's reflectance spectrum
+ * @param {object} shaft        { depth_m, radius_m, sunZenithRad }
+ */
+export function shaftWallSpectrum(paths, reflectance, shaft = null) {
+  const out = new Float64Array(SPECTRUM_BINS);
+  if (!paths || !reflectance) return out;
+
+  const spectra = paths.arrivingSpectra;
+  const sky = new Float64Array(SPECTRUM_BINS);
+  let rays = 0;
+  for (const p of paths) {
+    if (p.kind !== 'arriving') continue;
+    rays++;
+    if (spectra && p.spectrumOffset != null) {
+      for (let i = 0; i < SPECTRUM_BINS; i++) sky[i] += spectra[p.spectrumOffset + i];
+    } else {
+      sky[p.bin] += p.radiance;
+    }
+  }
+  // The brightness of the patch of sky itself, not how small it is - how small
+  // it is comes in through the geometry below.
+  if (rays > 0) for (let i = 0; i < SPECTRUM_BINS; i++) sky[i] /= rays;
+
+  const depth = shaft && shaft.depth_m > 0 ? shaft.depth_m : 0;
+  const radius = shaft && shaft.radius_m > 0 ? shaft.radius_m : 1;
+  const skyLit = depth > 0 ? (radius / depth) * Math.atan(depth / radius) : 1;
+
+  // How much of the wall the star can reach at all.
+  const beam = paths.observerBeam;
+  const zenith = shaft && shaft.sunZenithRad != null ? shaft.sunZenithRad : null;
+  let sunlit = 0;
+  if (beam && zenith != null && depth > 0) {
+    const tan = Math.abs(Math.tan(zenith));
+    const reach = tan > 1e-6 ? (2 * radius) / tan : depth;
+    // Only when the star is above the horizon - the beam's own visibility flag
+    // is about the OBSERVER at the bottom, whom the wall is busy shading.
+    if (!beam.belowHorizon) sunlit = Math.max(0, Math.min(1, reach / depth));
+  }
+  const grazing = zenith == null ? 0 : Math.abs(Math.sin(zenith));
+
+  for (let i = 0; i < SPECTRUM_BINS; i++) {
+    const lit = sky[i] * skyLit
+      + (beam ? beam.unblocked[i] * sunlit * grazing / Math.PI : 0);
+    out[i] = lit * reflectance[i];
+  }
+  return out;
 }

@@ -36,6 +36,32 @@ import { v3, v3addScaled, v3length, v3dot, raySphereFar, raySphereNear } from '.
  *   aerosolScale     multiplies the aerosol load only
  *   rayleighExponent replaces the wavelength exponent (4 = true Rayleigh)
  */
+/**
+ * The reflectance of the ground, as a spectrum.
+ *
+ * A world may state one in its config; when it states only a scalar albedo, that
+ * scalar is spread over a default rock shape and rescaled so its mean is the
+ * albedo the config asked for. The shape rises from the blue to the red the way
+ * dry soil and most rock do, which is the whole reason a shaft cut into the
+ * ground looks brown down there rather than grey.
+ */
+function groundReflectanceSpectrum(config) {
+  if (config.groundReflectance) return resolveAlbedoSpectrum(config.groundReflectance);
+  const albedo = config.groundAlbedo ?? 0.1;
+  const shape = new Float64Array(SPECTRUM_BINS);
+  let sum = 0;
+  for (let i = 0; i < SPECTRUM_BINS; i++) {
+    // 0.45 at 380 nm rising to 1.7 at 750 nm, smoothly.
+    const t = i / (SPECTRUM_BINS - 1);
+    shape[i] = 0.45 + 1.25 * t * t;
+    sum += shape[i];
+  }
+  const mean = sum / SPECTRUM_BINS;
+  const out = specNew();
+  for (let i = 0; i < SPECTRUM_BINS; i++) out[i] = albedo * shape[i] / mean;
+  return out;
+}
+
 export function createAtmosphere(config, overrides = {}) {
   const densityScale = overrides.densityScale ?? 1;
   const aerosolScale = overrides.aerosolScale ?? 1;
@@ -165,6 +191,12 @@ export function createAtmosphere(config, overrides = {}) {
     name: config.name,
     planetRadius, topAltitude, topRadius,
     groundAlbedo: config.groundAlbedo ?? 0.1,
+    // What the ground reflects, wavelength by wavelength. Configs may give a
+    // spectrum; most give a single number, and a single number is not a colour,
+    // so it is spread over the default rock shape below - dark in the blue,
+    // rising towards the red, which is what soil and most rock do and why a
+    // hole in the ground is brown rather than grey.
+    groundReflectance: groundReflectanceSpectrum(config),
     scaleHeightRayleigh: scaleHeightR,
     scaleHeightAerosol: scaleHeightA,
     rayleighExponent,

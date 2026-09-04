@@ -35,7 +35,7 @@ import {
 } from '../js/state.js';
 import {
   tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
-  drawnRayShare, isRayDrawn,
+  drawnRayShare, isRayDrawn, skyFromRays, shaftWallSpectrum,
 } from '../js/render/photons.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
@@ -1022,6 +1022,106 @@ export function registerTests({ group, test, assert }, config) {
 
       // The default is the legible one, and is nothing like it.
       assert.close(trace({ count: 6000 }).scatterShare, 0.88, 1e-9);
+    });
+
+    test('the strip under the picture is measured, and keeps the aperture narrow', () => {
+      // The strip used to be filled from the integrator while the swatch beside
+      // it was measured from the rays, so the two could disagree about the same
+      // sky. It is the same measurement now, run once per direction.
+      //
+      // The thing it must not do is widen a shaft's aperture. Brightness is
+      // smoothed over a window, because a few rays per degree is noisy; whether
+      // the rock is in the way is taken from the direction's own bin and never
+      // smoothed, or a two-degree hole would be drawn eight degrees wide.
+      const depth = 20, radius = 1.5;
+      const paths = trace({
+        count: 20000, observerZ: -depth,
+        well: { enabled: true, radius_m: radius, depth_m: depth },
+      });
+      const sky = skyFromRays(paths);
+      const apertureDeg = wellApertureHalfAngle(depth, radius) * 180 / Math.PI;
+      assert.between(apertureDeg, 4, 4.6);
+
+      const blockedAt = (deg) => sky.blockedFraction[sky.binOfAngle(deg)];
+      assert.less(blockedAt(0), 0.1, 'straight up is open');
+      assert.less(blockedAt(apertureDeg - 1.5), 0.5, 'just inside the mouth is open');
+      assert.greater(blockedAt(apertureDeg + 1.5), 0.5, 'just outside it is rock');
+      assert.greater(blockedAt(45), 0.9, 'and well outside it, all rock');
+
+      // Nothing is traced past 85 degrees. Those directions have to inherit the
+      // rock as well as the brightness, or a well grows a bright horizon.
+      assert.greater(blockedAt(88), 0.9, 'the wall reaches the horizon too');
+      assert.greater(blockedAt(-88), 0.9);
+
+      // And the patch of sky that does show through is as bright as open sky:
+      // that is the paradox the well experiment exists to show.
+      const open = skyFromRays(trace({ count: 20000 }));
+      const a = colorimetry.luminance(sky.spectrumAt(sky.binOfAngle(0)));
+      const b = colorimetry.luminance(open.spectrumAt(open.binOfAngle(0)));
+      assert.between(a / b, 0.75, 1.25,
+        `the sky through the mouth is ${(a / b).toFixed(2)} of the open sky`);
+    });
+
+    test('the strip agrees with the swatch about the direction being looked at', () => {
+      // One measurement, two places it is shown. If these ever part company,
+      // one of them is decoration again.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const paths = trace({ count: 20000, sunElevationDeg: 55 });
+      const sky = skyFromRays(paths, { smoothDeg: VIEW_CONE_HALF_DEG });
+      for (const zenith of [0, 35, 60]) {
+        const strip = sky.spectrumAt(sky.binOfAngle(-zenith));
+        const swatch = histogramPhotons(paths, -zenith * Math.PI / 180, cone).coneSpectrum;
+        const ratio = colorimetry.luminance(strip) / colorimetry.luminance(swatch);
+        // Not identical: the swatch weighs each ray by the ring of sky it
+        // stands for and the strip does not, because one is a field of view and
+        // the other is a direction. They must still be the same sky.
+        assert.between(ratio, 0.6, 1.6, `at ${zenith} deg the two differ by ${ratio.toFixed(2)}`);
+      }
+    });
+
+    test('the rock in a shaft has a colour, and it is not black', () => {
+      // "Do not use black for places I cannot see" - black reads as an absence,
+      // and what is there is rock. It is the ground's own reflectance under the
+      // sky it can see, plus whatever the star still reaches it with.
+      const wallAt = (depth, elevation, radius = 1.5) => {
+        const paths = trace({
+          count: 4000, sunElevationDeg: elevation, observerZ: -depth,
+          well: { enabled: true, radius_m: radius, depth_m: depth },
+        });
+        return shaftWallSpectrum(paths, earth.groundReflectance, {
+          depth_m: depth, radius_m: radius,
+          sunZenithRad: (90 - elevation) * Math.PI / 180,
+        });
+      };
+      const xy = (spectrum) => {
+        const v = colorimetry.spectrumToXYZ(spectrum);
+        const sum = v[0] + v[1] + v[2];
+        return [v[0] / sum, v[1] / sum];
+      };
+
+      // Deeper is darker, always, and never negative or empty.
+      const depths = [5, 20, 80, 200].map((d) => wallAt(d, 55));
+      for (const w of depths) {
+        for (let i = 0; i < SPECTRUM_BINS; i++) assert.ok(w[i] >= 0);
+      }
+      assert.decreasing(depths.map((w) => colorimetry.luminance(w)));
+      assert.greater(colorimetry.luminance(depths[3]), 0,
+        'two hundred metres down there is still rock, not a hole in the picture');
+
+      // Warm, because rock is: redder than the blue sky lighting it.
+      const [wx, wy] = xy(depths[1]);
+      const skyPaths = trace({ count: 4000 });
+      const [sx] = xy(histogramPhotons(skyPaths, 0,
+        VIEW_CONE_HALF_DEG * Math.PI / 180).coneSpectrum);
+      assert.greater(wx, sx + 0.05, `wall x=${wx.toFixed(3)} against sky x=${sx.toFixed(3)}`);
+      assert.between(wy, 0.28, 0.42);
+
+      // A low star reaches less of the way down, so the same shaft goes darker.
+      assert.less(colorimetry.luminance(wallAt(20, 8)),
+        colorimetry.luminance(wallAt(20, 70)) * 0.6);
+      // And at night only the sky is left to light it.
+      assert.less(colorimetry.luminance(wallAt(20, -8)),
+        colorimetry.luminance(wallAt(20, 55)) * 0.05);
     });
 
     test('the traced paths do not depend on where the observer is looking', () => {

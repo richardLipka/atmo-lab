@@ -322,7 +322,13 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     if (width < 0.4) return;
 
     ctx.save();
-    ctx.fillStyle = '#05070c';
+    // The inside of a shaft is rock, not a void. It was painted near-black,
+    // which read as a hole cut out of the picture rather than as the thing that
+    // takes the sky away. It is now the ground's own reflectance lit by the sky
+    // that still gets down there - the same spectrum the strip fills its wings
+    // with, so the two agree - with a floor, because two hundred metres down the
+    // truth is black and black tells the reader nothing.
+    ctx.fillStyle = shaftWallCss();
     ctx.fillRect(top.x, top.y, width, bottom.y - top.y);
     ctx.strokeStyle = 'rgba(255,235,205,0.55)';
     ctx.lineWidth = 1.4;
@@ -912,6 +918,13 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       ctx.stroke();
     }
     ctx.restore();
+  }
+
+  /** The rock inside the shaft, shared with the strip so they cannot diverge. */
+  function shaftWallCss() {
+    if (!data.wall || !colorimetry) return '#241c16';
+    const c = colorimetry.spectrumToSrgb(data.wall, data.result.exposure);
+    return `rgb(${Math.max(22, c.rgb[0])}, ${Math.max(16, c.rgb[1])}, ${Math.max(12, c.rgb[2])})`;
   }
 
   function drawArrowHead(x1, y1, x2, y2, size) {
