@@ -1895,10 +1895,7 @@ function raySphereNear(origin, dir, R) {
  * cross-section, and transmission follows from Beer-Lambert:
  *
  *     tau(lambda) = beta_0(lambda) * C        T(lambda) = exp(-tau(lambda))
- */
-
-
-
+ */
 
 /**
  * Build a ready-to-use atmosphere from a config file plus live UI overrides.
@@ -1910,6 +1907,32 @@ function raySphereNear(origin, dir, R) {
  *   aerosolScale     multiplies the aerosol load only
  *   rayleighExponent replaces the wavelength exponent (4 = true Rayleigh)
  */
+/**
+ * The reflectance of the ground, as a spectrum.
+ *
+ * A world may state one in its config; when it states only a scalar albedo, that
+ * scalar is spread over a default rock shape and rescaled so its mean is the
+ * albedo the config asked for. The shape rises from the blue to the red the way
+ * dry soil and most rock do, which is the whole reason a shaft cut into the
+ * ground looks brown down there rather than grey.
+ */
+function groundReflectanceSpectrum(config) {
+  if (config.groundReflectance) return resolveAlbedoSpectrum(config.groundReflectance);
+  const albedo = config.groundAlbedo ?? 0.1;
+  const shape = new Float64Array(SPECTRUM_BINS);
+  let sum = 0;
+  for (let i = 0; i < SPECTRUM_BINS; i++) {
+    // 0.45 at 380 nm rising to 1.7 at 750 nm, smoothly.
+    const t = i / (SPECTRUM_BINS - 1);
+    shape[i] = 0.45 + 1.25 * t * t;
+    sum += shape[i];
+  }
+  const mean = sum / SPECTRUM_BINS;
+  const out = specNew();
+  for (let i = 0; i < SPECTRUM_BINS; i++) out[i] = albedo * shape[i] / mean;
+  return out;
+}
+
 function createAtmosphere(config, overrides = {}) {
   const densityScale = overrides.densityScale ?? 1;
   const aerosolScale = overrides.aerosolScale ?? 1;
@@ -2039,6 +2062,12 @@ function createAtmosphere(config, overrides = {}) {
     name: config.name,
     planetRadius, topAltitude, topRadius,
     groundAlbedo: config.groundAlbedo ?? 0.1,
+    // What the ground reflects, wavelength by wavelength. Configs may give a
+    // spectrum; most give a single number, and a single number is not a colour,
+    // so it is spread over the default rock shape below - dark in the blue,
+    // rising towards the red, which is what soil and most rock do and why a
+    // hole in the ground is brown rather than grey.
+    groundReflectance: groundReflectanceSpectrum(config),
     scaleHeightRayleigh: scaleHeightR,
     scaleHeightAerosol: scaleHeightA,
     rayleighExponent,
@@ -2837,8 +2866,16 @@ function tracePhotons(options) {
     if (starSolidAngle > 0) {
       for (let i = 0; i < SPECTRUM_BINS; i++) radiance[i] = spectrum[i] / starSolidAngle;
     }
+    // What the beam delivers to anything the wall is NOT shading - the mouth of
+    // the shaft, and the rock down as far as the star can reach. `spectrum` is
+    // zeroed when the wall takes the beam from the observer, which is a fact
+    // about the observer at the bottom and not about the shaft as a whole.
+    const unblocked = new Float64Array(SPECTRUM_BINS);
+    if (!belowHorizon) {
+      for (let i = 0; i < SPECTRUM_BINS; i++) unblocked[i] = source[i] * transmittance[i];
+    }
     return {
-      spectrum, transmittance, radiance, starSolidAngle,
+      spectrum, transmittance, radiance, starSolidAngle, unblocked,
       visible, belowHorizon, blockedByWall,
       pathLength: length,
     };
@@ -3190,6 +3227,196 @@ function histogramPhotons(paths, axisRad, halfRad) {
     coneMeanNm: coneSum > 0 ? coneWeighted / coneSum : null,
     directMeanNm: directSum > 0 ? directWeighted / directSum : null,
   };
+}
+
+/**
+ * The sky the drawn rays deliver, direction by direction, all the way round.
+ *
+ * The strip under the cross-section used to be filled from the integrator while
+ * the swatch beside it was measured from the rays, so the two could disagree and
+ * one of them was decoration. This is the same measurement the swatch uses, run
+ * once per direction instead of once for the viewing cone.
+ *
+ * Two numbers per direction, and they answer different questions. The RADIANCE
+ * is what that patch of sky is worth, averaged over the directions in a small
+ * window around it that actually have sky down them - so a shaft's aperture
+ * keeps its true brightness instead of being diluted by the rock either side of
+ * it, which is the paradox the well experiment exists to show. The BLOCKED
+ * fraction is taken from the direction's own bin and never smoothed, so an
+ * aperture stays exactly as narrow as it is.
+ *
+ * Beyond 85 degrees from the zenith nothing is traced at all, and there the
+ * nearest sampled direction is carried outwards. That last five degrees of
+ * strip is an extrapolation, and it is the part of a twilight sky that matters
+ * most - see the accuracy notes in the README.
+ *
+ * @param {Array}  paths      traced paths
+ * @param {object} options    binDeg, and the half-width of the smoothing window
+ */
+function skyFromRays(paths, options = {}) {
+  const { binDeg = 1, smoothDeg = 4 } = options;
+  const bins = Math.max(1, Math.round(180 / binDeg));
+  const half = smoothDeg / binDeg;
+
+  const raw = new Float64Array(bins * SPECTRUM_BINS);
+  const cast = new Int32Array(bins);
+  const blocked = new Int32Array(bins);
+  const arrived = new Int32Array(bins);
+
+  const binOf = (rad) => {
+    const deg = Math.max(-90, Math.min(90, rad * 180 / Math.PI));
+    return Math.max(0, Math.min(bins - 1, Math.floor((deg + 90) / binDeg)));
+  };
+
+  const castAngles = paths.castAngles;
+  if (castAngles) for (let i = 0; i < castAngles.length; i++) cast[binOf(castAngles[i])]++;
+
+  const spectra = paths.arrivingSpectra;
+  for (const p of paths) {
+    if (p.kind === 'blocked') { blocked[binOf(p.arrivalAngleRad)]++; continue; }
+    if (p.kind !== 'arriving') continue;
+    const b = binOf(p.arrivalAngleRad);
+    arrived[b]++;
+    const offset = b * SPECTRUM_BINS;
+    if (spectra && p.spectrumOffset != null) {
+      for (let i = 0; i < SPECTRUM_BINS; i++) raw[offset + i] += spectra[p.spectrumOffset + i];
+    } else {
+      raw[offset + p.bin] += p.radiance;
+    }
+  }
+
+  const radiance = new Float64Array(bins * SPECTRUM_BINS);
+  /** Was this direction looked in at all? Beyond 85 degrees, nothing was. */
+  const sampled = new Uint8Array(bins);
+  const blockedFraction = new Float64Array(bins);
+  for (let b = 0; b < bins; b++) {
+    sampled[b] = cast[b] > 0 ? 1 : 0;
+    blockedFraction[b] = cast[b] > 0 ? blocked[b] / cast[b] : 0;
+    // Divided by the directions in the window that had sky down them, not by
+    // every direction in it: what this reports is the brightness of the sky
+    // there, and rock has no brightness to average in.
+    let open = 0;
+    for (let k = -half; k <= half; k++) {
+      const j = b + k;
+      if (j < 0 || j >= bins) continue;
+      open += cast[j] - blocked[j];
+    }
+    if (open <= 0) continue;
+    const offset = b * SPECTRUM_BINS;
+    for (let k = -half; k <= half; k++) {
+      const j = b + k;
+      if (j < 0 || j >= bins) continue;
+      const from = j * SPECTRUM_BINS;
+      for (let i = 0; i < SPECTRUM_BINS; i++) radiance[offset + i] += raw[from + i] / open;
+    }
+  }
+
+  // Carry the nearest measurement into the directions nothing was traced in -
+  // the last five degrees at each end, where the fan stops short of the
+  // horizon. Both halves of it travel together: the brightness AND whether the
+  // rock was in the way. Carrying only the brightness put a bright strip of sky
+  // at the horizon of a well, where the wall in fact reaches all the way round.
+  const carry = (from, to) => {
+    radiance.copyWithin(to * SPECTRUM_BINS, from * SPECTRUM_BINS, (from + 1) * SPECTRUM_BINS);
+    blockedFraction[to] = blockedFraction[from];
+  };
+  let last = -1;
+  for (let b = 0; b < bins; b++) {
+    if (sampled[b]) { last = b; continue; }
+    if (last >= 0) carry(last, b);
+  }
+  last = -1;
+  for (let b = bins - 1; b >= 0; b--) {
+    if (sampled[b]) { last = b; continue; }
+    if (last >= 0) carry(last, b);
+  }
+
+  return {
+    bins, binDeg, radiance, cast, blocked, arrived, sampled, blockedFraction,
+    /** Signed angle from the zenith, in degrees, at the middle of a bin. */
+    angleOf: (b) => -90 + (b + 0.5) * binDeg,
+    binOfAngle: (deg) => Math.max(0, Math.min(bins - 1,
+      Math.floor((Math.max(-90, Math.min(90, deg)) + 90) / binDeg))),
+    /** The spectrum of one bin, as a view into the packed array. */
+    spectrumAt(b) {
+      const i = Math.max(0, Math.min(bins - 1, b)) * SPECTRUM_BINS;
+      return radiance.subarray(i, i + SPECTRUM_BINS);
+    },
+  };
+}
+
+/**
+ * The colour of the rock the shaft is cut through, lit by what reaches it.
+ *
+ * Not black. Black says "nothing here"; what is there is rock, and rock has a
+ * colour. Two things light it, and which of them wins is the whole character of
+ * the picture:
+ *
+ *   THE SKY at the mouth, which reaches all the way down. How much of it a
+ *     point on the wall can see depends on how far below the mouth it is, and
+ *     averaged over the whole depth that comes out in closed form as
+ *     (R/d)·arctan(d/R) - 38 % of the way to a full hemisphere for a five-metre
+ *     shaft, 1 % for a two-hundred-metre one. Using the OBSERVER's aperture
+ *     instead was wrong twice over: it is the view from the very bottom, the
+ *     darkest point on the wall, and it sent a deep shaft to pure black.
+ *
+ *   THE STAR, which reaches only as far down as the geometry lets it - a patch
+ *     2R/tan(z) deep on one side, where z is the star's angle from the vertical.
+ *     At a high star that is most of a shallow shaft and none of a deep one.
+ *     Without it the wall came out a cool grey, because blue sky on red-brown
+ *     rock very nearly cancels; with it a shallow shaft is warm and lit and a
+ *     deep one is the cold grey-brown it should be.
+ *
+ * The reflectance is the world's own, from its config: dark in the blue, rising
+ * towards the red, which is what soil and most rock do.
+ *
+ * @param {Array}  paths        traced paths
+ * @param {Float64Array} reflectance  the ground's reflectance spectrum
+ * @param {object} shaft        { depth_m, radius_m, sunZenithRad }
+ */
+function shaftWallSpectrum(paths, reflectance, shaft = null) {
+  const out = new Float64Array(SPECTRUM_BINS);
+  if (!paths || !reflectance) return out;
+
+  const spectra = paths.arrivingSpectra;
+  const sky = new Float64Array(SPECTRUM_BINS);
+  let rays = 0;
+  for (const p of paths) {
+    if (p.kind !== 'arriving') continue;
+    rays++;
+    if (spectra && p.spectrumOffset != null) {
+      for (let i = 0; i < SPECTRUM_BINS; i++) sky[i] += spectra[p.spectrumOffset + i];
+    } else {
+      sky[p.bin] += p.radiance;
+    }
+  }
+  // The brightness of the patch of sky itself, not how small it is - how small
+  // it is comes in through the geometry below.
+  if (rays > 0) for (let i = 0; i < SPECTRUM_BINS; i++) sky[i] /= rays;
+
+  const depth = shaft && shaft.depth_m > 0 ? shaft.depth_m : 0;
+  const radius = shaft && shaft.radius_m > 0 ? shaft.radius_m : 1;
+  const skyLit = depth > 0 ? (radius / depth) * Math.atan(depth / radius) : 1;
+
+  // How much of the wall the star can reach at all.
+  const beam = paths.observerBeam;
+  const zenith = shaft && shaft.sunZenithRad != null ? shaft.sunZenithRad : null;
+  let sunlit = 0;
+  if (beam && zenith != null && depth > 0) {
+    const tan = Math.abs(Math.tan(zenith));
+    const reach = tan > 1e-6 ? (2 * radius) / tan : depth;
+    // Only when the star is above the horizon - the beam's own visibility flag
+    // is about the OBSERVER at the bottom, whom the wall is busy shading.
+    if (!beam.belowHorizon) sunlit = Math.max(0, Math.min(1, reach / depth));
+  }
+  const grazing = zenith == null ? 0 : Math.abs(Math.sin(zenith));
+
+  for (let i = 0; i < SPECTRUM_BINS; i++) {
+    const lit = sky[i] * skyLit
+      + (beam ? beam.unblocked[i] * sunlit * grazing / Math.PI : 0);
+    out[i] = lit * reflectance[i];
+  }
+  return out;
 }
 
 /* ===== js/physics/well.js ===== */
@@ -4271,7 +4498,13 @@ function createSceneRenderer(canvas, { i18n, colorimetry }) {
     if (width < 0.4) return;
 
     ctx.save();
-    ctx.fillStyle = '#05070c';
+    // The inside of a shaft is rock, not a void. It was painted near-black,
+    // which read as a hole cut out of the picture rather than as the thing that
+    // takes the sky away. It is now the ground's own reflectance lit by the sky
+    // that still gets down there - the same spectrum the strip fills its wings
+    // with, so the two agree - with a floor, because two hundred metres down the
+    // truth is black and black tells the reader nothing.
+    ctx.fillStyle = shaftWallCss();
     ctx.fillRect(top.x, top.y, width, bottom.y - top.y);
     ctx.strokeStyle = 'rgba(255,235,205,0.55)';
     ctx.lineWidth = 1.4;
@@ -4863,6 +5096,13 @@ function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.restore();
   }
 
+  /** The rock inside the shaft, shared with the strip so they cannot diverge. */
+  function shaftWallCss() {
+    if (!data.wall || !colorimetry) return '#241c16';
+    const c = colorimetry.spectrumToSrgb(data.wall, data.result.exposure);
+    return `rgb(${Math.max(22, c.rgb[0])}, ${Math.max(16, c.rgb[1])}, ${Math.max(12, c.rgb[2])})`;
+  }
+
   function drawArrowHead(x1, y1, x2, y2, size) {
     const angle = Math.atan2(y2 - y1, x2 - x1);
     ctx.beginPath();
@@ -5156,13 +5396,24 @@ function formatAngle(deg) {
 /**
  * The observer's own view of the sky, from one horizon to the other.
  *
- * Every column is one viewing direction, filled with the colour that the
- * radiance integrator returned for it. Where the shaft wall stops a direction
- * the column is black, so the geometry of a well shows up immediately as a
- * pair of black wings closing in on a shrinking strip of sky.
+ * Every column is one viewing direction, filled with what the TRACED RAYS
+ * deliver from it - the same measurement the colour swatch on the right is
+ * built from, run once per direction instead of once for the viewing cone.
+ * Filling it from the integrator instead, as it used to be, let the picture and
+ * the strip beneath it disagree about the same sky.
+ *
+ * Where the shaft wall stops a direction the column is not black. Black says
+ * "nothing here"; what is there is rock, and rock has a colour - the ground's
+ * own reflectance lit by the patch of sky that still reaches down the shaft. So
+ * a well shows as two warm dark wings closing in on a shrinking strip of sky,
+ * and the wings darken as the shaft deepens because less light gets to them.
+ *
+ * The side-by-side comparison is the exception: two observers, one set of
+ * traced rays, and only the integrator can answer for both. There the strip
+ * falls back to the computed dome.
  */
 
-function createSkyStrip(canvas, { i18n }) {
+function createSkyStrip(canvas, { i18n, colorimetry }) {
   const ctx = canvas.getContext('2d', { alpha: false });
   let data = null;
 
@@ -5194,9 +5445,14 @@ function createSkyStrip(canvas, { i18n }) {
       ]
       : [{ evaluation: data.result.primary, label: null }];
 
+    // Two observers cannot both be measured from one set of traced rays, so the
+    // comparison falls back to the integrator for both bands rather than
+    // showing one measured band beside one computed one.
+    const measured = evaluations.length === 1 ? data.sky : null;
     const bandHeight = (h - 16) / evaluations.length;
     evaluations.forEach((entry, index) => {
-      drawBand(entry.evaluation, 0, index * bandHeight, w, bandHeight, entry.label);
+      drawBand(entry.evaluation, 0, index * bandHeight, w, bandHeight, entry.label,
+        measured);
     });
     drawScale(w, h);
   }
@@ -5217,6 +5473,37 @@ function createSkyStrip(canvas, { i18n }) {
     return x + ((Math.max(-90, Math.min(90, signedAngle)) + 90) / 180) * w;
   }
 
+  /**
+   * The colour of one direction, as the rays measured it.
+   *
+   * A direction the rock has taken shows the wall rather than a black gap. The
+   * blocked test is per bin and never smoothed, so an aperture two degrees wide
+   * stays two degrees wide; only the brightness is drawn from a wider window,
+   * and only from the directions in it that have sky.
+   */
+  function columnCss(measured, signedAngle, exposure, wall) {
+    const bin = measured.binOfAngle(signedAngle);
+    if (measured.blockedFraction[bin] > 0.5) return wall;
+    return colorimetry.spectrumToSrgb(measured.spectrumAt(bin), exposure).css;
+  }
+
+  /**
+   * The rock, lit by whatever sky still reaches it - and never allowed to fall
+   * below a dim warm floor.
+   *
+   * The colour is computed, not chosen: the ground's own reflectance under the
+   * sky the wall can see plus whatever the star still reaches it with. A five
+   * metre shaft at a high Sun comes out sunlit sandstone, two hundred metres at
+   * a low one comes out almost black-brown. The floor below is only a guarantee
+   * that it never quite reaches black, because a black strip reads as an
+   * absence rather than as the rock that took the sky away.
+   */
+  function wallCss(measured) {
+    if (!measured || !data.wall || !colorimetry) return '#241c16';
+    const c = colorimetry.spectrumToSrgb(data.wall, data.result.exposure);
+    return `rgb(${Math.max(22, c.rgb[0])}, ${Math.max(16, c.rgb[1])}, ${Math.max(12, c.rgb[2])})`;
+  }
+
   /** The dome sample nearest a viewing angle. */
   function sampleAt(dome, signedAngle) {
     let best = dome[0], bestDelta = Infinity;
@@ -5227,8 +5514,10 @@ function createSkyStrip(canvas, { i18n }) {
     return best;
   }
 
-  function drawBand(evaluation, x, y, w, h, label) {
+  function drawBand(evaluation, x, y, w, h, label, measured) {
     const dome = evaluation.dome;
+    const exposure = data.result.exposure;
+    const wall = wallCss(measured);
 
     // One column of pixels per viewing direction, on the true angular axis, so
     // the visible sky occupies exactly the share of the strip it occupies of
@@ -5237,7 +5526,9 @@ function createSkyStrip(canvas, { i18n }) {
     const columns = Math.max(1, Math.round(w));
     for (let i = 0; i < columns; i++) {
       const angle = -90 + (180 * (i + 0.5)) / columns;
-      ctx.fillStyle = sampleAt(dome, angle).color.css;
+      ctx.fillStyle = measured
+        ? columnCss(measured, angle, exposure, wall)
+        : sampleAt(dome, angle).color.css;
       ctx.fillRect(x + (i * w) / columns, y, w / columns + 1, h);
     }
 
@@ -7111,7 +7402,8 @@ async function start() {
 
   const sceneRenderer = createSceneRenderer(
     document.getElementById('scene-canvas'), { i18n, colorimetry });
-  const skyStrip = createSkyStrip(document.getElementById('sky-canvas'), { i18n });
+  const skyStrip = createSkyStrip(
+    document.getElementById('sky-canvas'), { i18n, colorimetry });
   const beamHistogram = createBeamHistogram(
     document.getElementById('histogram-canvas'), { i18n });
   const spectrumChart = createSpectrumChart(document.getElementById('spectrum-canvas'), { i18n });
@@ -7134,6 +7426,8 @@ async function start() {
   let result = null;
   let photons = null;
   let photonTally = null;
+  /** The sky measured from the rays, one direction at a time, for the strip. */
+  let skySamples = null;
   let needsPhysics = true;
   let needsPhotons = true;
   let needsPaint = true;
@@ -7162,6 +7456,10 @@ async function start() {
       seed: 20260828,
     });
     photonTally = summarisePhotons(photons, { source: result.source });
+    // The strip under the picture is filled from the same measurement the
+    // colour swatch uses, so the two cannot disagree. It depends only on the
+    // traced rays, so it is rebuilt exactly when they are.
+    skySamples = photons.length > 0 ? skyFromRays(photons) : null;
     needsPhotons = false;
   }
 
@@ -7171,8 +7469,20 @@ async function start() {
    * when something actually changed, never once per animation frame.
    */
   function publish({ photonsChanged }) {
-    const view = { state: store.state, result, photons };
     const histogram = beamHistogramFor(store.state);
+    const view = {
+      state: store.state, result, photons, sky: skySamples,
+      // The rock the shaft is cut through, lit by the sky that reaches it. One
+      // spectrum, shared by the strip and the cross-section, so the hole in the
+      // ground and the wings of the strip are the same colour.
+      wall: photons && photons.length > 0
+        ? shaftWallSpectrum(photons, result.atmosphere.groundReflectance, {
+          depth_m: store.state.observer.well.depth_m,
+          radius_m: store.state.observer.well.radius_m,
+          sunZenithRad: (90 - store.state.star.elevationDeg) * Math.PI / 180,
+        })
+        : null,
+    };
     sceneRenderer.update(view, { keepSelection: !photonsChanged });
     skyStrip.update(view);
     beamHistogram.update(histogram);
