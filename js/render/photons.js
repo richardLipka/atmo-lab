@@ -994,12 +994,17 @@ export function summarisePhotons(paths, options = {}) {
  *     varies mostly with height above the horizon the two are close, and both
  *     are centred on the same direction.
  *
- * Two readings come back, because two questions get asked of this. `sky` is
- * the light the traced rays deliver and nothing else - what the histogram bars
- * are made of, since rock is not a ray. `perceived` is what actually fills the
- * field of view: the same sky, plus the rock the shaft leaves in the way, mixed
- * in by the share of the view it fills. On open ground there is no rock and the
- * two are the same array of numbers.
+ * Two readings come back. `sky` is the light the traced rays deliver and
+ * nothing else - what the histogram bars are made of, since rock is not a ray,
+ * and what goes black when no beams arrive. `perceived` is what is in front of
+ * the observer, which is the same thing UNLESS the direction being faced ends
+ * in rock, in which case it is the rock.
+ *
+ * That is a hard either/or and not a blend, and the difference matters. Mixing
+ * the rock in by the share of the view it fills made looking straight up a
+ * shaft come out brown - and brown means "you are looking at a wall". Looking
+ * up a shaft you are looking at sky; there is simply very little of it, and too
+ * little light has to read as dark, never as rock.
  *
  * @param {Array}  paths     traced paths
  * @param {number} axisRad   signed direction the observer is facing
@@ -1016,13 +1021,21 @@ export function measureCone(paths, axisRad, halfRad, options = {}) {
 
   let castSky = 0, arrivedSky = 0;
   let cast = 0, arrived = 0, blocked = 0, drawn = 0;
+  // Whether the direction being FACED, rather than the cone around it, ends in
+  // rock. Judged from the handful of traced directions nearest the axis, so it
+  // stays as sharp as the geometry: a two-degree aperture is two degrees of
+  // sky, with the wall starting immediately outside it.
+  const NEAR_RAD = 2 * Math.PI / 180;
+  let nearCast = 0, nearBlocked = 0, nearArrived = 0;
   const drawShare = drawnRayShare(paths);
   const spectra = paths.arrivingSpectra;
 
   const castAngles = paths.castAngles;
   if (castAngles) {
     for (let i = 0; i < castAngles.length; i++) {
-      if (Math.abs(castAngles[i] - axisRad) > halfRad) continue;
+      const away = Math.abs(castAngles[i] - axisRad);
+      if (away <= NEAR_RAD) nearCast++;
+      if (away > halfRad) continue;
       cast++;
       castSky += ring(castAngles[i]);
     }
@@ -1030,10 +1043,13 @@ export function measureCone(paths, axisRad, halfRad, options = {}) {
 
   const visit = (p, pathIndex) => {
     if (p.kind === 'blocked') {
-      if (Math.abs(p.arrivalAngleRad - axisRad) <= halfRad) blocked++;
+      const away = Math.abs(p.arrivalAngleRad - axisRad);
+      if (away <= NEAR_RAD) nearBlocked++;
+      if (away <= halfRad) blocked++;
       return;
     }
     if (p.kind !== 'arriving') return;
+    if (Math.abs(p.arrivalAngleRad - axisRad) <= NEAR_RAD) nearArrived++;
     if (Math.abs(p.arrivalAngleRad - axisRad) > halfRad) return;
     const w = ring(p.arrivalAngleRad);
     arrived++;
@@ -1074,18 +1090,27 @@ export function measureCone(paths, axisRad, halfRad, options = {}) {
 
   const skyShare = castSky > 0 ? arrivedSky / castSky : null;
 
-  // What is actually in front of the observer: the sky, and the rock that took
-  // the rest of the view. Nothing has no colour, and a field of view that is
-  // four-fifths rock does not look like a dim sky - it looks like rock.
-  let perceived = spectrum;
-  if (wall && skyShare != null && skyShare < 1) {
-    perceived = new Float64Array(SPECTRUM_BINS);
-    const rock = 1 - skyShare;
-    for (let i = 0; i < SPECTRUM_BINS; i++) perceived[i] = spectrum[i] + wall[i] * rock;
-  }
+  // Is the axis itself looking at rock?
+  //
+  // Stated positively: you are looking at sky if any ray at all arrives from
+  // near this direction, and at rock only if the wall stopped something there
+  // and nothing came through. A majority vote among the nearby directions was
+  // the obvious test and was wrong - the window is two degrees wide and a deep
+  // shaft's aperture is half a degree, so looking straight up a hundred and
+  // fifty metres of shaft came out "rock" when it is a narrow slot of sky.
+  //
+  // The two conditions are both needed. Without the first, a shaft at night
+  // would be rock everywhere; without the second, so would open ground at
+  // night, since no ray arrives anywhere then either.
+  const nearAnswers = nearCast > 0;
+  const axisBlocked = nearAnswers
+    ? nearBlocked > 0 && nearArrived === 0
+    : blocked > 0 && arrived === 0;
+
+  const perceived = axisBlocked && wall ? wall : spectrum;
 
   return {
-    spectrum, perceived, bandEnergy, bandRays,
+    spectrum, perceived, bandEnergy, bandRays, axisBlocked,
     cast, arrived, blocked, drawn, skyShare,
   };
 }
@@ -1261,17 +1286,20 @@ export function skyFromRays(paths, options = {}) {
 
   const radiance = new Float64Array(bins * SPECTRUM_BINS);
   const skyShare = new Float64Array(bins);
+  /** Which directions end in rock, so the renderer can tell them apart. */
+  const blocked = new Uint8Array(bins);
   const angleOf = (b) => -90 + (b + 0.5) * binDeg;
 
   for (let b = 0; b < bins; b++) {
     const axis = angleOf(b) * Math.PI / 180;
     const cone = measureCone(paths, axis, halfRad, { index, wall });
     skyShare[b] = cone.skyShare == null ? 1 : cone.skyShare;
+    blocked[b] = cone.axisBlocked ? 1 : 0;
     radiance.set(cone.perceived, b * SPECTRUM_BINS);
   }
 
   return {
-    bins, binDeg, radiance, skyShare, angleOf,
+    bins, binDeg, radiance, skyShare, blocked, angleOf,
     binOfAngle: (deg) => Math.max(0, Math.min(bins - 1,
       Math.floor((Math.max(-90, Math.min(90, deg)) + 90) / binDeg))),
     /** The spectrum of one bin, as a view into the packed array. */

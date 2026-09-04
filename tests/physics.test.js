@@ -1092,12 +1092,15 @@ export function registerTests({ group, test, assert }, config) {
       }
     });
 
-    test('where the sky runs out the strip shows rock, and joins to it smoothly', () => {
-      // Nothing has no colour, and a black column reads as an absence rather
-      // than as the rock that took the sky away. The rock is mixed in by the
-      // share of the view it fills, so the strip carries from the lit mouth out
-      // to the wall with no seam.
+    test('brown means looking at rock, and thin sky means dark, never brown', () => {
+      // Two ways of seeing very little, and they must not look alike. Looking
+      // at the wall is rock, and rock is brown. Looking UP a deep shaft is
+      // still looking at sky - there is just very little of it - and too little
+      // light has to read as dark. An earlier version mixed the rock in by the
+      // share of the view it filled, which turned the view straight up a shaft
+      // brown, as though the observer were facing a wall.
       const depth = 20, radius = 1.5;
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
       const paths = trace({
         count: 20000, observerZ: -depth,
         well: { enabled: true, radius_m: radius, depth_m: depth },
@@ -1106,30 +1109,59 @@ export function registerTests({ group, test, assert }, config) {
         depth_m: depth, radius_m: radius, sunZenithRad: 50 * Math.PI / 180,
       });
       const strip = skyFromRays(paths, { wall });
+      const apertureDeg = wellApertureHalfAngle(depth, radius) * 180 / Math.PI;
+      const xy = (spectrum) => {
+        const v = colorimetry.spectrumToXYZ(spectrum);
+        const sum = v[0] + v[1] + v[2];
+        return sum > 0 ? [v[0] / sum, v[1] / sum] : [0, 0];
+      };
 
-      // Far from the mouth the column is the rock exactly.
-      const far = strip.spectrumAt(strip.binOfAngle(60));
-      for (let i = 0; i < SPECTRUM_BINS; i += 6) assert.close(far[i], wall[i], 1e-9);
-
-      // And there is no step anywhere along it: neighbouring columns differ by
-      // a few percent, never by a jump from sky to rock.
-      let worst = 0;
-      for (let b = 1; b < strip.bins; b++) {
-        const a = colorimetry.luminance(strip.spectrumAt(b - 1));
-        const c = colorimetry.luminance(strip.spectrumAt(b));
-        const scale = Math.max(a, c, 1e-12);
-        worst = Math.max(worst, Math.abs(a - c) / scale);
+      // Out at the wall the column IS the rock, to the last decimal.
+      for (const deg of [30, 60, -45, 88]) {
+        const column = strip.spectrumAt(strip.binOfAngle(deg));
+        for (let i = 0; i < SPECTRUM_BINS; i += 6) {
+          assert.close(column[i], wall[i], 1e-9, `${deg} deg should be the rock exactly`);
+        }
       }
-      assert.less(worst, 0.35, `the strip steps by ${(worst * 100).toFixed(0)}% somewhere`);
 
-      // With no shaft there is no rock in it at all.
+      // Up the shaft it is sky: dark, and bluer than the rock rather than
+      // warmer. This is the assertion that fails if the rock is blended in.
+      const up = strip.spectrumAt(strip.binOfAngle(0));
+      const [ux] = xy(up);
+      const [rx] = xy(wall);
+      assert.less(ux, rx - 0.05,
+        `looking up reads x=${ux.toFixed(3)} against rock at x=${rx.toFixed(3)}`);
+      const openUp = skyFromRays(trace({ count: 20000 }), { wall })
+        .spectrumAt(strip.binOfAngle(0));
+      assert.less(colorimetry.luminance(up), colorimetry.luminance(openUp) * 0.4,
+        'and it is much darker than the open sky');
+
+      // The boundary sits at the aperture and is sharp: sky just inside it,
+      // rock just outside, with no warm smear across the gap.
+      assert.ok(!measureCone(paths, (apertureDeg - 2) * Math.PI / 180, cone,
+        { wall }).axisBlocked, 'just inside the mouth is sky');
+      assert.ok(measureCone(paths, (apertureDeg + 2) * Math.PI / 180, cone,
+        { wall }).axisBlocked, 'just outside it is rock');
+
+      // Deep enough and the sky goes to almost nothing without ever going warm.
+      const deepPaths = trace({
+        count: 20000, observerZ: -150,
+        well: { enabled: true, radius_m: 1.5, depth_m: 150 },
+      });
+      const deepUp = measureCone(deepPaths, 0, cone, { wall }).perceived;
+      assert.less(colorimetry.luminance(deepUp),
+        colorimetry.luminance(openUp) * 0.02, 'a deep shaft is near black');
+      const [dx] = xy(deepUp);
+      assert.less(dx, rx - 0.05, 'and still not the colour of rock');
+
+      // With no shaft there is no rock anywhere in the strip.
       const openPaths = trace({ count: 8000 });
-      const openStrip = skyFromRays(openPaths, { wall: null });
-      const plain = skyFromRays(openPaths, { wall });
+      const a = skyFromRays(openPaths, { wall: null });
+      const b = skyFromRays(openPaths, { wall });
       for (const deg of [-70, 0, 70]) {
-        const a = openStrip.spectrumAt(openStrip.binOfAngle(deg));
-        const b = plain.spectrumAt(plain.binOfAngle(deg));
-        for (let i = 0; i < SPECTRUM_BINS; i += 9) assert.close(a[i], b[i], 1e-9);
+        const p1 = a.spectrumAt(a.binOfAngle(deg));
+        const p2 = b.spectrumAt(b.binOfAngle(deg));
+        for (let i = 0; i < SPECTRUM_BINS; i += 9) assert.close(p1[i], p2[i], 1e-9);
       }
     });
 

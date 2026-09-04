@@ -159,7 +159,7 @@
     "raysArriving": "{drawn} paprsků na {cast} směrů v zorném poli",
     "noneArrive": "Ani jedním z {cast} směrů v zorném poli nepřichází jediný paprsek.",
     "noRays": "Tímto směrem nebyl trasován žádný paprsek.",
-    "measuredNote": "Sestaveno jen z paprsků na obrazovce a je to stejný výpočet, jaký používá pruh pod obrázkem — otoč pozorovatele kamkoli a pruh už tam tuto barvu ukazuje. Poměr osmi barev určuje odstín; jejich počet vůči tomu, kolik oblohy v zorném poli ještě zbývá, určuje jas. Výš je paprsků méně, protože nad hlavou zbývá méně vzduchu; v šachtě zbývá méně oblohy, protože skála zabere směry — a co zbude po skále, je skála, přimíchaná podle toho, jak velkou část pohledu vyplní.",
+    "measuredNote": "Sestaveno jen z paprsků na obrazovce a je to stejný výpočet, jaký používá pruh pod obrázkem — otoč pozorovatele kamkoli a pruh už tam tuto barvu ukazuje. Poměr osmi barev určuje odstín; jejich počet vůči tomu, kolik oblohy v zorném poli ještě zbývá, určuje jas. Výš je paprsků méně, protože nad hlavou zbývá méně vzduchu; v šachtě zbývá méně oblohy, protože skála zabere směry. Málo světla znamená tmu. Hnědá znamená něco jiného: že se díváš na skálu.",
     "agreement": "Integrátor se liší o dxy = {dxy}; poměr jasu {ratio} z {rays} paprsků.",
     "belowOneRay": "Na {cast} směrů v zorném poli připadá méně světla, než zastupuje jeden paprsek.",
     "starInCone": "Hvězda je v zorném poli: její kotouč je asi {ratio}krát jasnější než obloha kolem ní, takže svazek na obrázku není v měřítku a ani být nemůže.",

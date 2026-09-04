@@ -456,20 +456,43 @@ reflectance from the world's config, under two lights:
 | 80 m | `rgb(81,60,44)` | `rgb(34,21,8)` |
 | 200 m | `rgb(51,37,25)` | `rgb(19,10,3)` |
 
-The rock is mixed into the answer by the share of the view it fills, inside
-`measureCone` itself, so the swatch and the strip get it identically and there is
-no seam anywhere along the strip where the sky runs out. On open ground that
-share is zero and nothing changes. The cross-section paints the inside of the
-shaft with the same spectrum too, so the hole in the ground and the wings of the
-strip cannot drift apart. A floor keeps it from quite reaching black — that one
-is a drawing decision, and the only one here.
+**Brown means one thing only: you are facing rock.** Whether a direction shows
+rock is decided inside `measureCone`, so the swatch and the strip agree on it,
+and it is a hard either/or rather than a blend. Mixing the rock in by the share
+of the view it filled — which is what this did first — turned *looking straight
+up a shaft* brown, and up a shaft you are looking at sky. There is simply very
+little of it, and too little light must read as **dark**, never as rock:
+
+| | strip | swatch |
+|---|---|---|
+| 20 m shaft, straight up | `rgb(67,81,104)` | `rgb(71,85,110)` |
+| 20 m shaft, 8° off | `rgb(154,118,88)` | `rgb(154,118,88)` |
+| 80 m shaft, straight up | `rgb(7,12,19)` | `rgb(8,12,20)` |
+| 150 m shaft, straight up | `rgb(5,9,15)` | `rgb(5,9,15)` |
+| 150 m shaft, 40° off | `rgb(59,43,30)` | `rgb(59,43,30)` |
+
+The test is stated positively: you are looking at sky if **any ray arrives from
+near that direction**, and at rock only if the wall stopped something there and
+nothing came through. A majority vote among nearby directions was the obvious
+test and was wrong — the window is 2° wide and a 150 m shaft's aperture is half a
+degree, so straight up came out "rock" when it is a narrow slot of sky. Both
+halves of the condition are needed: without the first a shaft at night would be
+rock everywhere, without the second so would open ground at night.
+
+The floor that keeps rock from reaching black belongs to **rock and nothing
+else**. Applying it to sky as well warmed a nearly black sky at the bottom of a
+deep shaft into something faintly brown — the same error in miniature. The
+aperture markers are also bracketed from just outside rather than drawn on the
+aperture itself: at 150 m the sky is one pixel wide, and two marker lines at its
+edges cover the very thing they point at.
 
 Two readings come back from `measureCone` for this reason: `sky`, the light the
 traced rays deliver and nothing else, which is what the histogram bars are made
 of and what gets compared against the integrator on the theory tab; and
-`perceived`, the same sky plus the rock, which is what the swatch and the strip
-show. Comparing a field of view that is four-fifths rock against the
-integrator's sky would report a large difference and mean nothing by it.
+`perceived`, which is the sky unless the direction faced ends in rock, in which
+case it is the rock. The cross-section paints the inside of the shaft with the
+same spectrum, so the hole in the ground and the wings of the strip cannot drift
+apart.
 
 The side-by-side comparison is the exception: two observers, one set of traced
 rays, and only the integrator can answer for both. There the strip falls back to

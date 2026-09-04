@@ -91,10 +91,13 @@ export function createSkyStrip(canvas, { i18n, colorimetry }) {
   function columnCss(measured, signedAngle, exposure) {
     const bin = measured.binOfAngle(signedAngle);
     const c = colorimetry.spectrumToSrgb(measured.spectrumAt(bin), exposure);
-    // The rock is already in the spectrum, mixed in by the share of the view it
-    // fills, so there is no separate blocked case to branch on. The floor only
-    // keeps a column that has neither sky nor much light on its rock from
-    // reading as a hole cut out of the picture.
+    // The floor belongs to the ROCK and to nothing else. It exists so a wall
+    // with almost no light on it still reads as a wall rather than as a hole
+    // cut out of the picture. Applying it to sky as well was wrong in exactly
+    // the way this whole section is about: it warmed a nearly black sky at the
+    // bottom of a deep shaft into something faintly brown, and brown has one
+    // meaning here - you are facing rock. Thin sky goes to black.
+    if (!measured.blocked[bin]) return c.css;
     return `rgb(${Math.max(22, c.rgb[0])}, ${Math.max(16, c.rgb[1])}, ${Math.max(12, c.rgb[2])})`;
   }
 
@@ -129,8 +132,14 @@ export function createSkyStrip(canvas, { i18n, colorimetry }) {
     // rather than let it disappear - but mark it, do not widen it.
     const half = evaluation.metrics.apertureHalfAngleDeg;
     if (half < 89.9) {
-      const x1 = angleToX(-half, x, w);
-      const x2 = angleToX(half, x, w);
+      // Bracket the aperture from outside rather than draw on top of it. A
+      // hundred-and-fifty-metre shaft leaves half a degree of sky, which is one
+      // pixel of strip, and two marker lines drawn at its edges cover the very
+      // thing they point at - so the sky it does have reads as the marker's own
+      // colour instead of its own.
+      const gap = 2;
+      const x1 = angleToX(-half, x, w) - gap;
+      const x2 = angleToX(half, x, w) + gap;
       ctx.save();
       ctx.strokeStyle = 'rgba(255,200,120,0.9)';
       ctx.lineWidth = 1;

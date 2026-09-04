@@ -159,7 +159,7 @@
     "raysArriving": "{drawn} rays across {cast} directions in view",
     "noneArrive": "Not one ray comes down any of the {cast} directions in view.",
     "noRays": "No rays were traced in this direction.",
-    "measuredNote": "Built only from the rays on screen, and it is the same calculation the strip under the picture uses - point the observer anywhere and the strip already shows this colour at that direction. The mix of the eight colours is the hue; how many of them there are, against how much sky the field of view still holds, is the brightness. Climbing leaves fewer rays because there is less air overhead to scatter; a shaft leaves less sky because the rock takes the directions, and what the rock leaves is rock, mixed in by the share of the view it fills.",
+    "measuredNote": "Built only from the rays on screen, and it is the same calculation the strip under the picture uses - point the observer anywhere and the strip already shows this colour at that direction. The mix of the eight colours is the hue; how many of them there are, against how much sky the field of view still holds, is the brightness. Climbing leaves fewer rays because there is less air overhead to scatter; a shaft leaves less sky because the rock takes the directions. Too little light reads as dark. Brown means something else entirely: that you are facing the rock.",
     "agreement": "The integrator differs by dxy = {dxy}; brightness ratio {ratio} from {rays} rays.",
     "belowOneRay": "Less light than one ray stands for, across {cast} directions in view.",
     "starInCone": "The star is in your field of view: its disc is about {ratio} times brighter than the sky around it, so the bundle on the picture is not to scale and cannot be.",
