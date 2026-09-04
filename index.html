@@ -63,6 +63,10 @@
     </aside>
 
     <section class="panel panel-center">
+<!-- Each button sits over the panel it copies FROM, and its arrow points at
+     where that copy is going - which is the panel next to it. Both were
+     centred together in the middle before, where "B to A" had to be read
+     rather than seen. -->
       <div class="compare-bar" id="compare-bar" hidden>
         <button type="button" id="sync-a-to-b" class="sync-button"
                 data-i18n="compare.syncAtoB" data-i18n-title="compare.syncAtoBHelp"></button>
@@ -72,6 +76,8 @@
 
       <div class="canvas-wrap">
         <canvas id="scene-canvas"></canvas>
+        <button type="button" class="png-button is-floating" data-download="scene-canvas"
+                data-file="cross-section" data-i18n-title="canvas.downloadPng">PNG</button>
         <p class="canvas-hint" data-i18n="canvas.clickRay"></p>
       </div>
 
@@ -79,6 +85,8 @@
         <div class="strip-header">
           <span data-i18n="histogram.title"></span>
           <span class="strip-help" data-i18n-title="histogram.help">?</span>
+          <button type="button" class="png-button" data-download="histogram-canvas"
+                  data-file="histogram" data-i18n-title="canvas.downloadPng">PNG</button>
         </div>
         <canvas id="histogram-canvas"></canvas>
       </div>
@@ -87,6 +95,8 @@
         <div class="strip-header">
           <span data-i18n="canvas.skyStrip"></span>
           <span class="strip-help" data-i18n-title="canvas.skyStripHelp">?</span>
+          <button type="button" class="png-button" data-download="sky-canvas"
+                  data-file="sky" data-i18n-title="canvas.downloadPng">PNG</button>
         </div>
         <canvas id="sky-canvas"></canvas>
       </div>
@@ -109,7 +119,12 @@
         <p class="panel-target" id="panel-target" hidden></p>
 
         <section class="panel-section">
-          <h2 data-i18n="spectrum.title"></h2>
+          <h2>
+            <span data-i18n="spectrum.title"></span>
+            <button type="button" class="png-button" data-download="spectrum-canvas"
+                    data-file="spectrum" data-per-simulation
+                    data-i18n-title="canvas.downloadPng">PNG</button>
+          </h2>
           <div class="chart-wrap">
             <canvas id="spectrum-canvas"></canvas>
           </div>
@@ -167,7 +182,12 @@
         </section>
 
         <section class="panel-section" id="chroma-section" hidden>
-          <h2 data-i18n="color.chromaticity"></h2>
+          <h2>
+            <span data-i18n="color.chromaticity"></span>
+            <button type="button" class="png-button" data-download="chroma-canvas"
+                    data-file="chromaticity" data-per-simulation
+                    data-i18n-title="canvas.downloadPng">PNG</button>
+          </h2>
           <div class="chroma-wrap">
             <canvas id="chroma-canvas"></canvas>
           </div>

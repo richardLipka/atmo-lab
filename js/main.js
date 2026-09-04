@@ -260,6 +260,53 @@ async function start() {
   document.getElementById('sync-a-to-b').addEventListener('click', () => copySimulation('a', 'b'));
   document.getElementById('sync-b-to-a').addEventListener('click', () => copySimulation('b', 'a'));
 
+  /* ---- saving a picture ---- */
+
+  /**
+   * Every canvas can be saved exactly as it stands.
+   *
+   * The canvas is drawn at the device pixel ratio and `toDataURL` reads the
+   * backing store, so what comes out is the full-resolution picture rather than
+   * the CSS-sized one. Nothing is re-rendered for the download and nothing is
+   * added to it: what is saved is what is on screen, which is the only claim
+   * worth making about a picture of a measurement.
+   *
+   * Only the pictures that really are about ONE simulation take its letter in
+   * the filename. The cross-section, the histogram and the strip of sky hold
+   * both panels, so calling one of them `...-a.png` would be a lie told to
+   * whoever has to sort the folder out later; the spectrum and the chromaticity
+   * diagram answer for the selected simulation alone, and there the letter is
+   * the only thing that tells two otherwise identical files apart.
+   *
+   * A blob rather than a data URL: a data URL carries the whole image through
+   * the address of the link, which browsers cap, and the cross-section at a
+   * high pixel ratio is comfortably big enough to run into that.
+   */
+  function saveCanvas(canvas, name, perSimulation) {
+    const state = store.state;
+    const parts = ['atmo-lab', name];
+    if (perSimulation && state.compare.enabled) {
+      parts.push(state.compare.active === 'b' ? 'b' : 'a');
+    }
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `${parts.join('-')}.png`;
+      link.href = url;
+      link.click();
+      // Give the browser a moment to start reading it before the handle goes.
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }, 'image/png');
+  }
+
+  for (const button of document.querySelectorAll('[data-download]')) {
+    const canvas = document.getElementById(button.dataset.download);
+    if (!canvas) continue;
+    button.addEventListener('click', () => saveCanvas(
+      canvas, button.dataset.file, button.hasAttribute('data-per-simulation')));
+  }
+
   /* ---- header wiring ---- */
 
   const langToggle = document.getElementById('lang-toggle');

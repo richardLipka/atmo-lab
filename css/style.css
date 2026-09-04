@@ -217,11 +217,15 @@ button:disabled { opacity: 0.4; cursor: default; }
  * change one thing and watch what it does.
  */
 .compare-bar {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
+  /* Two columns on exactly the split the panels below use, so each button sits
+     over the panel it copies FROM and its arrow points at the neighbour it is
+     copying to. */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
   padding-bottom: 2px;
 }
+.compare-bar .sync-button { justify-self: center; }
 .sync-button {
   background: var(--bg-input);
   border: 1px solid var(--line);
@@ -235,6 +239,48 @@ button:disabled { opacity: 0.4; cursor: default; }
   transition: color 120ms, border-color 120ms;
 }
 .sync-button:hover { color: var(--text); border-color: var(--accent); }
+
+/* ---- saving an image ---------------------------------------------- *
+ *
+ * Every canvas can be saved as it stands. The button is deliberately faint:
+ * it is there when wanted and out of the way when not, because none of these
+ * pictures is about its own download button.
+ */
+.png-button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-faint);
+  font-family: var(--font);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  padding: 2px 5px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 120ms, color 120ms, border-color 120ms;
+}
+.png-button:hover,
+.png-button:focus-visible {
+  opacity: 1;
+  color: var(--text);
+  border-color: var(--line);
+}
+.strip-header .png-button,
+.panel-section h2 .png-button { margin-left: auto; }
+.panel-section h2 { display: flex; align-items: center; gap: 6px; }
+
+/* The cross-section has no header to sit in, so it floats - stacked just above
+   the hint text in the one corner the drawing leaves empty. The top right is
+   where the star marker lives and the bottom left is the scale bar, so neither
+   of those is free. */
+.png-button.is-floating {
+  position: absolute;
+  right: 8px;
+  bottom: 22px;
+  background: rgba(8, 11, 18, 0.55);
+  z-index: 2;
+}
 
 .panel-target {
   margin: 0 0 12px;

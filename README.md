@@ -523,11 +523,24 @@ fact answers every question the interface used to leave open.
   that one of these skies is a hundredth of the other.
 - The **right-hand panel answers for the selected simulation**, and carries a
   badge saying which one and where its observer is standing.
-- **A → B and B → A** sit above the pictures and copy one simulation onto the
+- **A → B and A ← B** sit above the pictures and copy one simulation onto the
   other, entire. That is what makes a controlled comparison possible: land both
   panels on the same footing, then change exactly one thing. A copy that left
   anything behind would leave a difference the reader did not put there and
-  cannot see, which is worse than no copy at all.
+  cannot see, which is worse than no copy at all. Each button sits over the
+  panel it copies *from*, and its arrow points at the panel next to it — which
+  is the panel it is copying *to*. Written the other way round, `B → A` over the
+  right-hand panel had an arrow pointing away from its own destination, and had
+  to be read rather than seen.
+
+**Every picture can be saved.** A faint `PNG` button on each canvas writes it out
+exactly as drawn, at the device pixel ratio rather than the CSS size, with
+nothing re-rendered and nothing added — what is saved is what is on screen,
+which is the only claim worth making about a picture of a measurement. Only the
+two that answer for one simulation, the spectrum and the chromaticity diagram,
+take its letter in the filename; the cross-section, the histogram and the strip
+of sky hold both panels, and calling one of those `...-a.png` would be a lie told
+to whoever has to sort the folder out later.
 
 **The ray section is deliberately shared, and says so.** It sets how both
 simulations are *drawn* rather than what is computed. The display exposure
