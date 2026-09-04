@@ -183,12 +183,15 @@ button:disabled { opacity: 0.4; cursor: default; }
 .panel-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
 
 .panel-center {
-  display: grid;
-  /* The cross-section takes whatever is left; the copy bar above it and the
-     histogram and sky strip beneath it are fixed strips. When the copy bar is
-     hidden it leaves the flow entirely, so the rows shift up by one and the
-     spare `auto` at the end costs nothing. */
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
+  /* A column, not a row template. Two of these children - the copy bar and the
+     ray log - come and go, and a hidden child leaves the grid entirely: with
+     fixed rows the survivors shifted up one and the cross-section landed on the
+     row meant for the histogram, which then had nowhere to go and drew straight
+     over the strip of sky below it. In a flex column each child simply asks for
+     its own height and the cross-section takes whatever is left, however many
+     of them happen to be showing. */
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   padding: 8px;
 }
@@ -399,6 +402,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .canvas-wrap {
   position: relative;
+  flex: 1 1 auto;   /* the one child that gives up its height to the others */
   min-height: 0;
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -729,8 +733,7 @@ body[data-level="basic"] .explain-column.is-why { opacity: 0.78; }
   .layout { grid-template-columns: 1fr; }
   .panel { overflow: visible; }
   .panel-scroll { height: auto; max-height: none; overflow: visible; }
-  .canvas-wrap { height: 52vh; min-height: 300px; }
-  .panel-center { grid-template-rows: auto auto auto auto auto; }
+  .canvas-wrap { flex: 0 0 auto; height: 52vh; min-height: 300px; }
   .explain { grid-template-columns: 1fr; }
   body[data-level="basic"] .explain { grid-template-columns: 1fr; }
 }
