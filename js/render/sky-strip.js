@@ -167,8 +167,9 @@ export function createSkyStrip(canvas, { i18n, colorimetry }) {
       ctx.restore();
     }
 
-    // Where the star sits in this view.
-    const elevation = data.state.star.elevationDeg;
+    // Where the star sits in this view - this simulation's star, which need
+    // not be the other one's, nor at the other one's elevation.
+    const elevation = station.sim.star.elevationDeg;
     if (elevation >= 0) {
       const sx = angleToX(90 - elevation, x, w);
       const blocked = evaluation.beam.visible === false;

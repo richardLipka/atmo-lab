@@ -271,16 +271,21 @@
   },
   "compare": {
     "controls": "Controls belong to",
-    "controlsHelp": "Which observer the left-hand panel drives. The other stays exactly where it is. Clicking a panel selects it too.",
-    "enable": "Compare two observers",
-    "enableHelp": "Adds a second observer. Each gets their own simulation: their own rays, their own shaft, their own cross-section and their own strip of sky beneath it.",
-    "note": "The sliders below and the right-hand panel belong to this observer: {observer}.",
-    "observerA": "Observer A",
-    "observerB": "Observer B",
+    "controlsHelp": "Which simulation the left-hand panel drives. The other stays exactly as it is. Clicking a panel selects it too.",
+    "enable": "Compare two simulations",
+    "enableHelp": "Adds a second simulation, entire: its own star, its own atmosphere, its own observer, its own rays and its own strip of sky beneath the picture.",
+    "note": "{observer} — the star, the air and the observer below are its own, and so are the numbers on the right.",
+    "observerA": "Simulation A",
+    "observerB": "Simulation B",
     "readoutFor": "Measured for {observer} · {where}",
     "selectHint": "click to select",
     "selected": "selected - the controls drive this one",
-    "title": "Two observers"
+    "sharedRays": "This section drives both simulations. It sets how they are drawn rather than what is computed; two panels at two exposures could not be compared by eye.",
+    "syncAtoB": "A → B",
+    "syncAtoBHelp": "Copies the whole of A onto B: star, atmosphere and observer. Both panels then stand on the same footing, so you can change exactly one thing.",
+    "syncBtoA": "B → A",
+    "syncBtoAHelp": "Copies the whole of B onto A: star, atmosphere and observer.",
+    "title": "Two simulations"
   },
   "footer": {
     "model": "Single-scattering model",

@@ -5,18 +5,22 @@
  * new physical parameter is one entry in the list below. Each entry names the
  * state path it drives; nothing here knows anything about the physics.
  *
- * Every `observer.*` path is aimed at whichever observer is SELECTED, and that
- * is the whole of how the comparison is controlled. The entries below say
- * `observer.z`, and if observer B is the selected one they read and write
- * `compare.b.z` instead. Nothing here needed a second set of controls, and the
- * alternative - a comparison whose two halves were driven by state the panel
- * could not reach - is exactly what made it impossible to tell what the sliders
- * were doing.
+ * Every path that names part of a SIMULATION - the star, the air, the observer
+ * - is aimed at whichever simulation is selected. The entries below say
+ * `star.elevationDeg`, and if B is the selected simulation they read and write
+ * `compare.b.star.elevationDeg` instead. There is one function that does the
+ * aiming and one that does the writing, so no control can be retargeted while
+ * another is quietly forgotten.
+ *
+ * The ray section is the exception and says so: it sets how BOTH simulations
+ * are drawn. The display exposure especially - two panels rendered at two gains
+ * cannot be compared by eye, which is the one thing a comparison is for.
  */
 
 import {
   sliderToZ, zToSlider, maxAltitudeFor, MIN_SPAN_M, MAX_SPAN_M,
-  activeObserverPath, activeObserver, activeObserverId,
+  SIMULATION_KEYS, activeSimulationPath, activeSimulation, activeSimulationId,
+  activeObserver,
 } from '../state.js';
 import {
   formatAltitude, autoSpanFor, stationColour,
@@ -37,29 +41,39 @@ function setPath(patch, path, value) {
   return patch;
 }
 
-/** Rewrite an `observer.*` path so it names the selected observer. */
-function aim(path, state) {
-  if (path !== 'observer' && !path.startsWith('observer.')) return path;
-  return activeObserverPath(state) + path.slice('observer'.length);
+/** Does this state path name part of a simulation rather than of the page? */
+function isSimulationPath(path) {
+  return SIMULATION_KEYS.some((key) => path === key || path.startsWith(`${key}.`));
 }
 
-/** Read a state path, aimed at the selected observer. */
+/** Rewrite a simulation path so it names the selected simulation. */
+function aim(path, state) {
+  if (!isSimulationPath(path)) return path;
+  const prefix = activeSimulationPath(state);
+  return prefix ? `${prefix}.${path}` : path;
+}
+
+/** Read a state path, aimed at the selected simulation. */
 function readAimed(state, path) {
   return getPath(state, aim(path, state));
 }
 
 /**
- * Send a patch to the selected observer.
+ * Send a patch to the selected simulation.
  *
- * The declarations and the `onChange` handlers below all speak of `observer`,
- * because that is what they are about; this is the single place where "which
- * observer" is answered, so there is no way for one control to be retargeted
- * and another to be forgotten.
+ * The declarations and the `onChange` handlers below all speak of `star`,
+ * `atmosphere` and `observer`, because that is what they are about; this is the
+ * single place where "which simulation" is answered.
  */
 function retarget(patch, state) {
-  if (!patch.observer || activeObserverId(state) !== 'b') return patch;
-  const { observer, ...rest } = patch;
-  return { ...rest, compare: { ...(rest.compare ?? {}), b: observer } };
+  if (activeSimulationId(state) !== 'b') return patch;
+  const moved = {};
+  const rest = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (SIMULATION_KEYS.includes(key)) moved[key] = value; else rest[key] = value;
+  }
+  if (Object.keys(moved).length === 0) return patch;
+  return { ...rest, compare: { ...(rest.compare ?? {}), b: moved } };
 }
 
 /** Surface pressure, in whatever unit keeps the number readable. */
@@ -87,11 +101,17 @@ export function createControls(root, { store, i18n, config }) {
    * wasteful on every repaint of the controls.
    */
   function atmosphereShape(state) {
-    const preset = config.atmospheres.get(state.atmosphere.presetId);
+    const air = activeSimulation(state).atmosphere;
+    const preset = config.atmospheres.get(air.presetId);
     return {
-      scaleHeightRayleigh: state.atmosphere.scaleHeight_m
+      scaleHeightRayleigh: air.scaleHeight_m
         ?? preset?.rayleigh.scaleHeight_m ?? 8500,
     };
+  }
+
+  /** The configured world the selected simulation is running in. */
+  function worldOf(state) {
+    return config.atmospheres.get(activeSimulation(state).atmosphere.presetId);
   }
 
   const sections = [
@@ -120,7 +140,7 @@ export function createControls(root, { store, i18n, config }) {
           id: 'ctl-compare-note', type: 'note',
           text: (state) => (state.compare.enabled
             ? i18n.t('compare.note').replace('{observer}',
-              i18n.t(activeObserverId(state) === 'b' ? 'compare.observerB' : 'compare.observerA'))
+              i18n.t(activeSimulationId(state) === 'b' ? 'compare.observerB' : 'compare.observerA'))
             : ''),
         },
       ],
@@ -205,7 +225,7 @@ export function createControls(root, { store, i18n, config }) {
           id: 'ctl-scale-height', type: 'range', labelKey: 'controls.atmosphere.scaleHeight',
           helpKey: 'controls.atmosphere.scaleHeightHelp', path: 'atmosphere.scaleHeight_m',
           min: 1000, max: 60000, step: 100, advanced: true,
-          fallback: (state) => config.atmospheres.get(state.atmosphere.presetId)?.rayleigh.scaleHeight_m ?? 8500,
+          fallback: (state) => worldOf(state)?.rayleigh.scaleHeight_m ?? 8500,
           format: (v) => `${(v / 1000).toFixed(1)} km`,
         },
         {
@@ -219,7 +239,7 @@ export function createControls(root, { store, i18n, config }) {
           // config/scattering/rayleigh_gases.json.
           id: 'ctl-composition', type: 'note',
           text: (state) => {
-            const world = config.atmospheres.get(state.atmosphere.presetId);
+            const world = worldOf(state);
             if (!world) return '';
             const table = config.scattering.get('rayleigh_gases')?.gases ?? {};
             const parts = (world.composition ?? [])
@@ -311,6 +331,13 @@ export function createControls(root, { store, i18n, config }) {
     {
       id: 'sec-rays', titleKey: 'controls.rays.title',
       controls: [
+        {
+          // The one section that is not about a situation but about how both
+          // situations are drawn. Saying so is the difference between a shared
+          // control and a control that looks broken.
+          id: 'ctl-rays-shared', type: 'note',
+          text: (state) => (state.compare.enabled ? i18n.t('compare.sharedRays') : ''),
+        },
         {
           id: 'ctl-ray-count', type: 'range', labelKey: 'controls.rays.count',
           path: 'rays.count', min: 100, max: 5000, step: 100,
@@ -464,10 +491,9 @@ export function createControls(root, { store, i18n, config }) {
     const raw = Number(input.value);
     if (control.mapping === 'position') {
       const state = store.state;
-      const atmosphereConfig = config.atmospheres.get(state.atmosphere.presetId);
       const well = activeObserver(state).well;
       const maxDepth = well.enabled ? well.depth_m : 0;
-      return sliderToZ(raw, maxAltitudeFor(atmosphereConfig), maxDepth);
+      return sliderToZ(raw, maxAltitudeFor(worldOf(state)), maxDepth);
     }
     if (control.scale === 'log') return logToValue(raw / 1000, control.min, control.max);
     return raw;
@@ -508,16 +534,15 @@ export function createControls(root, { store, i18n, config }) {
   function update() {
     const state = store.state;
     const advanced = state.level === 'advanced';
-    const atmosphereConfig = config.atmospheres.get(state.atmosphere.presetId);
-    const maxAltitude = maxAltitudeFor(atmosphereConfig);
+    const maxAltitude = maxAltitudeFor(worldOf(state));
     const aimed = activeObserver(state);
     const maxDepth = aimed.well.enabled ? aimed.well.depth_m : 0;
 
-    // Everything in the observer section belongs to one of the two, and the
-    // panel says which in its own colour rather than leaving it to be inferred
-    // from a picture somewhere else.
-    root.dataset.observer = state.compare.enabled ? activeObserverId(state) : '';
-    root.style.setProperty('--observer-colour', stationColour(activeObserverId(state)));
+    // The star, the air and the observer all belong to one of the two
+    // simulations, and the panel says which in that simulation's own colour
+    // rather than leaving it to be inferred from a picture somewhere else.
+    root.dataset.observer = state.compare.enabled ? activeSimulationId(state) : '';
+    root.style.setProperty('--observer-colour', stationColour(activeSimulationId(state)));
 
     for (const { control, field, input, value, labelText } of elements.values()) {
       if (control.type === 'note') {

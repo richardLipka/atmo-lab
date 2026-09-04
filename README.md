@@ -494,20 +494,25 @@ case it is the rock. The cross-section paints the inside of the shaft with the
 same spectrum, so the hole in the ground and the wings of the strip cannot drift
 apart.
 
-### Two observers, and which one you are steering
+### Two simulations, and which one you are steering
 
-Switching the comparison on adds a **second observer of exactly the same kind**,
-and everything the first one has, the second one has too: their own position,
-their own viewing direction, their own shaft, their own choice about the air
-inside it, their own frame. One of the two is **selected**, and that single fact
-answers every question the interface used to leave open.
+Switching the comparison on adds a **second simulation of exactly the same
+kind**. A simulation is three things and only three — a **star**, an
+**atmosphere** and an **observer** standing in it — and B has its own of each.
+The two panels can therefore be a blue Earth noon beside a Martian dusk, which
+is what the whole apparatus was built to show and what it could not do while the
+star and the air were shared. One of the two is **selected**, and that single
+fact answers every question the interface used to leave open.
 
-- The **left-hand panel drives the selected observer**. Every control declares
-  an `observer.*` path, and one function rewrites those paths to `compare.b.*`
-  when B is selected, so there is no way for one slider to be retargeted and
-  another to be forgotten. The section is striped in that observer's colour and
-  the sliders read back their values, not the other one's.
-- The **cross-section draws one panel per observer**, each from its own trace.
+- The **left-hand panel drives the selected simulation**. Every control
+  declares a path into one of those three keys, and one function rewrites those
+  paths to `compare.b.*` when B is selected, so there is no way for one slider
+  to be retargeted and another to be forgotten — a test asserts that the list of
+  simulation keys and the shape of a simulation are the same list, so a fourth
+  key could not be added and quietly missed. The sections are striped in that
+  simulation's colour and the sliders read back its values, not the other one's.
+- The **cross-section draws one panel per simulation**, each from its own
+  atmosphere, its own star and its own trace.
   The selected panel is framed in its colour and says so; the other says *click
   to select*, and clicking it does exactly that.
 - **The light analysis sits under the panel it was measured from.** Two
@@ -516,8 +521,22 @@ answers every question the interface used to leave open.
   share one vertical scale, held at the brighter of the two — separate scales
   would fit both to full height and hide the only thing worth seeing, which is
   that one of these skies is a hundredth of the other.
-- The **right-hand panel answers for the selected observer**, and carries a
-  badge saying which one and where they are standing.
+- The **right-hand panel answers for the selected simulation**, and carries a
+  badge saying which one and where its observer is standing.
+- **A → B and B → A** sit above the pictures and copy one simulation onto the
+  other, entire. That is what makes a controlled comparison possible: land both
+  panels on the same footing, then change exactly one thing. A copy that left
+  anything behind would leave a difference the reader did not put there and
+  cannot see, which is worse than no copy at all.
+
+**The ray section is deliberately shared, and says so.** It sets how both
+simulations are *drawn* rather than what is computed. The display exposure
+especially: two panels rendered at two gains cannot be compared by eye, which is
+the one thing a comparison is for. The ray budget goes with it, because it is a
+sampling choice and not a physical one — the measured colour divides what it
+collects by the directions it looked in, so doubling the rays leaves every answer
+exactly where it was. Everything else in the control panel belongs to one
+simulation.
 
 What this replaced is worth writing down, because it looked reasonable and was
 not. The comparison used to hold two numbers, `leftZ` and `rightZ`, and give
@@ -545,6 +564,13 @@ reason: two observers looking at a shaft two metres across and at a hundred
 kilometres of air cannot share one frame. Rolling the wheel zooms the panel
 under the pointer without changing the selection — pointing at a thing is
 already unambiguous about which thing you mean.
+
+Simulation A **is** the top of the state — `state.star`, `state.atmosphere`,
+`state.observer` — and B lives under `compare.b` with the same three keys. That
+is why switching the comparison off needs no migration and loses nothing: what
+is left is A, exactly as it was, and B is still there for when it is switched
+back on. It is also why nothing that speaks of "the star" or "the observer" had
+to learn that a comparison exists.
 
 ### The beam histogram
 

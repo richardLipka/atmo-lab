@@ -15,13 +15,13 @@
  * scattering integrator on a coarse grid and then smoothed; the ground tint is
  * its albedo times the light actually falling on it.
  *
- * One panel per observer. When the comparison is running there are two, and
- * each is drawn from ITS OWN simulation - its own traced rays, its own shaft,
- * its own frame - rather than from one trace shown twice at two heights, which
- * is what it used to be and which made the second panel a picture of the first
- * observer's rays relabelled. One panel is selected: it takes the controls, it
- * answers the readouts, and it is the only one that responds to the pointer.
- * Clicking the other selects it.
+ * One panel per simulation. When the comparison is running there are two, and
+ * each is drawn from ITS OWN everything - its own star, its own air, its own
+ * traced rays, its own shaft, its own frame - rather than from one trace shown
+ * twice at two heights, which is what it used to be and which made the second
+ * panel a picture of the first observer's rays relabelled. One panel is
+ * selected: it takes the controls, it answers the readouts, and it is the only
+ * one that responds to the pointer. Clicking the other selects it.
  */
 
 import { computeScatteringSource, QUALITY_PRESETS } from '../physics/radiance.js';
@@ -88,7 +88,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * the black of space are painted separately.
    */
   function buildField(scene, camera, plot) {
-    const atm = data.result.atmosphere;
+    const atm = current.atmosphere;
     const off = document.createElement('canvas');
     off.width = FIELD_COLUMNS;
     off.height = FIELD_ROWS;
@@ -122,7 +122,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   /** Ground colour: what the surface reflects of the light reaching it. */
   function groundColor(evaluation) {
-    const albedo = data.result.atmosphere.groundAlbedo;
+    const albedo = current.atmosphere.groundAlbedo;
     const ill = evaluation.illumination;
     const beam = evaluation.beam;
     const spectrum = new Float64Array(beam.spectrum.length);
@@ -135,7 +135,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const lit = !beam.belowHorizon;
     for (let i = 0; i < spectrum.length; i++) {
       spectrum[i] = lit
-        ? albedo * data.result.source[i] * beam.transmittance[i] * cosSun : 0;
+        ? albedo * current.source[i] * beam.transmittance[i] * cosSun : 0;
     }
     const c = colorimetry.spectrumToSrgb(spectrum, 1.6);
     const floor = Math.max(0.03, Math.min(1, ill.totalOpen * 4));
@@ -249,7 +249,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   /* ---------------------------------------------------------------- */
 
   function drawAtmosphereView(w, h, timeMs, originX, originY) {
-    const atm = data.result.atmosphere;
+    const atm = current.atmosphere;
     const observer = current.observer;
     const evaluation = current.evaluation;
     const z = observer.z;
@@ -513,7 +513,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fillStyle = color;
     const mx = plot.x + plot.w - 8;
     const my = plot.y + 10
-      + (1 - Math.max(0, Math.min(1, data.state.star.elevationDeg / 90))) * (plot.h * 0.35);
+      + (1 - Math.max(0, Math.min(1, current.sim.star.elevationDeg / 90))) * (plot.h * 0.35);
     ctx.beginPath();
     ctx.arc(mx - 26, my, 6, 0, Math.PI * 2);
     ctx.fill();

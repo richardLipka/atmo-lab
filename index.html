@@ -63,6 +63,13 @@
     </aside>
 
     <section class="panel panel-center">
+      <div class="compare-bar" id="compare-bar" hidden>
+        <button type="button" id="sync-a-to-b" class="sync-button"
+                data-i18n="compare.syncAtoB" data-i18n-title="compare.syncAtoBHelp"></button>
+        <button type="button" id="sync-b-to-a" class="sync-button"
+                data-i18n="compare.syncBtoA" data-i18n-title="compare.syncBtoAHelp"></button>
+      </div>
+
       <div class="canvas-wrap">
         <canvas id="scene-canvas"></canvas>
         <p class="canvas-hint" data-i18n="canvas.clickRay"></p>

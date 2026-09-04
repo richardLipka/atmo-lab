@@ -176,9 +176,11 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .panel-center {
   display: grid;
-  /* The cross-section takes whatever is left; the histogram and the sky strip
-     are fixed strips beneath it. */
-  grid-template-rows: minmax(0, 1fr) auto auto auto auto;
+  /* The cross-section takes whatever is left; the copy bar above it and the
+     histogram and sky strip beneath it are fixed strips. When the copy bar is
+     hidden it leaves the flow entirely, so the rows shift up by one and the
+     spare `auto` at the end costs nothing. */
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
   gap: 6px;
   padding: 8px;
 }
@@ -208,6 +210,32 @@ button:disabled { opacity: 0.4; cursor: default; }
   background: var(--segment-colour);
   color: #0a0d16;
 }
+/* ---- copying one simulation onto the other ------------------------ *
+ *
+ * Above the pictures, because that is what it acts on, and small, because it
+ * is a shortcut rather than a step: land both panels on the same footing, then
+ * change one thing and watch what it does.
+ */
+.compare-bar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding-bottom: 2px;
+}
+.sync-button {
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-family: var(--font);
+  letter-spacing: 0.03em;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+.sync-button:hover { color: var(--text); border-color: var(--accent); }
+
 .panel-target {
   margin: 0 0 12px;
   padding: 6px 9px;

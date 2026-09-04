@@ -50,30 +50,60 @@ export function makeObserver(overrides = {}) {
   };
 }
 
+/**
+ * The three things that make one simulation: a star, an atmosphere, and an
+ * observer standing in it.
+ *
+ * Everything else in the state is about the PAGE rather than about a
+ * simulation - which language it speaks, how many rays it draws, how bright it
+ * draws them. That line is the whole of what makes the comparison legible: a
+ * control either changes one of the situations being compared, or it changes
+ * how both of them are drawn, and the interface says which.
+ */
+export const SIMULATION_KEYS = ['star', 'atmosphere', 'observer'];
+
+export function makeSimulation(overrides = {}) {
+  return {
+    star: {
+      presetId: 'sun-5800k',
+      temperatureK: 5800,
+      elevationDeg: 55,
+      realisticInsolation: true,
+      ...(overrides.star ?? {}),
+    },
+    atmosphere: {
+      presetId: 'earth',
+      densityScale: 1,
+      scaleHeight_m: null,   // null means "use the value from the preset"
+      aerosolScale: 1,
+      aerosolPresetId: null,   // null means 'the haze this world came with'
+      rayleighExponent: 4,
+      ...(overrides.atmosphere ?? {}),
+    },
+    observer: makeObserver(overrides.observer ?? {}),
+  };
+}
+
 export const DEFAULT_STATE = {
   language: 'cs',
   level: 'basic',
   experimentId: null,
   experimentStep: 0,
 
-  star: {
-    presetId: 'sun-5800k',
-    temperatureK: 5800,
-    elevationDeg: 55,
-    realisticInsolation: true,
-  },
+  // Simulation A lives at the top level, so it has no prefix and nothing that
+  // speaks of "the star" or "the observer" had to learn about the comparison.
+  ...makeSimulation(),
 
-  atmosphere: {
-    presetId: 'earth',
-    densityScale: 1,
-    scaleHeight_m: null,   // null means "use the value from the preset"
-    aerosolScale: 1,
-    aerosolPresetId: null,   // null means 'the haze this world came with'
-    rayleighExponent: 4,
-  },
-
-  observer: makeObserver(),
-
+  /**
+   * How both simulations are DRAWN, and therefore shared by both.
+   *
+   * The display exposure especially: two panels rendered at two gains cannot be
+   * compared by eye, which is the one thing the comparison is for. The ray
+   * budget is a sampling choice rather than a physical one - the measured
+   * colour divides what it collects by the directions it looked in, so doubling
+   * the rays leaves every answer where it was - so it is shared too, and the
+   * control panel says so above the section.
+   */
   rays: {
     count: 600,
     showScattering: true,
@@ -99,46 +129,62 @@ export const DEFAULT_STATE = {
   },
 
   /**
-   * The second observer, and which of the two the interface answers for.
+   * The second simulation, and which of the two the interface answers for.
    *
-   * There is no separate "comparison mode" state any more. Switching the
-   * comparison on adds a second observer of exactly the same kind, simulated
-   * exactly the same way; `active` says which one the controls edit, which one
-   * the readouts describe, and which panel is drawn as the selected one. That
-   * is the whole of it, and it is why nothing downstream has to ask whether a
-   * comparison is running before it can say what a number means.
+   * There is no separate "comparison mode" state. Switching the comparison on
+   * adds a second simulation of exactly the same kind - its own star, its own
+   * air, its own observer - and `active` says which one the controls edit,
+   * which one the readouts describe, and which panel is drawn as the selected
+   * one. That is the whole of it, and it is why nothing downstream has to ask
+   * whether a comparison is running before it can say what a number means.
    */
   compare: {
     enabled: false,
     active: 'a',
-    b: makeObserver({ z: 10000 }),
+    b: makeSimulation({ observer: { z: 10000 } }),
   },
 };
 
-/** Which observer the interface is pointed at: 'a' or 'b'. */
-export function activeObserverId(state) {
+/** Which simulation the interface is pointed at: 'a' or 'b'. */
+export function activeSimulationId(state) {
   return state.compare.enabled && state.compare.active === 'b' ? 'b' : 'a';
 }
 
-/** The state path prefix of the observer the interface is pointed at. */
-export function activeObserverPath(state) {
-  return activeObserverId(state) === 'b' ? 'compare.b' : 'observer';
+/**
+ * One simulation by id. Simulation A *is* the top of the state, which is why
+ * switching the comparison off needs no migration: what is left is A.
+ */
+export function simulationOf(state, id) {
+  return id === 'b' ? state.compare.b : state;
+}
+
+/** The simulation the interface is pointed at. */
+export function activeSimulation(state) {
+  return simulationOf(state, activeSimulationId(state));
 }
 
 /** The observer the interface is pointed at. */
 export function activeObserver(state) {
-  return activeObserverId(state) === 'b' ? state.compare.b : state.observer;
+  return activeSimulation(state).observer;
 }
 
 /**
- * Every observer being simulated, in the order their panels are drawn. One
- * normally; two when the comparison is on, and then each gets its own trace,
- * its own strip and its own histogram, because a measurement made for one
- * observer says nothing about the other.
+ * The prefix that names the selected simulation's half of the state: nothing
+ * for A, since A has no prefix, and `compare.b` for B.
  */
-export function observersOf(state) {
-  const list = [{ id: 'a', observer: state.observer }];
-  if (state.compare.enabled) list.push({ id: 'b', observer: state.compare.b });
+export function activeSimulationPath(state) {
+  return activeSimulationId(state) === 'b' ? 'compare.b' : '';
+}
+
+/**
+ * Every simulation being run, in the order their panels are drawn. One
+ * normally; two when the comparison is on, and then each gets its own
+ * atmosphere, its own trace, its own strip and its own histogram, because a
+ * measurement made for one says nothing about the other.
+ */
+export function simulationsOf(state) {
+  const list = [{ id: 'a', sim: state }];
+  if (state.compare.enabled) list.push({ id: 'b', sim: state.compare.b });
   return list;
 }
 
@@ -195,7 +241,9 @@ function clone(value) {
 export function createStore(initial = DEFAULT_STATE) {
   const state = clone(initial);
   const listeners = new Set();
-  let context = { maxAltitude: 100000 };
+  // How high each simulation's observer may climb, which is a property of that
+  // simulation's own world - the two can be different worlds.
+  let context = { maxAltitude: { a: 100000, b: 100000 } };
 
   /** Mark a path as changed, and every prefix of it, for coarse subscribers. */
   function mark(changed, path) {
@@ -212,12 +260,12 @@ export function createStore(initial = DEFAULT_STATE) {
    * this is. Both of them get the same treatment: the second observer is not a
    * lesser thing that only carries an altitude, it is an observer.
    */
-  function reconcileObserver(obs, prefix, changed) {
+  function reconcileObserver(obs, prefix, changed, maxAltitude) {
     // Inside a shaft you are somewhere between its bottom and its mouth, and
     // nowhere else: the cross-section shows the shaft the whole time the shaft
     // is switched on, so the position control must not be able to leave it.
     const maxDepth = obs.well.enabled ? obs.well.depth_m : 0;
-    const ceiling = obs.well.enabled ? 0 : context.maxAltitude;
+    const ceiling = obs.well.enabled ? 0 : maxAltitude;
     const clamped = Math.max(-maxDepth, Math.min(ceiling, obs.z));
     if (clamped !== obs.z) {
       obs.z = clamped;
@@ -239,8 +287,9 @@ export function createStore(initial = DEFAULT_STATE) {
    * and both observers are held to it, not just the one being edited.
    */
   function reconcile(changed) {
-    reconcileObserver(state.observer, 'observer', changed);
-    reconcileObserver(state.compare.b, 'compare.b', changed);
+    reconcileObserver(state.observer, 'observer', changed, context.maxAltitude.a);
+    reconcileObserver(state.compare.b.observer, 'compare.b.observer', changed,
+      context.maxAltitude.b);
     // The drawing budget is a pair of shares, and a share outside [0, 1] is not
     // a share. Nothing downstream would crash on one, but the tracer would draw
     // a family with a negative population and the picture would quietly lose it.
@@ -270,7 +319,16 @@ export function createStore(initial = DEFAULT_STATE) {
     get state() { return state; },
 
     /** Tell the store about limits that depend on the loaded configuration. */
-    setContext(next) { context = { ...context, ...next }; },
+    setContext(next) {
+      const ceiling = next.maxAltitude;
+      context = {
+        ...context,
+        ...next,
+        maxAltitude: typeof ceiling === 'number'
+          ? { a: ceiling, b: ceiling }
+          : { ...context.maxAltitude, ...(ceiling ?? {}) },
+      };
+    },
 
     /** Apply a partial update; nested objects are merged, not replaced. */
     patch(update) {

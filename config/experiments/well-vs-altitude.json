@@ -122,11 +122,13 @@
           "enabled": true,
           "active": "a",
           "b": {
-            "z": -10000,
-            "well": {
-              "enabled": true,
-              "radius_m": 2,
-              "depth_m": 10000
+            "observer": {
+              "z": -10000,
+              "well": {
+                "enabled": true,
+                "radius_m": 2,
+                "depth_m": 10000
+              }
             }
           }
         },

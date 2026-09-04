@@ -528,7 +528,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     panelTarget.hidden = !state.compare.enabled;
     if (!state.compare.enabled) return;
     const id = result.activeId;
-    const observer = result.observers.find((entry) => entry.id === id)?.observer;
+    const observer = result.simulations.find((entry) => entry.id === id)?.observer;
     panelTarget.style.setProperty('--observer-colour', stationColour(id));
     panelTarget.textContent = i18n.t('compare.readoutFor')
       .replace('{observer}', i18n.t(id === 'b' ? 'compare.observerB' : 'compare.observerA'))

@@ -9,6 +9,7 @@
  */
 
 import { formatAltitude, formatAngle } from '../render/scene-renderer.js';
+import { activeSimulation } from '../state.js';
 
 const SPACE_COLUMN_FRACTION = 2e-3;
 const AIRLESS_TAU = 1e-6;
@@ -27,6 +28,9 @@ export function createExplanation(root, { i18n, store }) {
   function classify(result, state) {
     const m = result.primary.metrics;
     const scene = result.primary.scene;
+    // The star of the SELECTED simulation, which in a comparison need not be
+    // the other panel's star at all.
+    const star = activeSimulation(state).star;
     const tau550 = m.verticalTau[550];
 
     if (scene.wellActive) {
@@ -44,8 +48,8 @@ export function createExplanation(root, { i18n, store }) {
     // A world with real air but almost none of it: the scattering law is
     // untouched, only the amount of material is missing.
     if (surfaceTau < THIN_TAU && m.atmosphericAltitude < 3000) return 'thinAir';
-    if (state.star.elevationDeg < 0) return 'twilight';
-    if (state.star.elevationDeg < 10) return 'sunset';
+    if (star.elevationDeg < 0) return 'twilight';
+    if (star.elevationDeg < 10) return 'sunset';
     if (tau550 > DENSE_TAU) return 'denseAtmosphere';
 
     // Is the aerosol doing more of the scattering than the gas?
@@ -56,8 +60,8 @@ export function createExplanation(root, { i18n, store }) {
     if (dust > gas) return 'dusty';
 
     if (m.atmosphericAltitude > 3000) return 'highAltitude';
-    if (state.star.temperatureK < 4000) return 'coldStar';
-    if (state.star.temperatureK > 9000) return 'hotStar';
+    if (star.temperatureK < 4000) return 'coldStar';
+    if (star.temperatureK > 9000) return 'hotStar';
     return 'daySky';
   }
 

@@ -11,6 +11,7 @@ import { loadConfiguration } from './config-loader.js';
 import { createI18n } from './i18n.js';
 import {
   createStore, DEFAULT_STATE, maxAltitudeFor, touches, clampSpan,
+  SIMULATION_KEYS, simulationOf,
 } from './state.js';
 import { createColorimetry } from './physics/color.js';
 import { createSimulation } from './simulation.js';
@@ -37,9 +38,21 @@ async function start() {
   const i18n = createI18n(config.localization, config.index.defaults.language ?? 'cs');
 
   const store = createStore({ ...DEFAULT_STATE, language: i18n.getLanguage() });
-  store.setContext({
-    maxAltitude: maxAltitudeFor(config.atmospheres.get(DEFAULT_STATE.atmosphere.presetId)),
-  });
+  syncCeilings();
+
+  /**
+   * How high each observer may climb, which depends on that simulation's own
+   * world. The two can be different worlds, so there are two answers.
+   */
+  function syncCeilings() {
+    const state = store.state;
+    store.setContext({
+      maxAltitude: {
+        a: maxAltitudeFor(config.atmospheres.get(state.atmosphere.presetId)),
+        b: maxAltitudeFor(config.atmospheres.get(state.compare.b.atmosphere.presetId)),
+      },
+    });
+  }
 
   const simulation = createSimulation({ config, colorimetry });
 
@@ -86,26 +99,26 @@ async function start() {
     needsPhysics = false;
   }
 
-  /** Trace one observer, and measure everything that comes off those rays. */
-  function traceFor(observer, panels) {
+  /** Trace one simulation, and measure everything that comes off those rays. */
+  function traceFor(entry, panels) {
     const state = store.state;
-    const atmosphere = result.atmosphere;
+    const { sim, atmosphere, source, observer } = entry;
     const photons = tracePhotons({
       atmosphere,
-      source: result.source,
-      sunElevationDeg: state.star.elevationDeg,
+      source,
+      sunElevationDeg: sim.star.elevationDeg,
       observerZ: observer.z,
       well: observer.well,
       count: state.rays.showScattering ? state.rays.count : 0,
       starAngularRadiusDeg:
-        config.stars.get(state.star.presetId)?.angularRadius_deg ?? 0.2665,
+        config.stars.get(sim.star.presetId)?.angularRadius_deg ?? 0.2665,
       mix: state.rays.mix,
       // The rays must be laid out over exactly the region that will be drawn,
       // so the renderer is asked rather than the geometry guessed at.
       ...sceneRenderer.frameFor(observer, atmosphere, panels),
       seed: 20260828,
     });
-    const tally = summarisePhotons(photons, { source: result.source });
+    const tally = summarisePhotons(photons, { source });
     // The rock the shaft is cut through, lit by the sky that reaches it. The
     // strip fills its wings with it and the cross-section paints the hole in
     // the ground with it, so the two cannot drift apart.
@@ -113,7 +126,7 @@ async function start() {
       ? shaftWallSpectrum(photons, atmosphere.groundReflectance, {
         depth_m: observer.well.depth_m,
         radius_m: observer.well.radius_m,
-        sunZenithRad: (90 - state.star.elevationDeg) * Math.PI / 180,
+        sunZenithRad: (90 - sim.star.elevationDeg) * Math.PI / 180,
       })
       : null;
     // The strip under the picture is the colour swatch swept across the sky -
@@ -126,9 +139,9 @@ async function start() {
   }
 
   function recomputePhotons() {
-    const panels = result.observers.length;
-    traces = new Map(result.observers.map(
-      ({ id, observer }) => [id, traceFor(observer, panels)]));
+    const panels = result.simulations.length;
+    traces = new Map(result.simulations.map(
+      (entry) => [entry.id, traceFor(entry, panels)]));
     needsPhotons = false;
   }
 
@@ -142,7 +155,7 @@ async function start() {
    * describing the state of two moves ago.
    */
   function stationsNow() {
-    return result.observers.map((entry) => {
+    return result.simulations.map((entry) => {
       const traced = traces.get(entry.id) ?? {};
       return {
         ...entry,
@@ -193,25 +206,27 @@ async function start() {
   store.subscribe((state, changed) => {
     needsPhysics = true;
     needsPaint = true;
-    if (touches(changed, 'atmosphere', 'star.elevationDeg', 'star.temperatureK',
-      'star.presetId', 'star.realisticInsolation', 'rays.count', 'rays.showScattering',
-      'rays.mix', 'compare.enabled',
-      'observer.z', 'observer.well', 'observer.span_m',
-      'compare.b.z', 'compare.b.well', 'compare.b.span_m')) {
+    // Whatever moves the air, the star or where someone is standing - in
+    // either simulation - needs its rays traced again.
+    const perSimulation = ['star', 'atmosphere',
+      'observer.z', 'observer.well', 'observer.span_m', 'observer.countShaftAir'];
+    if (touches(changed, 'rays.count', 'rays.showScattering', 'rays.mix',
+      'compare.enabled',
+      ...perSimulation, ...perSimulation.map((path) => `compare.b.${path}`))) {
       // Note what is absent. The viewing direction: the scattering events are a
       // property of the air and the star, not of where anyone is facing, so
       // turning the view restyles the existing rays rather than redrawing new
-      // ones. And `compare.active`: choosing which observer the controls answer
-      // for moves no one and changes no air, so both traces stand.
+      // ones. And `compare.active`: choosing which simulation the controls
+      // answer for moves no one and changes no air, so both traces stand.
       needsPhotons = true;
     }
-    if (touches(changed, 'atmosphere.presetId')) {
-      store.setContext({
-        maxAltitude: maxAltitudeFor(config.atmospheres.get(state.atmosphere.presetId)),
-      });
+    if (touches(changed, 'atmosphere.presetId', 'compare.b.atmosphere.presetId')) {
+      syncCeilings();
     }
 
-    if (touches(changed, 'atmosphere.presetId', 'star.presetId', 'star.temperatureK')) {
+    if (touches(changed, 'atmosphere.presetId', 'star.presetId', 'star.temperatureK',
+      'compare.b.atmosphere.presetId', 'compare.b.star.presetId',
+      'compare.b.star.temperatureK')) {
       // The histogram's held axis belongs to one world lit by one star, and
       // carrying it across to another would say something false about the new
       // one. The cross-section no longer holds anything: how many rays it draws
@@ -222,6 +237,28 @@ async function start() {
     controls.update();
     syncHeader();
   });
+
+  /* ---- copying one simulation onto the other ---- */
+
+  const compareBar = document.getElementById('compare-bar');
+
+  /**
+   * Copy one simulation's whole situation onto the other.
+   *
+   * Everything that makes a situation goes: the star, the air and the observer.
+   * That is what makes it useful - land both panels on the same footing, then
+   * change exactly one thing and watch what it does. Copying a subset would
+   * leave differences the reader did not put there and cannot see.
+   */
+  function copySimulation(from, to) {
+    const source = simulationOf(store.state, from);
+    const copy = {};
+    for (const key of SIMULATION_KEYS) copy[key] = JSON.parse(JSON.stringify(source[key]));
+    store.patch(to === 'b' ? { compare: { b: copy } } : copy);
+  }
+
+  document.getElementById('sync-a-to-b').addEventListener('click', () => copySimulation('a', 'b'));
+  document.getElementById('sync-b-to-a').addEventListener('click', () => copySimulation('b', 'a'));
 
   /* ---- header wiring ---- */
 
@@ -279,6 +316,7 @@ async function start() {
       b.classList.toggle('is-active', b.dataset.level === state.level);
     });
     document.body.dataset.level = state.level;
+    compareBar.hidden = !state.compare.enabled;
     if (experimentSelect.value !== (state.experimentId ?? '')) {
       experimentSelect.value = state.experimentId ?? '';
     }
@@ -322,12 +360,13 @@ async function start() {
     // the selected one. Direct manipulation needs no selection to be
     // unambiguous - you are pointing at the thing you are changing.
     const id = sceneRenderer.panelAt(event.clientX, event.clientY) ?? store.state.compare.active;
-    const observer = id === 'b' ? store.state.compare.b : store.state.observer;
+    const entry = result.simulations.find((one) => one.id === id) ?? result.simulations[0];
+    const observer = entry.observer;
     const span = observer.span_m
-      ?? autoSpanFor(result.atmosphere, observer.z, observer.well);
+      ?? autoSpanFor(entry.atmosphere, observer.z, observer.well);
     const factor = Math.exp(event.deltaY * 0.0015);
-    const patch = { span_m: clampSpan(span * factor) };
-    store.patch(id === 'b' ? { compare: { b: patch } } : { observer: patch });
+    const patch = { observer: { span_m: clampSpan(span * factor) } };
+    store.patch(entry.id === 'b' ? { compare: { b: patch } } : patch);
   }, { passive: false });
 
   sceneCanvas.addEventListener('mouseleave', () => {
@@ -458,6 +497,7 @@ async function start() {
     },
     get result() { return result; },
     get stations() { return stationsNow(); },
+    copySimulation,
     get photons() { return traces.get(result?.activeId ?? 'a')?.photons ?? null; },
     /** Force one full synchronous update, bypassing the frame loop. */
     renderNow() {

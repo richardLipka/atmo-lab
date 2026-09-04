@@ -32,7 +32,9 @@ import { directionFromAngles, sunDirectionFromElevation, raySphereFar, raySphere
 import {
   sliderToZ, zToSlider, createStore, DEFAULT_STATE,
   clampSpan, MIN_SPAN_M, MAX_SPAN_M,
-  makeObserver, observersOf, activeObserver, activeObserverId, activeObserverPath,
+  makeObserver, makeSimulation, SIMULATION_KEYS,
+  simulationsOf, simulationOf, activeSimulation, activeSimulationId, activeSimulationPath,
+  activeObserver,
 } from '../js/state.js';
 import {
   tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
@@ -1659,8 +1661,8 @@ export function registerTests({ group, test, assert }, config) {
       assert.equal(store.state.observer.span_m, MIN_SPAN_M);
 
       // The second observer has a frame of their own, held to the same limits.
-      store.patch({ compare: { b: { span_m: 3 } } });
-      assert.equal(store.state.compare.b.span_m, MIN_SPAN_M);
+      store.patch({ compare: { b: { observer: { span_m: 3 } } } });
+      assert.equal(store.state.compare.b.observer.span_m, MIN_SPAN_M);
       assert.equal(store.state.observer.span_m, MIN_SPAN_M,
         'and zooming one observer must not move the other');
     });
@@ -1682,10 +1684,10 @@ export function registerTests({ group, test, assert }, config) {
 
   /* ---------------------------------------------------------------- */
 
-  group('two observers, compared', () => {
-    test('the second observer is a whole observer, not an altitude', () => {
+  group('two simulations, compared', () => {
+    test('the second simulation is a whole simulation, not an altitude', () => {
       // The comparison used to hold two numbers, leftZ and rightZ, and give
-      // both of them the first observer's shaft, viewing direction and choice
+      // both observers the first one's shaft, viewing direction and choice
       // about the air inside the shaft. So the two panels could differ in
       // height and in nothing else, and the one thing the experiment exists to
       // contrast - standing in a shaft against standing high up - could not be
@@ -1695,63 +1697,114 @@ export function registerTests({ group, test, assert }, config) {
       store.patch({
         compare: {
           enabled: true,
-          b: { z: -40, viewZenithDeg: 0, countShaftAir: true,
-            well: { enabled: true, radius_m: 2, depth_m: 40 } },
+          b: {
+            star: { elevationDeg: 5, temperatureK: 3200 },
+            atmosphere: { presetId: 'mars', densityScale: 0.4 },
+            observer: { z: -40, viewZenithDeg: 0, countShaftAir: true,
+              well: { enabled: true, radius_m: 2, depth_m: 40 } },
+          },
         },
       });
       const b = store.state.compare.b;
-      assert.equal(b.z, -40);
-      assert.equal(b.well.enabled, true);
-      assert.equal(b.countShaftAir, true);
-      assert.equal(b.viewZenithDeg, 0);
+      assert.equal(b.observer.z, -40);
+      assert.equal(b.observer.well.enabled, true);
+      assert.equal(b.observer.countShaftAir, true);
+      assert.equal(b.star.elevationDeg, 5);
+      assert.equal(b.atmosphere.presetId, 'mars');
 
-      // And none of it reached the first observer.
-      const a = store.state.observer;
-      assert.equal(a.z, 0);
-      assert.equal(a.well.enabled, false);
-      assert.equal(a.countShaftAir, false);
-      assert.equal(a.viewZenithDeg, DEFAULT_STATE.observer.viewZenithDeg);
+      // And none of it reached the first simulation. This is the assertion the
+      // whole redesign is for: a control aimed at one simulation must not move
+      // the other, and the star and the air were the two that still did.
+      assert.equal(store.state.observer.z, 0);
+      assert.equal(store.state.observer.well.enabled, false);
+      assert.equal(store.state.star.elevationDeg, DEFAULT_STATE.star.elevationDeg);
+      assert.equal(store.state.star.temperatureK, DEFAULT_STATE.star.temperatureK);
+      assert.equal(store.state.atmosphere.presetId, DEFAULT_STATE.atmosphere.presetId);
+      assert.equal(store.state.atmosphere.densityScale, 1);
+    });
+
+    test('a simulation is exactly a star, an atmosphere and an observer', () => {
+      // If a fourth thing ever joins a simulation, the copy button and the
+      // control aiming both have to learn about it, and they read this list.
+      const built = makeSimulation();
+      assert.equal(Object.keys(built).sort().join(','), 'atmosphere,observer,star');
+      assert.equal(SIMULATION_KEYS.slice().sort().join(','), 'atmosphere,observer,star');
+      for (const key of SIMULATION_KEYS) {
+        assert.ok(DEFAULT_STATE[key], `simulation A carries ${key} at the top level`);
+        assert.ok(DEFAULT_STATE.compare.b[key], `simulation B carries ${key}`);
+      }
+      // The two must not share a nested object, or moving one would move both.
+      assert.ok(DEFAULT_STATE.observer.well !== DEFAULT_STATE.compare.b.observer.well);
+      assert.ok(DEFAULT_STATE.star !== DEFAULT_STATE.compare.b.star);
     });
 
     test('each observer is held to the invariants on their own', () => {
       const store = createStore(DEFAULT_STATE);
       store.setContext({ maxAltitude: 100000 });
       store.patch({
-        compare: { enabled: true, b: { well: { enabled: true, depth_m: 30 } } },
+        compare: { enabled: true, b: { observer: { well: { enabled: true, depth_m: 30 } } } },
       });
       // B is in a shaft, so B cannot climb out of it or sink through it.
-      store.patch({ compare: { b: { z: 900 } } });
-      assert.equal(store.state.compare.b.z, 0, 'B cannot climb out of its shaft');
-      store.patch({ compare: { b: { z: -900 } } });
-      assert.equal(store.state.compare.b.z, -30, 'B cannot sink through the bottom');
+      store.patch({ compare: { b: { observer: { z: 900 } } } });
+      assert.equal(store.state.compare.b.observer.z, 0, 'B cannot climb out of its shaft');
+      store.patch({ compare: { b: { observer: { z: -900 } } } });
+      assert.equal(store.state.compare.b.observer.z, -30, 'B cannot sink through the bottom');
       // A has no shaft, so A is free to climb - the two rules run separately.
       store.patch({ observer: { z: 9000 } });
       assert.equal(store.state.observer.z, 9000, "A is not bound by B's shaft");
     });
 
-    test('the observers being simulated follow the switch, and one is selected', () => {
+    test('the simulations being run follow the switch, and one is selected', () => {
       const state = JSON.parse(JSON.stringify(DEFAULT_STATE));
-      assert.equal(observersOf(state).length, 1, 'one observer until asked for two');
-      assert.equal(activeObserverId(state), 'a');
+      assert.equal(simulationsOf(state).length, 1, 'one simulation until asked for two');
+      assert.equal(activeSimulationId(state), 'a');
+      // A is the top of the state, which is what makes switching the
+      // comparison off need no migration: what is left is A.
+      assert.equal(simulationOf(state, 'a'), state);
 
       state.compare.enabled = true;
-      const both = observersOf(state);
+      const both = simulationsOf(state);
       assert.equal(both.length, 2);
       assert.equal(both[0].id, 'a');
       assert.equal(both[1].id, 'b');
-      assert.equal(both[1].observer, state.compare.b, 'and it is the real object');
+      assert.equal(both[1].sim, state.compare.b, 'and it is the real object');
 
       state.compare.active = 'b';
-      assert.equal(activeObserverId(state), 'b');
-      assert.equal(activeObserver(state), state.compare.b);
-      assert.equal(activeObserverPath(state), 'compare.b');
+      assert.equal(activeSimulationId(state), 'b');
+      assert.equal(activeSimulation(state), state.compare.b);
+      assert.equal(activeObserver(state), state.compare.b.observer);
+      assert.equal(activeSimulationPath(state), 'compare.b');
 
       // Selecting B and then switching the comparison off must not leave the
-      // interface aimed at an observer that is no longer being simulated.
+      // interface aimed at a simulation that is no longer running.
       state.compare.enabled = false;
-      assert.equal(activeObserverId(state), 'a');
+      assert.equal(activeSimulationId(state), 'a');
+      assert.equal(activeSimulation(state), state);
       assert.equal(activeObserver(state), state.observer);
-      assert.equal(activeObserverPath(state), 'observer');
+      assert.equal(activeSimulationPath(state), '',
+        'A has no prefix, so nothing about A had to move');
+    });
+
+    test('two simulations can run under two different skies', () => {
+      // What being a whole simulation buys: B is allowed a different star at a
+      // different height in a different atmosphere, and the answer for one says
+      // nothing about the other.
+      const dusk = createAtmosphere(config.atmospheres.earth);
+      const build = (elevationDeg) => {
+        const spectrum = makeBlackbodySpectrum(5800);
+        colorimetry.normalizeToLuminance(spectrum, 1);
+        return computeViewRadiance(
+          buildScene({
+            atmosphere: dusk, sourceSpectrum: spectrum,
+            sunDirection: sunDirectionFromElevation(elevationDeg),
+            sunElevationDeg: elevationDeg, observerZ: 0,
+            well: { enabled: false, radius_m: 1 }, countShaftAir: false,
+          }), ZENITH, QUALITY_PRESETS.preview);
+      };
+      const high = colorimetry.luminance(build(70).observed);
+      const low = colorimetry.luminance(build(2).observed);
+      assert.less(low, high * 0.6,
+        `a sky at 2 deg (${low.toExponential(2)}) must not read as one at 70 deg (${high.toExponential(2)})`);
     });
 
     test('two observers give two different measurements, from two traces', () => {
@@ -1802,10 +1855,51 @@ export function registerTests({ group, test, assert }, config) {
       store.patch({ compare: { enabled: true } });
       store.patch({ observer: { span_m: 400 } });
       assert.equal(store.state.observer.span_m, 400);
-      assert.equal(store.state.compare.b.span_m, null,
+      assert.equal(store.state.compare.b.observer.span_m, null,
         'the other observer keeps fitting its own frame to the air');
-      store.patch({ compare: { b: { span_m: 900000 } } });
+      store.patch({ compare: { b: { observer: { span_m: 900000 } } } });
       assert.equal(store.state.observer.span_m, 400, 'and stays where it was put');
+    });
+
+    test('copying one simulation onto the other carries all of it', () => {
+      // The copy exists so both panels can be landed on the same footing and
+      // then differ by exactly one thing. A copy that left anything behind
+      // would leave a difference the reader did not put there and cannot see,
+      // which is worse than no copy at all.
+      const store = createStore(DEFAULT_STATE);
+      store.setContext({ maxAltitude: 100000 });
+      store.patch({
+        compare: { enabled: true },
+        star: { elevationDeg: 3, temperatureK: 3400, presetId: 'red-dwarf' },
+        atmosphere: { presetId: 'mars', densityScale: 0.6, rayleighExponent: 3.5 },
+        observer: { z: 2500, viewZenithDeg: 80, span_m: 1234 },
+      });
+
+      const copy = (from, to) => {
+        const source = simulationOf(store.state, from);
+        const patch = {};
+        for (const key of SIMULATION_KEYS) {
+          patch[key] = JSON.parse(JSON.stringify(source[key]));
+        }
+        store.patch(to === 'b' ? { compare: { b: patch } } : patch);
+      };
+
+      copy('a', 'b');
+      for (const key of SIMULATION_KEYS) {
+        assert.equal(JSON.stringify(store.state.compare.b[key]),
+          JSON.stringify(store.state[key]), `${key} must be copied whole`);
+      }
+
+      // And back the other way, from a B that has since moved on.
+      store.patch({ compare: { b: { star: { elevationDeg: 44 }, observer: { z: 10 } } } });
+      copy('b', 'a');
+      assert.equal(store.state.star.elevationDeg, 44);
+      assert.equal(store.state.observer.z, 10);
+
+      // A copy is a copy, not a shared reference: moving one afterwards must
+      // not move the other.
+      store.patch({ compare: { b: { observer: { z: 900 } } } });
+      assert.equal(store.state.observer.z, 10, 'the two must not share objects');
     });
   });
 

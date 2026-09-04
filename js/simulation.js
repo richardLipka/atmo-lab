@@ -8,7 +8,7 @@
  * place where the model is assembled.
  */
 
-import { observersOf, activeObserverId } from './state.js';
+import { simulationsOf, activeSimulationId } from './state.js';
 import { createAtmosphere } from './physics/atmosphere.js';
 import { makeBlackbodySpectrum, wienPeakNm, specNew, SPECTRUM_BINS } from './physics/spectrum.js';
 import { sunDirectionFromElevation, directionFromAngles, DEG } from './physics/geometry.js';
@@ -27,28 +27,40 @@ import {
 const REFERENCE_LAMBDAS = [450, 550, 650];
 
 export function createSimulation({ config, colorimetry }) {
-  /** Cache atmospheres so dragging an unrelated slider costs nothing. */
-  let atmosphereCache = { key: null, value: null };
+  /**
+   * Cache atmospheres so dragging an unrelated slider costs nothing.
+   *
+   * Keyed by what the atmosphere is made of rather than by which simulation
+   * asked for it, so two simulations of the same world share one - and a single
+   * slot would have thrashed between two different worlds on every frame.
+   */
+  const atmosphereCache = new Map();
 
-  function atmosphereFor(state) {
-    const preset = config.atmospheres.get(state.atmosphere.presetId)
+  function configFor(sim) {
+    return config.atmospheres.get(sim.atmosphere.presetId)
       ?? config.atmospheres.get('earth');
-    const a = state.atmosphere;
+  }
+
+  function atmosphereFor(sim) {
+    const preset = configFor(sim);
+    const a = sim.atmosphere;
     const key = [preset.id, a.densityScale, a.scaleHeight_m, a.aerosolScale,
       a.rayleighExponent, a.aerosolPresetId].join('|');
-    if (atmosphereCache.key !== key) {
-      atmosphereCache = {
-        key,
-        value: createAtmosphere(preset, {
-          densityScale: a.densityScale,
-          aerosolScale: a.aerosolScale,
-          rayleighExponent: a.rayleighExponent,
-          scaleHeight_m: a.scaleHeight_m ?? undefined,
-          aerosol: aerosolPreset(a.aerosolPresetId),
-        }),
-      };
+    let built = atmosphereCache.get(key);
+    if (!built) {
+      built = createAtmosphere(preset, {
+        densityScale: a.densityScale,
+        aerosolScale: a.aerosolScale,
+        rayleighExponent: a.rayleighExponent,
+        scaleHeight_m: a.scaleHeight_m ?? undefined,
+        aerosol: aerosolPreset(a.aerosolPresetId),
+      });
+      // Two simulations, so two live entries at most; anything older is a world
+      // nobody is looking at any more.
+      if (atmosphereCache.size > 4) atmosphereCache.clear();
+      atmosphereCache.set(key, built);
     }
-    return atmosphereCache.value;
+    return built;
   }
 
   /** A named haze from config/scattering/aerosols.json, or the world default. */
@@ -63,10 +75,10 @@ export function createSimulation({ config, colorimetry }) {
    * temperature is seen as a change of colour, not of brightness; the optional
    * insolation factor then restores the real difference between worlds.
    */
-  function sourceFor(state, atmosphereConfig) {
-    const spectrum = makeBlackbodySpectrum(state.star.temperatureK);
+  function sourceFor(sim, atmosphereConfig) {
+    const spectrum = makeBlackbodySpectrum(sim.star.temperatureK);
     colorimetry.normalizeToLuminance(spectrum, 1);
-    if (state.star.realisticInsolation) {
+    if (sim.star.realisticInsolation) {
       const factor = atmosphereConfig.insolationRelative ?? 1;
       for (let i = 0; i < SPECTRUM_BINS; i++) spectrum[i] *= factor;
     }
@@ -83,13 +95,14 @@ export function createSimulation({ config, colorimetry }) {
    * and in nothing else. An observer is where they stand AND what they are
    * standing in.
    */
-  function sceneFor(state, atmosphere, source, observer = state.observer) {
-    const starPreset = config.stars.get(state.star.presetId);
+  function sceneFor(sim, atmosphere, source) {
+    const observer = sim.observer;
+    const starPreset = config.stars.get(sim.star.presetId);
     return buildScene({
       atmosphere,
       sourceSpectrum: source,
-      sunDirection: sunDirectionFromElevation(state.star.elevationDeg),
-      sunElevationDeg: state.star.elevationDeg,
+      sunDirection: sunDirectionFromElevation(sim.star.elevationDeg),
+      sunElevationDeg: sim.star.elevationDeg,
       observerZ: observer.z,
       well: observer.well,
       countShaftAir: observer.countShaftAir,
@@ -101,10 +114,17 @@ export function createSimulation({ config, colorimetry }) {
     return DISPLAY_EXPOSURE * (state.rays.brightness ?? 1);
   }
 
-  /** Evaluate one observer completely. */
-  function evaluate(state, atmosphere, source, observer = state.observer) {
+  /**
+   * Evaluate one simulation completely.
+   *
+   * `state` is here only for what the page decides rather than the situation:
+   * the integrator's quality and the display exposure, both shared by both
+   * panels. Everything physical comes from `sim`.
+   */
+  function evaluate(state, sim, atmosphere, source) {
+    const observer = sim.observer;
     const quality = QUALITY_PRESETS[state.rays.quality] ?? QUALITY_PRESETS.normal;
-    const scene = sceneFor(state, atmosphere, source, observer);
+    const scene = sceneFor(sim, atmosphere, source);
     const exposure = exposureFor(state);
 
     const viewDir = directionFromAngles(
@@ -168,7 +188,7 @@ export function createSimulation({ config, colorimetry }) {
         analyticIlluminanceFraction: scene.wellActive
           ? wellIlluminanceFraction(depth, scene.wellRadius) : 1,
         skyLuminance: colorimetry.luminance(view.scattered),
-        peakWavelength: wienPeakNm(state.star.temperatureK),
+        peakWavelength: wienPeakNm(sim.star.temperatureK),
         scatteringAngleDeg: Math.acos(Math.max(-1, Math.min(1,
           viewDir.x * scene.sunDir.x + viewDir.y * scene.sunDir.y + viewDir.z * scene.sunDir.z))) / DEG,
         blocked: view.blocked,
@@ -238,23 +258,29 @@ export function createSimulation({ config, colorimetry }) {
    * that a comparison is running at all.
    */
   function run(state) {
-    const atmosphereConfig = config.atmospheres.get(state.atmosphere.presetId)
-      ?? config.atmospheres.get('earth');
-    const atmosphere = atmosphereFor(state);
-    const source = sourceFor(state, atmosphereConfig);
-
-    const observers = observersOf(state).map(({ id, observer }) => ({
-      id, observer, evaluation: evaluate(state, atmosphere, source, observer),
-    }));
-    const activeId = activeObserverId(state);
-    const active = observers.find((entry) => entry.id === activeId) ?? observers[0];
+    const simulations = simulationsOf(state).map(({ id, sim }) => {
+      const atmosphereConfig = configFor(sim);
+      const atmosphere = atmosphereFor(sim);
+      const source = sourceFor(sim, atmosphereConfig);
+      return {
+        id, sim, observer: sim.observer, atmosphere, atmosphereConfig, source,
+        evaluation: evaluate(state, sim, atmosphere, source),
+      };
+    });
+    const activeId = activeSimulationId(state);
+    const active = simulations.find((entry) => entry.id === activeId) ?? simulations[0];
 
     return {
-      atmosphere, atmosphereConfig, source,
       exposure: exposureFor(state),
-      observers,
+      simulations,
       activeId: active.id,
       primary: active.evaluation,
+      // The world of the SELECTED simulation, for everything that still speaks
+      // of one: the readouts, the explanation, the spectrum plot. They describe
+      // the panel the reader has chosen, and so they read these.
+      atmosphere: active.atmosphere,
+      atmosphereConfig: active.atmosphereConfig,
+      source: active.source,
     };
   }
 
