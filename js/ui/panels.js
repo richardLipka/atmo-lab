@@ -2,12 +2,19 @@
  * The measurement panel: spectrum legend, perceived colour, and the numeric
  * readout that turns the picture into physics a student can quote.
  *
- * In comparison mode every quantity gains a second column, which is what makes
- * the well experiment convincing: two observers, one table, and the numbers
- * that differ are not the ones you would guess.
+ * Every number here describes ONE observer - the selected one - and says so.
+ * The comparison used to put both observers in one table, side by side, which
+ * reads well until you notice that the swatch, the spectrum plot, the band
+ * tally and the chromaticity diagram above the table could not be doubled and
+ * so went on describing whichever observer the rest of the interface happened
+ * to be pointed at. Half a panel about one observer and half about another is
+ * worse than either. The two are compared where they are drawn, side by side
+ * under the cross-section; the panel answers for the one you have selected.
  */
 
-import { formatAltitude, formatAngle } from '../render/scene-renderer.js';
+import {
+  formatAltitude, formatAngle, stationColour, formatPlace,
+} from '../render/scene-renderer.js';
 import { RAY_BANDS } from '../physics/spectrum.js';
 
 export function createPanels(root, { i18n, store, spectrumChart, chromaticity, colorimetry }) {
@@ -26,6 +33,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
   const dataSection = root.querySelector('#data-section');
   const chromaSection = root.querySelector('#chroma-section');
   const photonTally = root.querySelector('#photon-tally');
+  const panelTarget = root.querySelector('#panel-target');
 
   buildLegend();
   wireTabs();
@@ -508,11 +516,31 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     photonTally.textContent = text;
   }
 
+  /**
+   * Whose numbers these are.
+   *
+   * Shown only while there are two observers to confuse, because a label that
+   * is always there is read as decoration and stops answering the question it
+   * exists for.
+   */
+  function renderTarget(result, state) {
+    if (!panelTarget) return;
+    panelTarget.hidden = !state.compare.enabled;
+    if (!state.compare.enabled) return;
+    const id = result.activeId;
+    const observer = result.observers.find((entry) => entry.id === id)?.observer;
+    panelTarget.style.setProperty('--observer-colour', stationColour(id));
+    panelTarget.textContent = i18n.t('compare.readoutFor')
+      .replace('{observer}', i18n.t(id === 'b' ? 'compare.observerB' : 'compare.observerA'))
+      .replace('{where}', observer ? formatPlace(observer.z, i18n) : '');
+  }
+
   function update(result, tally, histogram) {
     const state = store.state;
     const advanced = state.level === 'advanced';
 
     const primary = result.primary;
+    renderTarget(result, state);
     spectrumChart.update({
       curves: {
         source: result.source,
@@ -528,13 +556,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     renderPhotonTally(result, tally, state, histogram);
 
     dataSection.hidden = false;
-    const columns = state.compare.enabled && result.compare
-      ? [
-        { label: i18n.t('compare.left'), rows: rowsFor(result.compare.left, state) },
-        { label: i18n.t('compare.right'), rows: rowsFor(result.compare.right, state) },
-      ]
-      : [{ label: '', rows: rowsFor(primary, state) }];
-    renderRows(columns, advanced);
+    renderRows([{ label: '', rows: rowsFor(primary, state) }], advanced);
 
     chromaSection.hidden = !advanced;
     if (advanced) {

@@ -270,13 +270,17 @@
     "relative": "rel."
   },
   "compare": {
-    "title": "Side by side",
-    "left": "Left",
-    "right": "Right",
-    "altitude": "10 km above the ground",
-    "shaft": "10 km down a shaft",
-    "verdict": "Same air overhead, utterly different sky.",
-    "enable": "Compare two observers"
+    "controls": "Controls belong to",
+    "controlsHelp": "Which observer the left-hand panel drives. The other stays exactly where it is. Clicking a panel selects it too.",
+    "enable": "Compare two observers",
+    "enableHelp": "Adds a second observer. Each gets their own simulation: their own rays, their own shaft, their own cross-section and their own strip of sky beneath it.",
+    "note": "The sliders below and the right-hand panel belong to this observer: {observer}.",
+    "observerA": "Observer A",
+    "observerB": "Observer B",
+    "readoutFor": "Measured for {observer} · {where}",
+    "selectHint": "click to select",
+    "selected": "selected - the controls drive this one",
+    "title": "Two observers"
   },
   "footer": {
     "model": "Single-scattering model",

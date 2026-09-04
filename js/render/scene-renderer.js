@@ -14,6 +14,14 @@
  * Nothing here invents a colour. The glow of the air is evaluated by the
  * scattering integrator on a coarse grid and then smoothed; the ground tint is
  * its albedo times the light actually falling on it.
+ *
+ * One panel per observer. When the comparison is running there are two, and
+ * each is drawn from ITS OWN simulation - its own traced rays, its own shaft,
+ * its own frame - rather than from one trace shown twice at two heights, which
+ * is what it used to be and which made the second panel a picture of the first
+ * observer's rays relabelled. One panel is selected: it takes the controls, it
+ * answers the readouts, and it is the only one that responds to the pointer.
+ * Clicking the other selects it.
  */
 
 import { computeScatteringSource, QUALITY_PRESETS } from '../physics/radiance.js';
@@ -36,12 +44,20 @@ const MAX_DRAWN_BLOCKED = 26;
 export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   const ctx = canvas.getContext('2d', { alpha: false });
   let data = null;
-  let field = null;          // offscreen canvas holding the atmospheric glow
-  let fieldKey = null;       // what that glow was computed for
-  let layout = null;         // geometry of the last frame, for hit testing
+  /** Baked glow images, one per panel, keyed by what each was computed for. */
+  const fields = new Map();
+  let layout = null;         // geometry of the selected panel, for hit testing
+  /** Where each panel was drawn last frame, so a click can find its panel. */
+  let panelBoxes = [];
+  /**
+   * The panel being drawn: one observer and everything measured for them.
+   * Every helper below reads this rather than reaching for `data.state.observer`
+   * - which is how the comparison used to end up drawing the shaft, the viewing
+   * cone and the rays of observer A inside observer B's panel.
+   */
+  let current = null;
   let hoveredPath = -1;
   let selectedPath = -1;
-  /** The brightest arriving bundle seen, so a dimmer one can be drawn dimmer. */
 
   function cssSize() {
     const rect = canvas.getBoundingClientRect();
@@ -71,9 +87,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * the surface or above the atmosphere are left transparent; the ground and
    * the black of space are painted separately.
    */
-  function buildField(result, camera, plot) {
-    const scene = result.primary.scene;
-    const atm = result.atmosphere;
+  function buildField(scene, camera, plot) {
+    const atm = data.result.atmosphere;
     const off = document.createElement('canvas');
     off.width = FIELD_COLUMNS;
     off.height = FIELD_ROWS;
@@ -94,7 +109,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
         }
         const point = v3(world.x, world.y, 0);
         const spectrum = computeScatteringSource(scene, point, 0, QUALITY_PRESETS.preview);
-        const c = colorimetry.spectrumToSrgb(spectrum, result.exposure * FIELD_GAIN);
+        const c = colorimetry.spectrumToSrgb(spectrum, data.result.exposure * FIELD_GAIN);
         image.data[i] = c.rgb[0];
         image.data[i + 1] = c.rgb[1];
         image.data[i + 2] = c.rgb[2];
@@ -106,12 +121,12 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   }
 
   /** Ground colour: what the surface reflects of the light reaching it. */
-  function groundColor(result) {
-    const albedo = result.atmosphere.groundAlbedo;
-    const ill = result.primary.illumination;
-    const beam = result.primary.beam;
+  function groundColor(evaluation) {
+    const albedo = data.result.atmosphere.groundAlbedo;
+    const ill = evaluation.illumination;
+    const beam = evaluation.beam;
     const spectrum = new Float64Array(beam.spectrum.length);
-    const cosSun = Math.max(0, result.primary.scene.sunDir.y);
+    const cosSun = Math.max(0, evaluation.scene.sunDir.y);
     // The terrain is lit by the beam that reaches the SURFACE, which is not the
     // beam that reaches the observer: down a shaft the latter is blocked, and
     // colouring the whole landscape from it turned the ground black while the
@@ -120,7 +135,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const lit = !beam.belowHorizon;
     for (let i = 0; i < spectrum.length; i++) {
       spectrum[i] = lit
-        ? albedo * result.source[i] * beam.transmittance[i] * cosSun : 0;
+        ? albedo * data.result.source[i] * beam.transmittance[i] * cosSun : 0;
     }
     const c = colorimetry.spectrumToSrgb(spectrum, 1.6);
     const floor = Math.max(0.03, Math.min(1, ill.totalOpen * 4));
@@ -129,38 +144,41 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   function update(next, options = {}) {
     data = next;
-    field = null;
     // Clicking a ray should survive an unrelated slider move; only a fresh set
     // of traced photons invalidates the choice.
     if (!options.keepSelection) selectedPath = -1;
-    // The glow field is built lazily on the first draw, because it depends on
-    // the plot rectangle and so on the size of the canvas.
-    fieldKey = null;
+    // The glow fields are built lazily on the first draw, because they depend
+    // on the plot rectangle and so on the size of the canvas.
+    fields.clear();
   }
 
   function draw(timeMs) {
     const { w, h } = resize();
     ctx.fillStyle = '#05070d';
     ctx.fillRect(0, 0, w, h);
-    if (!data || !data.result) return;
+    panelBoxes = [];
+    layout = null;
+    if (!data || !data.result || !data.stations || data.stations.length === 0) return;
 
-    if (data.state.compare.enabled && data.result.compare) {
-      const gap = 10;
-      const half = (w - gap) / 2;
-      drawPanel(0, 0, half, h, data.result.compare.left, data.state.compare.leftZ, timeMs, i18n.t('compare.left'));
-      drawPanel(half + gap, 0, half, h, data.result.compare.right, data.state.compare.rightZ, timeMs, i18n.t('compare.right'));
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.beginPath();
-      ctx.moveTo(half + gap / 2, 8);
-      ctx.lineTo(half + gap / 2, h - 8);
-      ctx.stroke();
-      layout = null;
-    } else {
-      drawPanel(0, 0, w, h, data.result.primary, data.state.observer.z, timeMs, null);
+    const stations = data.stations;
+    if (stations.length === 1) {
+      drawPanel(0, 0, w, h, stations[0], timeMs, false);
+      return;
     }
+
+    const gap = 10;
+    const half = (w - gap) / 2;
+    drawPanel(0, 0, half, h, stations[0], timeMs, true);
+    drawPanel(half + gap, 0, half, h, stations[1], timeMs, true);
   }
 
-  function drawPanel(x0, y0, pw, ph, evaluation, z, timeMs, caption) {
+  function drawPanel(x0, y0, pw, ph, station, timeMs, labelled) {
+    const active = station.id === data.activeId;
+    // `labelled` is also how much room the badge takes at the top left, which
+    // the legend and the aperture label have to keep clear of.
+    current = { ...station, active, labelled, topInset: labelled ? 38 : 0 };
+    panelBoxes.push({ id: station.id, x: x0, y: y0, w: pw, h: ph });
+
     ctx.save();
     ctx.beginPath();
     ctx.rect(x0, y0, pw, ph);
@@ -172,14 +190,57 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     // simulation did not actually simulate - it was a diagram of what the
     // answer would be. The shaft is now part of the same cross-section, cut out
     // of the ground, with the same traced rays running into its walls.
-    drawAtmosphereView(pw, ph, evaluation, z, timeMs, caption === null);
+    drawAtmosphereView(pw, ph, timeMs, x0, y0);
+    if (labelled) drawPanelBadge(pw, station, active);
+    ctx.restore();
 
-    if (caption) {
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.font = '600 12px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(caption + ' - ' + formatAltitude(z), 10, 18);
+    // The frame of the selected panel, drawn last so nothing paints over it.
+    // Two panels are worth nothing if the reader cannot tell which one the
+    // controls and the numbers belong to.
+    if (labelled && active) {
+      ctx.save();
+      ctx.strokeStyle = stationColour(station.id);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x0 + 1, y0 + 1, pw - 2, ph - 2);
+      ctx.restore();
     }
+    current = null;
+  }
+
+  /**
+   * Which observer this panel is, and whether it is the selected one.
+   *
+   * The badge carries the whole answer to "what am I controlling": the letter,
+   * the height, and either the word for selected or an invitation to click. It
+   * is drawn in the observer's own colour, the same colour the controls, the
+   * strip and the histogram use for that observer.
+   */
+  function drawPanelBadge(pw, station, active) {
+    const colour = stationColour(station.id);
+    const name = i18n.t(station.id === 'a' ? 'compare.observerA' : 'compare.observerB');
+    const title = `${name} - ${formatPlace(station.observer.z, i18n)}`;
+    const hint = i18n.t(active ? 'compare.selected' : 'compare.selectHint');
+
+    ctx.save();
+    ctx.font = '600 12px system-ui, sans-serif';
+    const titleWidth = ctx.measureText(title).width;
+    ctx.font = '10px system-ui, sans-serif';
+    const hintWidth = ctx.measureText(hint).width;
+    const boxW = Math.min(pw - 16, Math.max(titleWidth, hintWidth) + 18);
+
+    ctx.fillStyle = active ? 'rgba(8, 11, 18, 0.85)' : 'rgba(8, 11, 18, 0.6)';
+    ctx.fillRect(8, 8, boxW, 34);
+    ctx.fillStyle = colour;
+    ctx.fillRect(8, 8, 3, 34);
+    ctx.globalAlpha = active ? 1 : 0.75;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '600 12px system-ui, sans-serif';
+    ctx.fillStyle = active ? colour : 'rgba(255,255,255,0.8)';
+    ctx.fillText(title, 17, 22);
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(hint, 17, 36);
     ctx.restore();
   }
 
@@ -187,22 +248,26 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   /* Atmosphere view                                                   */
   /* ---------------------------------------------------------------- */
 
-  function drawAtmosphereView(w, h, evaluation, z, timeMs, allowInteraction) {
+  function drawAtmosphereView(w, h, timeMs, originX, originY) {
     const atm = data.result.atmosphere;
+    const observer = current.observer;
+    const evaluation = current.evaluation;
+    const z = observer.z;
 
     const plot = plotRect(w, h);
-    const span = spanFor(data.state, atm, z);
+    const span = spanFor(observer, atm);
     const camera = makeCamera(atm, plot, span,
-      belowGroundFor(data.state), Math.max(0, -z));
+      belowGroundFor(observer), Math.max(0, -z));
 
     // The glow is expensive, so it is rebuilt only when what it depends on
-    // moves - which now includes the zoom and the size of the canvas.
+    // moves - which now includes the zoom and the size of the canvas. Each
+    // panel keeps its own, because each has its own frame.
     const key = `${span}|${Math.round(plot.w)}x${Math.round(plot.h)}`;
-    if (allowInteraction && fieldKey !== key) {
-      field = buildField(data.result, camera, plot);
-      fieldKey = key;
-    }
-    const panelField = allowInteraction ? field : buildField(data.result, camera, plot);
+    const cached = fields.get(current.id);
+    const panelField = cached && cached.key === key
+      ? cached.image
+      : buildField(evaluation.scene, camera, plot);
+    fields.set(current.id, { key, image: panelField });
 
     ctx.save();
     ctx.beginPath();
@@ -218,14 +283,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
     // The planet, drawn as the arc it is. At close zoom the sagitta is a
     // fraction of a pixel and it looks like a flat horizon on its own.
-    fillPlanet(plot, camera, groundColor(data.result));
+    fillPlanet(plot, camera, groundColor(evaluation));
 
     drawAltitudeArcs(plot, camera, atm);
-    drawStarMarker(plot, evaluation);
+    drawStarMarker(plot);
     drawApertureCone(plot, camera, z);
     drawViewCone(plot, camera, z);
-    if (data.photons && data.state.rays.showScattering) {
-      drawPhotons(plot, camera, z, timeMs, allowInteraction);
+    if (current.photons && data.state.rays.showScattering) {
+      drawPhotons(plot, camera, z, timeMs);
     }
     drawObserverAt(camera, z, evaluation);
     ctx.restore();
@@ -234,7 +299,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     // of the plot rectangle the rays are clipped to.
     drawAltitudeLabels(plot, camera, atm);
     drawScaleBar(plot, camera);
-    if (allowInteraction) layout = { plot, camera, mode: 'atmosphere' };
+    // Only the selected panel is hit-tested, and the origin travels with the
+    // geometry so a click in the right-hand panel lands where it was drawn.
+    if (current.active) layout = { plot, camera, originX, originY };
   }
 
   /** The drawing area inside the canvas, shared by the view and the tracer. */
@@ -250,12 +317,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * drawn, and it runs before the first frame, so it asks here rather than
    * guessing at the canvas geometry.
    */
-  function frameFor(state, atmosphere) {
+  function frameFor(observer, atmosphere, panels = 1) {
     const { w, h } = cssSize();
-    const plot = plotRect(w, h);
+    // In the comparison each observer gets half the canvas, and the rays have
+    // to be laid out over the frame they will actually be drawn in.
+    const plot = plotRect(panels > 1 ? (w - 10) / 2 : w, h);
     const camera = makeCamera(atmosphere, plot,
-      spanFor(state, atmosphere, state.observer.z), belowGroundFor(state),
-      Math.max(0, -state.observer.z));
+      spanFor(observer, atmosphere), belowGroundFor(observer),
+      Math.max(0, -observer.z));
     return {
       span_m: camera.span,
       halfWidth_m: camera.halfWidth,
@@ -263,17 +332,17 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     };
   }
 
-  /** How far below the surface the frame has to reach, in metres. */
-  function belowGroundFor(state) {
-    const well = state.observer.well;
-    return well.enabled ? Math.max(well.depth_m, -state.observer.z) : 0;
+  /** How far below the surface this observer's frame has to reach, in metres. */
+  function belowGroundFor(observer) {
+    const well = observer.well;
+    return well.enabled ? Math.max(well.depth_m, -observer.z) : 0;
   }
 
   /** Which vertical extent is on screen: the observer's choice, or the default. */
-  function spanFor(state, atmosphere, z) {
-    return state.camera?.span_m != null
-      ? clampSpan(state.camera.span_m)
-      : autoSpanFor(atmosphere, z, state.observer.well);
+  function spanFor(observer, atmosphere) {
+    return observer.span_m != null
+      ? clampSpan(observer.span_m)
+      : autoSpanFor(atmosphere, observer.z, observer.well);
   }
 
   /**
@@ -314,7 +383,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * hundred kilometres of air - zoom in to see it.
    */
   function cutShaft(camera) {
-    const well = data.state.observer.well;
+    const well = current.observer.well;
     if (!well.enabled) return;
     const top = camera.project({ x: -well.radius_m, y: camera.R });
     const bottom = camera.project({ x: well.radius_m, y: camera.R - well.depth_m });
@@ -437,8 +506,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * version of the same light, and a second set of decorative rays only
    * competed with it.
    */
-  function drawStarMarker(plot, evaluation) {
-    const color = data.result.primary.colors.source.css;
+  function drawStarMarker(plot) {
+    const color = current.evaluation.colors.source.css;
     ctx.save();
     ctx.globalAlpha = 0.9;
     ctx.fillStyle = color;
@@ -465,7 +534,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * out through the mouth. The blue you can actually have is the blue inside it.
    */
   function drawApertureCone(plot, camera, z) {
-    const well = data.state.observer.well;
+    const well = current.observer.well;
     if (!well.enabled || z >= 0) return;
     const half = wellApertureHalfAngle(-z, well.radius_m);
     if (!(half > 0) || half >= Math.PI / 2 - 1e-6) return;
@@ -501,7 +570,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.font = '10px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(180, 220, 255, 0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('θmax = ' + formatAngle(half * 180 / Math.PI), plot.x + 8, plot.y + 14);
+    ctx.fillText('θmax = ' + formatAngle(half * 180 / Math.PI),
+      plot.x + 8, plot.y + 14 + current.topInset);
     ctx.restore();
   }
 
@@ -514,9 +584,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * are everything else.
    */
   function drawViewCone(plot, camera, z) {
-    const state = data.state;
-    const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
-    const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
+    const observer = current.observer;
+    const sign = Math.cos(observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
+    const axis = sign * observer.viewZenithDeg * Math.PI / 180;
     const half = VIEW_CONE_HALF_DEG * Math.PI / 180;
     const origin = { x: 0, y: camera.R + z };
     const reach = camera.span * 3;
@@ -571,16 +641,20 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * where the observer will never see it, then the light arriving from the rest
    * of the sky, and last, brightest, the rays inside the viewing cone.
    */
-  function drawPhotons(plot, camera, observerZ, timeMs, allowInteraction) {
+  function drawPhotons(plot, camera, observerZ, timeMs) {
     const project = camera.project;
-    const paths = data.photons;
+    const paths = current.photons;
     const animate = data.state.rays.animate;
     const phase = animate ? (timeMs / 2600) % 1 : 1;
 
-    const state = data.state;
-    const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
-    const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
+    const observer = current.observer;
+    const sign = Math.cos(observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
+    const axis = sign * observer.viewZenithDeg * Math.PI / 180;
     const half = VIEW_CONE_HALF_DEG * Math.PI / 180;
+    // Hover and selection are indices into the SELECTED panel's rays; the same
+    // index in the other panel is a different ray, so it must not light up.
+    const hovered = current.active ? hoveredPath : -1;
+    const selected = current.active ? selectedPath : -1;
 
     const observerWorld = { x: 0, y: camera.R + observerZ };
 
@@ -664,7 +738,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       for (let i = 0; i < paths.length; i++) {
         const p = paths[i];
         if (p.kind !== kind || !asContext(p, i)) continue;
-        if (i === selectedPath || i === hoveredPath) continue;
+        if (i === selected || i === hovered) continue;
         strokePath(p, project, phase);
       }
       ctx.stroke();
@@ -679,7 +753,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       const p = paths[i];
       if (p.scatterCount === 0 || !asContext(p, i)) continue;
       ctx.globalAlpha = 0.22;
-      if (i === selectedPath || i === hoveredPath) continue;
+      if (i === selected || i === hovered) continue;
       const e = project(p.events[1]);
       ctx.beginPath();
       ctx.arc(e.x, e.y, 1.4, 0, Math.PI * 2);
@@ -691,7 +765,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     for (let i = 0; i < paths.length; i++) {
       const p = paths[i];
       if (p.kind !== 'missed' || !asContext(p, i)) continue;
-      if (i === selectedPath || i === hoveredPath) continue;
+      if (i === selected || i === hovered) continue;
       const from = project(p.points[p.points.length - 2]);
       const to = project(p.points[p.points.length - 1]);
       drawArrowHead(from.x, from.y, to.x, to.y, 4.5);
@@ -711,7 +785,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.globalAlpha = 0.45;
     ctx.beginPath();
     for (let i = 0; i < paths.length; i++) {
-      if (!missedInCone(paths[i]) || i === selectedPath || i === hoveredPath) continue;
+      if (!missedInCone(paths[i]) || i === selected || i === hovered) continue;
       strokePath(paths[i], project, phase);
     }
     ctx.stroke();
@@ -720,7 +794,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fillStyle = GREY;
     for (let i = 0; i < paths.length; i++) {
       const p = paths[i];
-      if (!missedInCone(p) || i === selectedPath || i === hoveredPath) continue;
+      if (!missedInCone(p) || i === selected || i === hovered) continue;
       const from = project(p.points[p.points.length - 2]);
       const to = project(p.points[p.points.length - 1]);
       drawArrowHead(from.x, from.y, to.x, to.y, 4.5);
@@ -731,7 +805,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.lineWidth = 1.1;
     for (let i = 0; i < paths.length; i++) {
       const p = paths[i];
-      if (!missedInCone(p) || i === selectedPath || i === hoveredPath) continue;
+      if (!missedInCone(p) || i === selected || i === hovered) continue;
       const e = project(p.events[1]);
       ctx.beginPath();
       ctx.arc(e.x, e.y, 3, 0, Math.PI * 2);
@@ -748,7 +822,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const buckets = new Map();
     for (let i = 0; i < paths.length; i++) {
       if (!involved(paths[i]) || !drawnArriving(i)) continue;
-      if (i === selectedPath || i === hoveredPath) continue;
+      if (i === selected || i === hovered) continue;
       // One bucket per band, so the picture holds eight colours and no more.
       const key = paths[i].band ?? 0;
       if (!buckets.has(key)) buckets.set(key, []);
@@ -805,13 +879,13 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
     /* ---- hover and selection ---- */
 
-    for (const index of [hoveredPath, selectedPath]) {
+    for (const index of [hovered, selected]) {
       if (index < 0 || index >= paths.length) continue;
       const p = paths[index];
       const [r, g, b] = RAY_BANDS[p.band ?? 0].rgb;
       ctx.save();
       ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-      ctx.lineWidth = index === selectedPath ? 2.6 : 1.8;
+      ctx.lineWidth = index === selected ? 2.6 : 1.8;
       ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
       ctx.shadowBlur = 8;
       ctx.beginPath();
@@ -922,8 +996,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   /** The rock inside the shaft, shared with the strip so they cannot diverge. */
   function shaftWallCss() {
-    if (!data.wall || !colorimetry) return '#241c16';
-    const c = colorimetry.spectrumToSrgb(data.wall, data.result.exposure);
+    if (!current.wall || !colorimetry) return '#241c16';
+    const c = colorimetry.spectrumToSrgb(current.wall, data.result.exposure);
     return `rgb(${Math.max(22, c.rgb[0])}, ${Math.max(16, c.rgb[1])}, ${Math.max(12, c.rgb[2])})`;
   }
 
@@ -965,7 +1039,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const boxW = width + swatchW + 20;
     const boxH = rows.length * 15 + 8;
     const x = plot.x + 8;
-    const y = plot.y + 8;
+    const y = plot.y + 8 + current.topInset + (current.observer.well.enabled ? 14 : 0);
     ctx.fillStyle = 'rgba(5, 7, 13, 0.66)';
     ctx.fillRect(x, y, boxW, boxH);
 
@@ -1029,8 +1103,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   }
 
   function drawObserver(px, py, evaluation, z) {
-    const zenith = data.state.observer.viewZenithDeg * Math.PI / 180;
-    const azimuth = data.state.observer.viewAzimuthDeg * Math.PI / 180;
+    const zenith = current.observer.viewZenithDeg * Math.PI / 180;
+    const azimuth = current.observer.viewAzimuthDeg * Math.PI / 180;
     // In the cross-section, azimuth 0 points towards the star (to the right).
     const sign = Math.cos(azimuth) >= 0 ? 1 : -1;
     const dx = Math.sin(zenith) * sign;
@@ -1062,16 +1136,36 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   /* ---------------------------------------------------------------- */
 
-  /** Find the traced ray nearest to a canvas point. */
-  function pick(clientX, clientY) {
-    if (!layout || !data || !data.photons) return -1;
+  /** Which panel a canvas point falls in, as an observer id, or null. */
+  function panelAt(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const px = clientX - rect.left;
     const py = clientY - rect.top;
+    for (const box of panelBoxes) {
+      if (px >= box.x && px <= box.x + box.w && py >= box.y && py <= box.y + box.h) {
+        return box.id;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Find the traced ray nearest to a canvas point.
+   *
+   * Only the selected panel is searched. Picking a ray out of the panel that is
+   * not being controlled would open a log about rays that the readouts beside
+   * it do not describe.
+   */
+  function pick(clientX, clientY) {
+    const rays = selectedStation()?.photons;
+    if (!layout || !rays) return -1;
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left - layout.originX;
+    const py = clientY - rect.top - layout.originY;
     const project = layout.camera.project;
     let best = -1, bestDist = 12;
-    for (let i = 0; i < data.photons.length; i++) {
-      const pts = data.photons[i].points;
+    for (let i = 0; i < rays.length; i++) {
+      const pts = rays[i].points;
       let previous = project(pts[0]);
       for (let k = 1; k < pts.length; k++) {
         const current = project(pts[k]);
@@ -1090,8 +1184,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
   }
 
+  /** The panel the controls and the readouts belong to. */
+  function selectedStation() {
+    if (!data || !data.stations) return null;
+    return data.stations.find((entry) => entry.id === data.activeId) ?? data.stations[0];
+  }
+
   return {
-    update, draw, pick, frameFor,
+    update, draw, pick, panelAt, frameFor,
     setHovered(index) { hoveredPath = index; },
     setSelected(index) { selectedPath = index; },
     getSelected() { return selectedPath; },
@@ -1100,6 +1200,35 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
 /** The one grey everything outside the viewing cone is drawn in. */
 const CONTEXT_GREY = '#8a93a6';
+
+/**
+ * The two observers' identity colours.
+ *
+ * Deliberately unlike anything the physics produces: the sky is blue, the rock
+ * is brown, the star is warm white, so an identity colour must be none of
+ * those or it reads as a measurement. Every place that has to say WHICH
+ * observer - the panel frame, the badge, the strip, the histogram, the control
+ * panel - uses these, so the answer is always the same colour.
+ */
+export const STATION_COLOURS = { a: '#ff8fa3', b: '#b197fc' };
+
+export function stationColour(id) {
+  return STATION_COLOURS[id] ?? STATION_COLOURS.a;
+}
+
+/**
+ * Where an observer is, said the way a person would say it.
+ *
+ * "-50 m" is a coordinate, not a place. Fifty metres underground is a place,
+ * and the labels that name an observer have to name somewhere the reader can
+ * picture, because that is the whole of what distinguishes the two of them.
+ */
+export function formatPlace(z, i18n) {
+  if (Math.abs(z) < 0.5) return i18n.t('controls.observer.groundLevel');
+  return z > 0
+    ? formatAltitude(z)
+    : `${formatAltitude(-z)} ${i18n.t('controls.observer.underground')}`;
+}
 
 /* Shared constants and helpers -------------------------------------- */
 

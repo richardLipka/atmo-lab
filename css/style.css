@@ -185,6 +185,41 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 /* ---- controls ----------------------------------------------------- */
 
+/* ---- which observer the controls are aimed at --------------------- *
+ *
+ * The panel says whose sliders these are in that observer's own colour: a
+ * stripe down the observer section, and the same colour on the selected
+ * button. Without it the two-observer comparison is two pictures and a set of
+ * controls with no visible owner, which is precisely how it read before.
+ */
+#controls-root[data-observer] #sec-observer {
+  border-left: 2px solid var(--observer-colour);
+  padding-left: 10px;
+  margin-left: -12px;
+}
+#controls-root[data-observer=""] #sec-observer {
+  border-left: 0;
+  padding-left: 0;
+  margin-left: 0;
+}
+.segmented-observer { display: flex; width: 100%; margin-top: 4px; }
+.segmented-observer button { flex: 1; }
+.segmented-observer button.is-active {
+  background: var(--segment-colour);
+  color: #0a0d16;
+}
+.panel-target {
+  margin: 0 0 12px;
+  padding: 6px 9px;
+  border-left: 3px solid var(--observer-colour, var(--accent));
+  background: var(--bg-panel-2);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
 .control-section { margin-bottom: 18px; }
 .control-section h2 {
   font-size: 11px;

@@ -32,6 +32,7 @@ import { directionFromAngles, sunDirectionFromElevation, raySphereFar, raySphere
 import {
   sliderToZ, zToSlider, createStore, DEFAULT_STATE,
   clampSpan, MIN_SPAN_M, MAX_SPAN_M,
+  makeObserver, observersOf, activeObserver, activeObserverId, activeObserverPath,
 } from '../js/state.js';
 import {
   tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
@@ -1651,11 +1652,17 @@ export function registerTests({ group, test, assert }, config) {
       assert.equal(clampSpan(MAX_SPAN_M * 2), MAX_SPAN_M);
 
       const store = createStore(DEFAULT_STATE);
-      store.patch({ camera: { span_m: 25 } });
-      assert.equal(store.state.camera.span_m, 25,
+      store.patch({ observer: { span_m: 25 } });
+      assert.equal(store.state.observer.span_m, 25,
         'the store must not undo a zoom the interface offers');
-      store.patch({ camera: { span_m: 1 } });
-      assert.equal(store.state.camera.span_m, MIN_SPAN_M);
+      store.patch({ observer: { span_m: 1 } });
+      assert.equal(store.state.observer.span_m, MIN_SPAN_M);
+
+      // The second observer has a frame of their own, held to the same limits.
+      store.patch({ compare: { b: { span_m: 3 } } });
+      assert.equal(store.state.compare.b.span_m, MIN_SPAN_M);
+      assert.equal(store.state.observer.span_m, MIN_SPAN_M,
+        'and zooming one observer must not move the other');
     });
 
     test('standing at the mouth of a shaft sees the whole sky', () => {
@@ -1670,6 +1677,135 @@ export function registerTests({ group, test, assert }, config) {
     test('the mapping keeps metre resolution near the ground', () => {
       const step = sliderToZ(1, 100000, 10000) - sliderToZ(0, 100000, 10000);
       assert.less(step, 1, 'one slider notch near datum must be under a metre');
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+
+  group('two observers, compared', () => {
+    test('the second observer is a whole observer, not an altitude', () => {
+      // The comparison used to hold two numbers, leftZ and rightZ, and give
+      // both of them the first observer's shaft, viewing direction and choice
+      // about the air inside the shaft. So the two panels could differ in
+      // height and in nothing else, and the one thing the experiment exists to
+      // contrast - standing in a shaft against standing high up - could not be
+      // set up at all.
+      const store = createStore(DEFAULT_STATE);
+      store.setContext({ maxAltitude: 100000 });
+      store.patch({
+        compare: {
+          enabled: true,
+          b: { z: -40, viewZenithDeg: 0, countShaftAir: true,
+            well: { enabled: true, radius_m: 2, depth_m: 40 } },
+        },
+      });
+      const b = store.state.compare.b;
+      assert.equal(b.z, -40);
+      assert.equal(b.well.enabled, true);
+      assert.equal(b.countShaftAir, true);
+      assert.equal(b.viewZenithDeg, 0);
+
+      // And none of it reached the first observer.
+      const a = store.state.observer;
+      assert.equal(a.z, 0);
+      assert.equal(a.well.enabled, false);
+      assert.equal(a.countShaftAir, false);
+      assert.equal(a.viewZenithDeg, DEFAULT_STATE.observer.viewZenithDeg);
+    });
+
+    test('each observer is held to the invariants on their own', () => {
+      const store = createStore(DEFAULT_STATE);
+      store.setContext({ maxAltitude: 100000 });
+      store.patch({
+        compare: { enabled: true, b: { well: { enabled: true, depth_m: 30 } } },
+      });
+      // B is in a shaft, so B cannot climb out of it or sink through it.
+      store.patch({ compare: { b: { z: 900 } } });
+      assert.equal(store.state.compare.b.z, 0, 'B cannot climb out of its shaft');
+      store.patch({ compare: { b: { z: -900 } } });
+      assert.equal(store.state.compare.b.z, -30, 'B cannot sink through the bottom');
+      // A has no shaft, so A is free to climb - the two rules run separately.
+      store.patch({ observer: { z: 9000 } });
+      assert.equal(store.state.observer.z, 9000, "A is not bound by B's shaft");
+    });
+
+    test('the observers being simulated follow the switch, and one is selected', () => {
+      const state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+      assert.equal(observersOf(state).length, 1, 'one observer until asked for two');
+      assert.equal(activeObserverId(state), 'a');
+
+      state.compare.enabled = true;
+      const both = observersOf(state);
+      assert.equal(both.length, 2);
+      assert.equal(both[0].id, 'a');
+      assert.equal(both[1].id, 'b');
+      assert.equal(both[1].observer, state.compare.b, 'and it is the real object');
+
+      state.compare.active = 'b';
+      assert.equal(activeObserverId(state), 'b');
+      assert.equal(activeObserver(state), state.compare.b);
+      assert.equal(activeObserverPath(state), 'compare.b');
+
+      // Selecting B and then switching the comparison off must not leave the
+      // interface aimed at an observer that is no longer being simulated.
+      state.compare.enabled = false;
+      assert.equal(activeObserverId(state), 'a');
+      assert.equal(activeObserver(state), state.observer);
+      assert.equal(activeObserverPath(state), 'observer');
+    });
+
+    test('two observers give two different measurements, from two traces', () => {
+      // The heart of it. One trace cannot answer for two observers, and the
+      // comparison used to make one and show it twice: the second panel drew
+      // the first observer's rays under a different label, and the strip below
+      // both had to fall back to the integrator because nothing had been
+      // measured for either. Each observer is traced separately now, and this
+      // pins the difference that separation is for.
+      const atmosphere = earth;
+      const source = sunSpectrum;
+      const trace = (observer) => tracePhotons({
+        atmosphere, source, sunElevationDeg: 55,
+        observerZ: observer.z, well: observer.well,
+        count: 3000, seed: 4242,
+        span_m: 120000, halfWidth_m: 60000, skyExtent_m: 120000,
+      });
+
+      const open = makeObserver({ z: 0 });
+      const shaft = makeObserver({
+        z: -50, well: { enabled: true, radius_m: 1.5, depth_m: 50 },
+      });
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+
+      const openRays = trace(open);
+      const shaftRays = trace(shaft);
+      const openUp = measureCone(openRays, 0, cone);
+      const shaftUp = measureCone(shaftRays, 0, cone);
+
+      assert.greater(openUp.arrived, 50, 'open ground collects rays from everywhere');
+      assert.less(shaftUp.arrived, openUp.arrived / 4,
+        'and a shaft collects a small fraction of them');
+      assert.greater(shaftUp.blocked, 0, 'because the rock takes the rest');
+      assert.equal(openUp.blocked, 0, 'while open ground has no rock to take any');
+
+      // The brightness ratio is the point of the whole experiment, and it is
+      // large. If the two ever came out equal, the comparison would be drawing
+      // one observer twice again.
+      const openY = colorimetry.luminance(openUp.spectrum);
+      const shaftY = colorimetry.luminance(shaftUp.spectrum);
+      assert.less(shaftY, openY * 0.2,
+        `shaft ${shaftY.toExponential(2)} against open ${openY.toExponential(2)}`);
+    });
+
+    test('an observer carries their own frame, and zooming one leaves the other', () => {
+      const store = createStore(DEFAULT_STATE);
+      store.setContext({ maxAltitude: 100000 });
+      store.patch({ compare: { enabled: true } });
+      store.patch({ observer: { span_m: 400 } });
+      assert.equal(store.state.observer.span_m, 400);
+      assert.equal(store.state.compare.b.span_m, null,
+        'the other observer keeps fitting its own frame to the air');
+      store.patch({ compare: { b: { span_m: 900000 } } });
+      assert.equal(store.state.observer.span_m, 400, 'and stays where it was put');
     });
   });
 

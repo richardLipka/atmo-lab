@@ -4,12 +4,23 @@
  * Controls are declared as data rather than written out as markup, so adding a
  * new physical parameter is one entry in the list below. Each entry names the
  * state path it drives; nothing here knows anything about the physics.
+ *
+ * Every `observer.*` path is aimed at whichever observer is SELECTED, and that
+ * is the whole of how the comparison is controlled. The entries below say
+ * `observer.z`, and if observer B is the selected one they read and write
+ * `compare.b.z` instead. Nothing here needed a second set of controls, and the
+ * alternative - a comparison whose two halves were driven by state the panel
+ * could not reach - is exactly what made it impossible to tell what the sliders
+ * were doing.
  */
 
 import {
   sliderToZ, zToSlider, maxAltitudeFor, MIN_SPAN_M, MAX_SPAN_M,
+  activeObserverPath, activeObserver, activeObserverId,
 } from '../state.js';
-import { formatAltitude, autoSpanFor } from '../render/scene-renderer.js';
+import {
+  formatAltitude, autoSpanFor, stationColour,
+} from '../render/scene-renderer.js';
 
 function getPath(object, path) {
   return path.split('.').reduce((node, key) => (node == null ? node : node[key]), object);
@@ -24,6 +35,31 @@ function setPath(patch, path, value) {
   }
   node[keys[keys.length - 1]] = value;
   return patch;
+}
+
+/** Rewrite an `observer.*` path so it names the selected observer. */
+function aim(path, state) {
+  if (path !== 'observer' && !path.startsWith('observer.')) return path;
+  return activeObserverPath(state) + path.slice('observer'.length);
+}
+
+/** Read a state path, aimed at the selected observer. */
+function readAimed(state, path) {
+  return getPath(state, aim(path, state));
+}
+
+/**
+ * Send a patch to the selected observer.
+ *
+ * The declarations and the `onChange` handlers below all speak of `observer`,
+ * because that is what they are about; this is the single place where "which
+ * observer" is answered, so there is no way for one control to be retargeted
+ * and another to be forgotten.
+ */
+function retarget(patch, state) {
+  if (!patch.observer || activeObserverId(state) !== 'b') return patch;
+  const { observer, ...rest } = patch;
+  return { ...rest, compare: { ...(rest.compare ?? {}), b: observer } };
 }
 
 /** Surface pressure, in whatever unit keeps the number readable. */
@@ -59,6 +95,36 @@ export function createControls(root, { store, i18n, config }) {
   }
 
   const sections = [
+    {
+      id: 'sec-compare', titleKey: 'compare.title',
+      controls: [
+        {
+          id: 'ctl-compare', type: 'checkbox', labelKey: 'compare.enable',
+          helpKey: 'compare.enableHelp', path: 'compare.enabled',
+          // Switching the comparison on hands the controls back to A, so that
+          // it always begins from the observer that was there a moment ago.
+          onChange: (enabled) => ({ compare: { enabled, active: 'a' } }),
+        },
+        {
+          id: 'ctl-compare-active', type: 'segment', labelKey: 'compare.controls',
+          helpKey: 'compare.controlsHelp', path: 'compare.active',
+          dependsOn: 'compare.enabled',
+          options: () => [
+            { value: 'a', label: i18n.t('compare.observerA'), colour: stationColour('a') },
+            { value: 'b', label: i18n.t('compare.observerB'), colour: stationColour('b') },
+          ],
+        },
+        {
+          // A note draws itself from its own text, so it hides itself by
+          // returning nothing rather than by declaring a dependency.
+          id: 'ctl-compare-note', type: 'note',
+          text: (state) => (state.compare.enabled
+            ? i18n.t('compare.note').replace('{observer}',
+              i18n.t(activeObserverId(state) === 'b' ? 'compare.observerB' : 'compare.observerA'))
+            : ''),
+        },
+      ],
+    },
     {
       id: 'sec-star', titleKey: 'controls.star.title',
       controls: [
@@ -203,13 +269,13 @@ export function createControls(root, { store, i18n, config }) {
           id: 'ctl-well', type: 'checkbox', labelKey: 'controls.observer.wellEnabled',
           path: 'observer.well.enabled',
           onChange: (enabled) => {
-            const state = store.state;
+            const observer = activeObserver(store.state);
             if (enabled) {
-              const depth = state.observer.well?.depth_m ?? 50;
-              const z = state.observer.z <= 0 ? -depth : state.observer.z;
+              const depth = observer.well?.depth_m ?? 50;
+              const z = observer.z <= 0 ? -depth : observer.z;
               return { observer: { well: { enabled: true }, z } };
             }
-            return { observer: { well: { enabled: false }, z: Math.max(0, state.observer.z) } };
+            return { observer: { well: { enabled: false }, z: Math.max(0, observer.z) } };
           },
         },
         {
@@ -232,15 +298,13 @@ export function createControls(root, { store, i18n, config }) {
         },
         {
           id: 'ctl-zoom', type: 'range', labelKey: 'controls.observer.zoom',
-          helpKey: 'controls.observer.zoomHelp', path: 'camera.span_m',
+          helpKey: 'controls.observer.zoomHelp', path: 'observer.span_m',
           min: MIN_SPAN_M, max: MAX_SPAN_M, step: 1, scale: 'log',
-          fallback: (state) => autoSpanFor(
-            atmosphereShape(state), state.observer.z, state.observer.well),
+          fallback: (state) => {
+            const observer = activeObserver(state);
+            return autoSpanFor(atmosphereShape(state), observer.z, observer.well);
+          },
           format: (v) => formatAltitude(v),
-        },
-        {
-          id: 'ctl-compare', type: 'checkbox', labelKey: 'compare.enable',
-          path: 'compare.enabled',
         },
       ],
     },
@@ -343,7 +407,18 @@ export function createControls(root, { store, i18n, config }) {
     label.appendChild(value);
 
     let input;
-    if (control.type === 'range') {
+    if (control.type === 'segment') {
+      // A row of buttons rather than a select, because this one answers a
+      // question the reader has to be able to answer at a glance - which
+      // simulation am I steering - and a collapsed dropdown does not.
+      input = document.createElement('div');
+      input.className = 'segmented segmented-observer';
+      input.setAttribute('role', 'group');
+      input.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-value]');
+        if (button) commit(control, button.dataset.value);
+      });
+    } else if (control.type === 'range') {
       input = document.createElement('input');
       input.type = 'range';
       if (control.mapping === 'position') { input.min = -1000; input.max = 1000; input.step = 1; }
@@ -370,6 +445,10 @@ export function createControls(root, { store, i18n, config }) {
     if (control.type === 'checkbox') {
       field.appendChild(input);
       field.appendChild(label);
+    } else if (control.type === 'segment') {
+      label.htmlFor = '';
+      field.appendChild(label);
+      field.appendChild(input);
     } else {
       field.appendChild(label);
       field.appendChild(input);
@@ -386,7 +465,8 @@ export function createControls(root, { store, i18n, config }) {
     if (control.mapping === 'position') {
       const state = store.state;
       const atmosphereConfig = config.atmospheres.get(state.atmosphere.presetId);
-      const maxDepth = state.observer.well.enabled ? state.observer.well.depth_m : 0;
+      const well = activeObserver(state).well;
+      const maxDepth = well.enabled ? well.depth_m : 0;
       return sliderToZ(raw, maxAltitudeFor(atmosphereConfig), maxDepth);
     }
     if (control.scale === 'log') return logToValue(raw / 1000, control.min, control.max);
@@ -394,29 +474,32 @@ export function createControls(root, { store, i18n, config }) {
   }
 
   function commit(control, value) {
+    const state = store.state;
     if (control.onChange) {
-      store.patch(control.onChange(value));
+      store.patch(retarget(control.onChange(value), state));
       return;
     }
     if (control.mapping === 'view') {
       // A signed control: negative means looking away from the star.
-      store.patch({
+      store.patch(retarget({
         observer: {
           viewZenithDeg: Math.abs(value),
           viewAzimuthDeg: value >= 0 ? 0 : 180,
         },
-      });
+      }, state));
       return;
     }
-    store.patch(setPath({}, control.path, control.nullable && value === '' ? null : value));
+    store.patch(setPath({}, aim(control.path, state),
+      control.nullable && value === '' ? null : value));
   }
 
   function currentValue(control, state) {
     if (control.mapping === 'view') {
-      const signed = state.observer.viewAzimuthDeg > 90 ? -1 : 1;
-      return state.observer.viewZenithDeg * signed;
+      const observer = activeObserver(state);
+      const signed = observer.viewAzimuthDeg > 90 ? -1 : 1;
+      return observer.viewZenithDeg * signed;
     }
-    const raw = getPath(state, control.path);
+    const raw = readAimed(state, control.path);
     if (raw == null && control.fallback) return control.fallback(state);
     return raw;
   }
@@ -427,7 +510,14 @@ export function createControls(root, { store, i18n, config }) {
     const advanced = state.level === 'advanced';
     const atmosphereConfig = config.atmospheres.get(state.atmosphere.presetId);
     const maxAltitude = maxAltitudeFor(atmosphereConfig);
-    const maxDepth = state.observer.well.enabled ? state.observer.well.depth_m : 0;
+    const aimed = activeObserver(state);
+    const maxDepth = aimed.well.enabled ? aimed.well.depth_m : 0;
+
+    // Everything in the observer section belongs to one of the two, and the
+    // panel says which in its own colour rather than leaving it to be inferred
+    // from a picture somewhere else.
+    root.dataset.observer = state.compare.enabled ? activeObserverId(state) : '';
+    root.style.setProperty('--observer-colour', stationColour(activeObserverId(state)));
 
     for (const { control, field, input, value, labelText } of elements.values()) {
       if (control.type === 'note') {
@@ -442,11 +532,31 @@ export function createControls(root, { store, i18n, config }) {
       }
 
       field.hidden = (control.advanced && !advanced) ||
-        (control.dependsOn && !getPath(state, control.dependsOn));
+        (control.dependsOn && !readAimed(state, control.dependsOn));
 
       const raw = currentValue(control, state);
 
-      if (control.type === 'select') {
+      if (control.type === 'segment') {
+        const options = control.options();
+        if (input.dataset.signature !== i18n.getLanguage()) {
+          input.textContent = '';
+          for (const option of options) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.dataset.value = option.value;
+            button.textContent = option.label;
+            input.appendChild(button);
+          }
+          input.dataset.signature = i18n.getLanguage();
+        }
+        input.querySelectorAll('button').forEach((button) => {
+          const on = button.dataset.value === String(raw);
+          button.classList.toggle('is-active', on);
+          button.style.setProperty('--segment-colour',
+            options.find((o) => o.value === button.dataset.value)?.colour ?? '');
+        });
+        value.textContent = '';
+      } else if (control.type === 'select') {
         const options = control.options();
         const wanted = options.map((o) => o.value).join('|');
         if (input.dataset.signature !== wanted + '|' + i18n.getLanguage()) {

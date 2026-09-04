@@ -494,9 +494,57 @@ case it is the rock. The cross-section paints the inside of the shaft with the
 same spectrum, so the hole in the ground and the wings of the strip cannot drift
 apart.
 
-The side-by-side comparison is the exception: two observers, one set of traced
-rays, and only the integrator can answer for both. There the strip falls back to
-the computed dome.
+### Two observers, and which one you are steering
+
+Switching the comparison on adds a **second observer of exactly the same kind**,
+and everything the first one has, the second one has too: their own position,
+their own viewing direction, their own shaft, their own choice about the air
+inside it, their own frame. One of the two is **selected**, and that single fact
+answers every question the interface used to leave open.
+
+- The **left-hand panel drives the selected observer**. Every control declares
+  an `observer.*` path, and one function rewrites those paths to `compare.b.*`
+  when B is selected, so there is no way for one slider to be retargeted and
+  another to be forgotten. The section is striped in that observer's colour and
+  the sliders read back their values, not the other one's.
+- The **cross-section draws one panel per observer**, each from its own trace.
+  The selected panel is framed in its colour and says so; the other says *click
+  to select*, and clicking it does exactly that.
+- **The light analysis sits under the panel it was measured from.** Two
+  histograms and two strips of sky, laid out on the same halves as the panels
+  above them, each built from the rays drawn directly overhead. The histograms
+  share one vertical scale, held at the brighter of the two — separate scales
+  would fit both to full height and hide the only thing worth seeing, which is
+  that one of these skies is a hundredth of the other.
+- The **right-hand panel answers for the selected observer**, and carries a
+  badge saying which one and where they are standing.
+
+What this replaced is worth writing down, because it looked reasonable and was
+not. The comparison used to hold two numbers, `leftZ` and `rightZ`, and give
+both observers the first one's shaft, viewing direction and choice about the
+shaft air — so the two panels could differ in height and in nothing else, and
+the one contrast the whole experiment exists for could not be set up. Worse,
+only one set of rays was traced, for an observer neither panel was drawing: the
+second panel showed the first observer's rays under a different label, and the
+strip beneath both had to fall back to the integrator, because nothing had been
+measured for either. Theory under a picture that has no say in it, in the one
+place where the argument is that two observers under the same sky see different
+things.
+
+`primary` in the evaluated result is therefore not "the first observer" but
+**"the selected observer"**. Every readout that quotes one number reads it, and
+so describes the panel the reader has chosen without having to know that a
+comparison is running at all. The table used to gain a second column; it does
+not any more, because the swatch, the spectrum plot, the band tally and the
+chromaticity diagram above it could not be doubled and went on describing
+whichever observer the rest of the interface happened to point at. Half a panel
+about one observer and half about another is worse than either.
+
+The zoom moved out of a global `camera` and into the observer for the same
+reason: two observers looking at a shaft two metres across and at a hundred
+kilometres of air cannot share one frame. Rolling the wheel zooms the panel
+under the pointer without changing the selection — pointing at a thing is
+already unambiguous about which thing you mean.
 
 ### The beam histogram
 

@@ -8,6 +8,7 @@
  * place where the model is assembled.
  */
 
+import { observersOf, activeObserverId } from './state.js';
 import { createAtmosphere } from './physics/atmosphere.js';
 import { makeBlackbodySpectrum, wienPeakNm, specNew, SPECTRUM_BINS } from './physics/spectrum.js';
 import { sunDirectionFromElevation, directionFromAngles, DEG } from './physics/geometry.js';
@@ -72,17 +73,26 @@ export function createSimulation({ config, colorimetry }) {
     return spectrum;
   }
 
-  function sceneFor(state, atmosphere, source, overrideZ) {
+  /**
+   * The scene one observer stands in.
+   *
+   * The observer is passed in whole rather than as a bare altitude. It used to
+   * be an altitude, and the comparison paid for it: the second observer got the
+   * first one's shaft, the first one's viewing direction and the first one's
+   * choice about the air inside the shaft, so the two panels differed in height
+   * and in nothing else. An observer is where they stand AND what they are
+   * standing in.
+   */
+  function sceneFor(state, atmosphere, source, observer = state.observer) {
     const starPreset = config.stars.get(state.star.presetId);
-    const z = overrideZ ?? state.observer.z;
     return buildScene({
       atmosphere,
       sourceSpectrum: source,
       sunDirection: sunDirectionFromElevation(state.star.elevationDeg),
       sunElevationDeg: state.star.elevationDeg,
-      observerZ: z,
-      well: state.observer.well,
-      countShaftAir: state.observer.countShaftAir,
+      observerZ: observer.z,
+      well: observer.well,
+      countShaftAir: observer.countShaftAir,
       starAngularRadiusDeg: starPreset?.angularRadius_deg ?? 0.2665,
     });
   }
@@ -92,13 +102,13 @@ export function createSimulation({ config, colorimetry }) {
   }
 
   /** Evaluate one observer completely. */
-  function evaluate(state, atmosphere, source, overrideZ) {
+  function evaluate(state, atmosphere, source, observer = state.observer) {
     const quality = QUALITY_PRESETS[state.rays.quality] ?? QUALITY_PRESETS.normal;
-    const scene = sceneFor(state, atmosphere, source, overrideZ);
+    const scene = sceneFor(state, atmosphere, source, observer);
     const exposure = exposureFor(state);
 
     const viewDir = directionFromAngles(
-      state.observer.viewZenithDeg * DEG, state.observer.viewAzimuthDeg * DEG);
+      observer.viewZenithDeg * DEG, observer.viewAzimuthDeg * DEG);
     const view = computeViewRadiance(scene, viewDir, quality);
     const beam = computeDirectBeam(scene, quality);
     const dome = computeSkyDome(scene, { samples: 73, quality: QUALITY_PRESETS.preview });
@@ -106,7 +116,7 @@ export function createSimulation({ config, colorimetry }) {
 
     const skyColor = colorimetry.spectrumToSrgb(view.observed, exposure);
     const perceived = perceivedSky(
-      dome, scene, view.observed, state.observer.viewZenithDeg * DEG);
+      dome, scene, view.observed, observer.viewZenithDeg * DEG);
     const perceivedColor = colorimetry.spectrumToSrgb(perceived.spectrum, exposure);
     const scatterColor = colorimetry.spectrumToSrgb(view.scattered, exposure);
     // The star is shown at its own exposure: it is a direct source, not a dim
@@ -218,8 +228,14 @@ export function createSimulation({ config, colorimetry }) {
   }
 
   /**
-   * Full evaluation for the current state, plus the second observer when the
-   * side-by-side comparison is running.
+   * Full evaluation of the current state: one entry per observer being
+   * simulated, and a pointer to the one the interface answers for.
+   *
+   * `primary` is not "the first observer", it is "the SELECTED observer". Every
+   * readout that quotes one number - the spectrum plot, the swatches, the
+   * table, the explanation at the foot of the page - reads it, and so every one
+   * of them describes the panel the user has selected without having to know
+   * that a comparison is running at all.
    */
   function run(state) {
     const atmosphereConfig = config.atmospheres.get(state.atmosphere.presetId)
@@ -227,21 +243,19 @@ export function createSimulation({ config, colorimetry }) {
     const atmosphere = atmosphereFor(state);
     const source = sourceFor(state, atmosphereConfig);
 
-    const primary = evaluate(state, atmosphere, source);
-    const result = {
+    const observers = observersOf(state).map(({ id, observer }) => ({
+      id, observer, evaluation: evaluate(state, atmosphere, source, observer),
+    }));
+    const activeId = activeObserverId(state);
+    const active = observers.find((entry) => entry.id === activeId) ?? observers[0];
+
+    return {
       atmosphere, atmosphereConfig, source,
       exposure: exposureFor(state),
-      primary,
-      compare: null,
+      observers,
+      activeId: active.id,
+      primary: active.evaluation,
     };
-
-    if (state.compare.enabled) {
-      result.compare = {
-        left: evaluate(state, atmosphere, source, state.compare.leftZ),
-        right: evaluate(state, atmosphere, source, state.compare.rightZ),
-      };
-    }
-    return result;
   }
 
   return { run, atmosphereFor, sourceFor, sceneFor, exposureFor };

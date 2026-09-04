@@ -23,6 +23,33 @@ export function clampSpan(span) {
   return Math.max(MIN_SPAN_M, Math.min(MAX_SPAN_M, span));
 }
 
+/**
+ * One observer, complete: where they stand, where they look, the shaft they
+ * stand in, and how much of the world their own frame shows.
+ *
+ * It is a factory rather than a constant because there are two of these in the
+ * state and they must not share a single nested `well` object between them -
+ * moving one observer's shaft would otherwise move the other's.
+ */
+export function makeObserver(overrides = {}) {
+  return {
+    z: 0,
+    viewZenithDeg: 35,
+    viewAzimuthDeg: 180,
+    countShaftAir: false,
+    /**
+     * Vertical extent of THIS observer's frame, in metres; null means "fit the
+     * frame to the air". The zoom belongs to the observer and not to one global
+     * camera because the two observers being compared are looking at wildly
+     * different things - a shaft two metres across beside a hundred kilometres
+     * of air - and a single shared zoom can only ever be right for one of them.
+     */
+    span_m: null,
+    ...overrides,
+    well: { enabled: false, radius_m: 1.5, depth_m: 50, ...(overrides.well ?? {}) },
+  };
+}
+
 export const DEFAULT_STATE = {
   language: 'cs',
   level: 'basic',
@@ -45,17 +72,7 @@ export const DEFAULT_STATE = {
     rayleighExponent: 4,
   },
 
-  observer: {
-    z: 0,
-    viewZenithDeg: 35,
-    viewAzimuthDeg: 180,
-    countShaftAir: false,
-    well: { enabled: false, radius_m: 1.5, depth_m: 50 },
-  },
-
-  // Null means "fit the frame to the air"; a number is a vertical extent in
-  // metres, chosen with the zoom control or the mouse wheel.
-  camera: { span_m: null },
+  observer: makeObserver(),
 
   rays: {
     count: 600,
@@ -81,8 +98,49 @@ export const DEFAULT_STATE = {
     },
   },
 
-  compare: { enabled: false, leftZ: 10000, rightZ: -10000 },
+  /**
+   * The second observer, and which of the two the interface answers for.
+   *
+   * There is no separate "comparison mode" state any more. Switching the
+   * comparison on adds a second observer of exactly the same kind, simulated
+   * exactly the same way; `active` says which one the controls edit, which one
+   * the readouts describe, and which panel is drawn as the selected one. That
+   * is the whole of it, and it is why nothing downstream has to ask whether a
+   * comparison is running before it can say what a number means.
+   */
+  compare: {
+    enabled: false,
+    active: 'a',
+    b: makeObserver({ z: 10000 }),
+  },
 };
+
+/** Which observer the interface is pointed at: 'a' or 'b'. */
+export function activeObserverId(state) {
+  return state.compare.enabled && state.compare.active === 'b' ? 'b' : 'a';
+}
+
+/** The state path prefix of the observer the interface is pointed at. */
+export function activeObserverPath(state) {
+  return activeObserverId(state) === 'b' ? 'compare.b' : 'observer';
+}
+
+/** The observer the interface is pointed at. */
+export function activeObserver(state) {
+  return activeObserverId(state) === 'b' ? state.compare.b : state.observer;
+}
+
+/**
+ * Every observer being simulated, in the order their panels are drawn. One
+ * normally; two when the comparison is on, and then each gets its own trace,
+ * its own strip and its own histogram, because a measurement made for one
+ * observer says nothing about the other.
+ */
+export function observersOf(state) {
+  const list = [{ id: 'a', observer: state.observer }];
+  if (state.compare.enabled) list.push({ id: 'b', observer: state.compare.b });
+  return list;
+}
 
 /** Highest altitude the position control can reach, in metres. */
 export function maxAltitudeFor(atmosphereConfig) {
@@ -139,13 +197,22 @@ export function createStore(initial = DEFAULT_STATE) {
   const listeners = new Set();
   let context = { maxAltitude: 100000 };
 
+  /** Mark a path as changed, and every prefix of it, for coarse subscribers. */
+  function mark(changed, path) {
+    changed.add(path);
+    let p = path;
+    while (p.includes('.')) {
+      p = p.slice(0, p.lastIndexOf('.'));
+      changed.add(p);
+    }
+  }
+
   /**
-   * Enforce the invariants that make the model meaningful:
-   * being below datum means being in a shaft, and the shaft is what limits
-   * how far down the observer can go.
+   * The invariants that belong to an observer, applied to whichever observer
+   * this is. Both of them get the same treatment: the second observer is not a
+   * lesser thing that only carries an altitude, it is an observer.
    */
-  function reconcile(changed) {
-    const obs = state.observer;
+  function reconcileObserver(obs, prefix, changed) {
     // Inside a shaft you are somewhere between its bottom and its mouth, and
     // nowhere else: the cross-section shows the shaft the whole time the shaft
     // is switched on, so the position control must not be able to leave it.
@@ -154,18 +221,26 @@ export function createStore(initial = DEFAULT_STATE) {
     const clamped = Math.max(-maxDepth, Math.min(ceiling, obs.z));
     if (clamped !== obs.z) {
       obs.z = clamped;
-      changed.add('observer.z');
-      changed.add('observer');
+      mark(changed, `${prefix}.z`);
     }
-    const span = state.camera.span_m;
+    const span = obs.span_m;
     if (span != null) {
       const fixed = clampSpan(span);
       if (fixed !== span) {
-        state.camera.span_m = fixed;
-        changed.add('camera.span_m');
-        changed.add('camera');
+        obs.span_m = fixed;
+        mark(changed, `${prefix}.span_m`);
       }
     }
+  }
+
+  /**
+   * Enforce the invariants that make the model meaningful: being below datum
+   * means being in a shaft, the shaft limits how far down the observer can go,
+   * and both observers are held to it, not just the one being edited.
+   */
+  function reconcile(changed) {
+    reconcileObserver(state.observer, 'observer', changed);
+    reconcileObserver(state.compare.b, 'compare.b', changed);
     // The drawing budget is a pair of shares, and a share outside [0, 1] is not
     // a share. Nothing downstream would crash on one, but the tracer would draw
     // a family with a negative population and the picture would quietly lose it.
@@ -178,14 +253,11 @@ export function createStore(initial = DEFAULT_STATE) {
         changed.add('rays.mix');
       }
     }
-    if (state.compare.enabled) {
-      const depth = Math.max(obs.well.depth_m, 1);
-      const right = Math.max(-depth, Math.min(0, state.compare.rightZ));
-      if (right !== state.compare.rightZ) {
-        state.compare.rightZ = right;
-        changed.add('compare.rightZ');
-        changed.add('compare');
-      }
+    // Only two observers exist, so only two answers are meaningful. A stray
+    // value here would leave the controls editing nobody.
+    if (state.compare.active !== 'a' && state.compare.active !== 'b') {
+      state.compare.active = 'a';
+      mark(changed, 'compare.active');
     }
   }
 

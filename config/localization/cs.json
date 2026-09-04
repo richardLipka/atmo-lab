@@ -270,13 +270,17 @@
     "relative": "rel."
   },
   "compare": {
-    "title": "Vedle sebe",
-    "left": "Vlevo",
-    "right": "Vpravo",
-    "altitude": "10 km nad povrchem",
-    "shaft": "10 km hluboko v šachtě",
-    "verdict": "Stejný vzduch nad hlavou, naprosto odlišná obloha.",
-    "enable": "Porovnat dva pozorovatele"
+    "controls": "Ovládání patří",
+    "controlsHelp": "Který z pozorovatelů poslouchá levý panel. Druhý zůstává přesně tam, kde je. Přepnout lze i kliknutím do jeho obrázku.",
+    "enable": "Porovnat dva pozorovatele",
+    "enableHelp": "Přidá druhého pozorovatele. Každý má vlastní simulaci: vlastní paprsky, vlastní šachtu, vlastní řez i vlastní pás oblohy pod ním.",
+    "note": "Posuvníky níže i pravý panel patří tomuto pozorovateli: {observer}.",
+    "observerA": "Pozorovatel A",
+    "observerB": "Pozorovatel B",
+    "readoutFor": "Měřeno pro {observer} · {where}",
+    "selectHint": "klikni pro výběr",
+    "selected": "vybraný — ovládá ho levý panel",
+    "title": "Porovnání dvou pozorovatelů"
   },
   "footer": {
     "model": "Model s jednonásobným rozptylem",
