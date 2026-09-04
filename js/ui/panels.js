@@ -413,11 +413,15 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
       theoryAgreement.textContent = '';
       return;
     }
-    const measured = colorimetry.spectrumToSrgb(histogram.coneSpectrum, result.exposure);
+    // Sky against sky. The swatch shows what fills the field of view, rock and
+    // all; the integrator answers only for the sky, so comparing the two would
+    // report a large difference down a shaft and mean nothing by it.
+    const sky = histogram.coneSkySpectrum ?? histogram.coneSpectrum;
+    const measured = colorimetry.spectrumToSrgb(sky, result.exposure);
     const target = result.primary.colors.sky.chromaticity;
     const distance = Math.hypot(
       measured.chromaticity[0] - target[0], measured.chromaticity[1] - target[1]);
-    const measuredY = colorimetry.luminance(histogram.coneSpectrum);
+    const measuredY = colorimetry.luminance(sky);
     const theoryY = colorimetry.luminance(result.primary.perceived);
     const ratio = theoryY > 0 ? measuredY / theoryY : null;
     theoryAgreement.textContent = i18n.t('color.agreement', {
@@ -464,7 +468,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     const cs = i18n.getLanguage() === 'cs';
     const pct = (v) => (v == null ? null : Math.round(v * 100));
     const arriving = histogram && histogram.coneRays > 0
-      ? pct(blueShare(histogram.coneSpectrum)) : null;
+      ? pct(blueShare(histogram.coneSkySpectrum ?? histogram.coneSpectrum)) : null;
     const through = histogram && histogram.beam
       ? pct(blueShare(histogram.beam.spectrum)) : null;
     const emitted = pct(blueShare(result.source));

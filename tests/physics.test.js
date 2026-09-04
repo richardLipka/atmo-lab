@@ -35,7 +35,7 @@ import {
 } from '../js/state.js';
 import {
   tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
-  drawnRayShare, isRayDrawn, skyFromRays, shaftWallSpectrum,
+  drawnRayShare, isRayDrawn, skyFromRays, shaftWallSpectrum, measureCone,
 } from '../js/render/photons.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
@@ -1024,58 +1024,112 @@ export function registerTests({ group, test, assert }, config) {
       assert.close(trace({ count: 6000 }).scatterShare, 0.88, 1e-9);
     });
 
-    test('the strip under the picture is measured, and keeps the aperture narrow', () => {
-      // The strip used to be filled from the integrator while the swatch beside
-      // it was measured from the rays, so the two could disagree about the same
-      // sky. It is the same measurement now, run once per direction.
-      //
-      // The thing it must not do is widen a shaft's aperture. Brightness is
-      // smoothed over a window, because a few rays per degree is noisy; whether
-      // the rock is in the way is taken from the direction's own bin and never
-      // smoothed, or a two-degree hole would be drawn eight degrees wide.
+    test('the strip is the swatch swept across the sky, to the last bit', () => {
+      // The claim that makes them one thing rather than two. Point the observer
+      // any way you like and the colour on the right must be the colour the
+      // strip already shows at that column - not close to it, the same numbers.
+      // They were two functions answering two subtly different questions, and
+      // at the bottom of a shaft the swatch went nearly black while the strip
+      // below it still showed a bright band.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      for (const options of [
+        { count: 20000 },
+        { count: 20000, sunElevationDeg: 6 },
+        {
+          count: 20000, observerZ: -20,
+          well: { enabled: true, radius_m: 1.5, depth_m: 20 },
+        },
+      ]) {
+        const paths = trace(options);
+        // No wall mixed in: that part is a separate statement, tested below.
+        const strip = skyFromRays(paths, { wall: null });
+        for (const zenithDeg of [0, -8, 35, -60]) {
+          // The column's own centre, not the angle asked for: a bin is a degree
+          // wide and the strip evaluates the middle of it.
+          const bin = strip.binOfAngle(zenithDeg);
+          const column = strip.spectrumAt(bin);
+          const swatch = measureCone(
+            paths, strip.angleOf(bin) * Math.PI / 180, cone).spectrum;
+          for (let i = 0; i < SPECTRUM_BINS; i += 6) {
+            assert.close(column[i], swatch[i], 1e-9,
+              `${JSON.stringify(options.well ?? 'open')} at ${zenithDeg} deg, bin ${i}`);
+          }
+        }
+      }
+    });
+
+    test('a shaft empties the strip everywhere its field of view has no sky', () => {
       const depth = 20, radius = 1.5;
       const paths = trace({
         count: 20000, observerZ: -depth,
         well: { enabled: true, radius_m: radius, depth_m: depth },
       });
-      const sky = skyFromRays(paths);
+      const strip = skyFromRays(paths, { wall: null });
+      const shareAt = (deg) => strip.skyShare[strip.binOfAngle(deg)];
       const apertureDeg = wellApertureHalfAngle(depth, radius) * 180 / Math.PI;
       assert.between(apertureDeg, 4, 4.6);
 
-      const blockedAt = (deg) => sky.blockedFraction[sky.binOfAngle(deg)];
-      assert.less(blockedAt(0), 0.1, 'straight up is open');
-      assert.less(blockedAt(apertureDeg - 1.5), 0.5, 'just inside the mouth is open');
-      assert.greater(blockedAt(apertureDeg + 1.5), 0.5, 'just outside it is rock');
-      assert.greater(blockedAt(45), 0.9, 'and well outside it, all rock');
+      // Straight up the shaft there is sky, and not much of it.
+      assert.between(shareAt(0), 0.05, 0.4);
+      // Turn far enough that no part of the field of view can reach the mouth
+      // and there is nothing at all - which is what sends those columns to the
+      // rock rather than to a dim blue.
+      assert.equal(shareAt(apertureDeg + VIEW_CONE_HALF_DEG + 4), 0);
+      assert.equal(shareAt(45), 0);
+      assert.equal(shareAt(-45), 0);
+      // Nothing is traced past 85 degrees; the wall has to reach there too.
+      assert.equal(shareAt(88), 0);
+      assert.equal(shareAt(-88), 0);
+      // And it falls off monotonically from the mouth outwards.
+      const walk = [0, 4, 8, 12, 16, 20].map(shareAt);
+      assert.decreasing(walk.filter((v, i) => i === 0 || walk[i - 1] > 0));
 
-      // Nothing is traced past 85 degrees. Those directions have to inherit the
-      // rock as well as the brightness, or a well grows a bright horizon.
-      assert.greater(blockedAt(88), 0.9, 'the wall reaches the horizon too');
-      assert.greater(blockedAt(-88), 0.9);
-
-      // And the patch of sky that does show through is as bright as open sky:
-      // that is the paradox the well experiment exists to show.
-      const open = skyFromRays(trace({ count: 20000 }));
-      const a = colorimetry.luminance(sky.spectrumAt(sky.binOfAngle(0)));
-      const b = colorimetry.luminance(open.spectrumAt(open.binOfAngle(0)));
-      assert.between(a / b, 0.75, 1.25,
-        `the sky through the mouth is ${(a / b).toFixed(2)} of the open sky`);
+      // On open ground every direction is sky, which is why the strip needed no
+      // rock before a shaft was switched on.
+      const open = skyFromRays(trace({ count: 8000 }), { wall: null });
+      for (const deg of [-80, -35, 0, 35, 80]) {
+        assert.close(open.skyShare[open.binOfAngle(deg)], 1, 0.02, `${deg} deg`);
+      }
     });
 
-    test('the strip agrees with the swatch about the direction being looked at', () => {
-      // One measurement, two places it is shown. If these ever part company,
-      // one of them is decoration again.
-      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
-      const paths = trace({ count: 20000, sunElevationDeg: 55 });
-      const sky = skyFromRays(paths, { smoothDeg: VIEW_CONE_HALF_DEG });
-      for (const zenith of [0, 35, 60]) {
-        const strip = sky.spectrumAt(sky.binOfAngle(-zenith));
-        const swatch = histogramPhotons(paths, -zenith * Math.PI / 180, cone).coneSpectrum;
-        const ratio = colorimetry.luminance(strip) / colorimetry.luminance(swatch);
-        // Not identical: the swatch weighs each ray by the ring of sky it
-        // stands for and the strip does not, because one is a field of view and
-        // the other is a direction. They must still be the same sky.
-        assert.between(ratio, 0.6, 1.6, `at ${zenith} deg the two differ by ${ratio.toFixed(2)}`);
+    test('where the sky runs out the strip shows rock, and joins to it smoothly', () => {
+      // Nothing has no colour, and a black column reads as an absence rather
+      // than as the rock that took the sky away. The rock is mixed in by the
+      // share of the view it fills, so the strip carries from the lit mouth out
+      // to the wall with no seam.
+      const depth = 20, radius = 1.5;
+      const paths = trace({
+        count: 20000, observerZ: -depth,
+        well: { enabled: true, radius_m: radius, depth_m: depth },
+      });
+      const wall = shaftWallSpectrum(paths, earth.groundReflectance, {
+        depth_m: depth, radius_m: radius, sunZenithRad: 50 * Math.PI / 180,
+      });
+      const strip = skyFromRays(paths, { wall });
+
+      // Far from the mouth the column is the rock exactly.
+      const far = strip.spectrumAt(strip.binOfAngle(60));
+      for (let i = 0; i < SPECTRUM_BINS; i += 6) assert.close(far[i], wall[i], 1e-9);
+
+      // And there is no step anywhere along it: neighbouring columns differ by
+      // a few percent, never by a jump from sky to rock.
+      let worst = 0;
+      for (let b = 1; b < strip.bins; b++) {
+        const a = colorimetry.luminance(strip.spectrumAt(b - 1));
+        const c = colorimetry.luminance(strip.spectrumAt(b));
+        const scale = Math.max(a, c, 1e-12);
+        worst = Math.max(worst, Math.abs(a - c) / scale);
+      }
+      assert.less(worst, 0.35, `the strip steps by ${(worst * 100).toFixed(0)}% somewhere`);
+
+      // With no shaft there is no rock in it at all.
+      const openPaths = trace({ count: 8000 });
+      const openStrip = skyFromRays(openPaths, { wall: null });
+      const plain = skyFromRays(openPaths, { wall });
+      for (const deg of [-70, 0, 70]) {
+        const a = openStrip.spectrumAt(openStrip.binOfAngle(deg));
+        const b = plain.spectrumAt(plain.binOfAngle(deg));
+        for (let i = 0; i < SPECTRUM_BINS; i += 9) assert.close(a[i], b[i], 1e-9);
       }
     });
 
@@ -1661,6 +1715,23 @@ export function registerTests({ group, test, assert }, config) {
       computeIllumination(scene, colorimetry);
       const elapsed = Date.now() - started;
       assert.less(elapsed, 33, `a full recompute took ${elapsed} ms, the budget is 33 ms`);
+    });
+
+    test('sweeping the strip across the sky stays cheap too', () => {
+      // The strip is the colour swatch evaluated once per direction, which is
+      // a hundred and eighty times the work the swatch does. That is fine - it
+      // runs on a retrace and not on a frame - but it is exactly the kind of
+      // cost that grows quietly, so it is pinned. The arrivals are bucketed by
+      // direction first so each cone touches only the rays that can fall in it.
+      const paths = tracePhotons({
+        atmosphere: earth, source: sunSpectrum, sunElevationDeg: 30, observerZ: 0,
+        count: 5000, span_m: 25500, skyExtent_m: 24225, halfWidth_m: 12364, seed: 7,
+      });
+      skyFromRays(paths, {});
+      const started = Date.now();
+      skyFromRays(paths, {});
+      const elapsed = Date.now() - started;
+      assert.less(elapsed, 60, `sweeping the sky took ${elapsed} ms`);
     });
 
     test('tracing the drawn rays stays cheap at the largest ray count', () => {

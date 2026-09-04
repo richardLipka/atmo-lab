@@ -71,6 +71,8 @@ async function start() {
   let photonTally = null;
   /** The sky measured from the rays, one direction at a time, for the strip. */
   let skySamples = null;
+  /** The rock a shaft is cut through, shared by the strip and the picture. */
+  let wallSpectrum = null;
   let needsPhysics = true;
   let needsPhotons = true;
   let needsPaint = true;
@@ -99,10 +101,23 @@ async function start() {
       seed: 20260828,
     });
     photonTally = summarisePhotons(photons, { source: result.source });
-    // The strip under the picture is filled from the same measurement the
-    // colour swatch uses, so the two cannot disagree. It depends only on the
-    // traced rays, so it is rebuilt exactly when they are.
-    skySamples = photons.length > 0 ? skyFromRays(photons) : null;
+    // The rock the shaft is cut through, lit by the sky that reaches it. The
+    // strip mixes it in where the field of view runs out of sky, and the
+    // cross-section paints the hole in the ground with it, so the two cannot
+    // drift apart.
+    wallSpectrum = photons.length > 0
+      ? shaftWallSpectrum(photons, result.atmosphere.groundReflectance, {
+        depth_m: state.observer.well.depth_m,
+        radius_m: state.observer.well.radius_m,
+        sunZenithRad: (90 - state.star.elevationDeg) * Math.PI / 180,
+      })
+      : null;
+    // The strip under the picture is the colour swatch swept across the sky -
+    // the same function, once per direction - so the two cannot disagree. It
+    // depends only on the traced rays, so it is rebuilt exactly when they are.
+    skySamples = photons.length > 0
+      ? skyFromRays(photons, { wall: state.observer.well.enabled ? wallSpectrum : null })
+      : null;
     needsPhotons = false;
   }
 
@@ -114,17 +129,7 @@ async function start() {
   function publish({ photonsChanged }) {
     const histogram = beamHistogramFor(store.state);
     const view = {
-      state: store.state, result, photons, sky: skySamples,
-      // The rock the shaft is cut through, lit by the sky that reaches it. One
-      // spectrum, shared by the strip and the cross-section, so the hole in the
-      // ground and the wings of the strip are the same colour.
-      wall: photons && photons.length > 0
-        ? shaftWallSpectrum(photons, result.atmosphere.groundReflectance, {
-          depth_m: store.state.observer.well.depth_m,
-          radius_m: store.state.observer.well.radius_m,
-          sunZenithRad: (90 - store.state.star.elevationDeg) * Math.PI / 180,
-        })
-        : null,
+      state: store.state, result, photons, sky: skySamples, wall: wallSpectrum,
     };
     sceneRenderer.update(view, { keepSelection: !photonsChanged });
     skyStrip.update(view);
@@ -144,7 +149,10 @@ async function start() {
     if (!photons) return null;
     const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
     const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
-    return histogramPhotons(photons, axis, VIEW_CONE_HALF_DEG * Math.PI / 180);
+    // The same wall the strip mixes in, so the swatch and the column under the
+    // observer's direction are the same colour rather than two answers.
+    return histogramPhotons(photons, axis, VIEW_CONE_HALF_DEG * Math.PI / 180,
+      store.state.observer.well.enabled ? wallSpectrum : null);
   }
 
   store.subscribe((state, changed) => {

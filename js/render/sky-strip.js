@@ -81,31 +81,20 @@ export function createSkyStrip(canvas, { i18n, colorimetry }) {
   /**
    * The colour of one direction, as the rays measured it.
    *
-   * A direction the rock has taken shows the wall rather than a black gap. The
-   * blocked test is per bin and never smoothed, so an aperture two degrees wide
-   * stays two degrees wide; only the brightness is drawn from a wider window,
-   * and only from the directions in it that have sky.
+   * This is the colour swatch pointed that way: `measureCone` with the same
+   * field of view and the same arithmetic, so turning the observer to this
+   * direction makes the panel on the right read what this column already shows.
+   * Where the field of view runs out of sky the rock is mixed in by the share
+   * of the view it fills, which carries the strip smoothly from the lit mouth
+   * of a shaft out to the wall.
    */
-  function columnCss(measured, signedAngle, exposure, wall) {
+  function columnCss(measured, signedAngle, exposure) {
     const bin = measured.binOfAngle(signedAngle);
-    if (measured.blockedFraction[bin] > 0.5) return wall;
-    return colorimetry.spectrumToSrgb(measured.spectrumAt(bin), exposure).css;
-  }
-
-  /**
-   * The rock, lit by whatever sky still reaches it - and never allowed to fall
-   * below a dim warm floor.
-   *
-   * The colour is computed, not chosen: the ground's own reflectance under the
-   * sky the wall can see plus whatever the star still reaches it with. A five
-   * metre shaft at a high Sun comes out sunlit sandstone, two hundred metres at
-   * a low one comes out almost black-brown. The floor below is only a guarantee
-   * that it never quite reaches black, because a black strip reads as an
-   * absence rather than as the rock that took the sky away.
-   */
-  function wallCss(measured) {
-    if (!measured || !data.wall || !colorimetry) return '#241c16';
-    const c = colorimetry.spectrumToSrgb(data.wall, data.result.exposure);
+    const c = colorimetry.spectrumToSrgb(measured.spectrumAt(bin), exposure);
+    // The rock is already in the spectrum, mixed in by the share of the view it
+    // fills, so there is no separate blocked case to branch on. The floor only
+    // keeps a column that has neither sky nor much light on its rock from
+    // reading as a hole cut out of the picture.
     return `rgb(${Math.max(22, c.rgb[0])}, ${Math.max(16, c.rgb[1])}, ${Math.max(12, c.rgb[2])})`;
   }
 
@@ -122,7 +111,6 @@ export function createSkyStrip(canvas, { i18n, colorimetry }) {
   function drawBand(evaluation, x, y, w, h, label, measured) {
     const dome = evaluation.dome;
     const exposure = data.result.exposure;
-    const wall = wallCss(measured);
 
     // One column of pixels per viewing direction, on the true angular axis, so
     // the visible sky occupies exactly the share of the strip it occupies of
@@ -132,7 +120,7 @@ export function createSkyStrip(canvas, { i18n, colorimetry }) {
     for (let i = 0; i < columns; i++) {
       const angle = -90 + (180 * (i + 0.5)) / columns;
       ctx.fillStyle = measured
-        ? columnCss(measured, angle, exposure, wall)
+        ? columnCss(measured, angle, exposure)
         : sampleAt(dome, angle).color.css;
       ctx.fillRect(x + (i * w) / columns, y, w / columns + 1, h);
     }

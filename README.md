@@ -404,23 +404,38 @@ order 1.2 and twilight colour to be missing its most important ingredient. The
 error worth fixing next is **ozone**, without which no twilight zenith here can
 turn blue for the reason a real one does.
 
-### What the observer sees, and the rock that takes it away
+### What the observer sees: one function, two places
 
-The strip under the cross-section is one column per viewing direction, horizon
-to horizon — and it is filled from **the same measurement the colour swatch
-uses**, run once per direction instead of once for the viewing cone. It used to
-be filled from the integrator while the swatch beside it was measured from the
-rays, so the two could disagree about the same sky and one of them was
-decoration.
+There is exactly **one** definition of what an observer facing a given way sees,
+`measureCone`, and everything that shows a colour calls it. The swatch on the
+right calls it once, for the direction the observer faces. The strip under the
+cross-section calls it once per direction, all the way round — it *is* the
+swatch swept across the sky. Point the observer anywhere and the strip already
+shows that colour at that column; a test asserts they are the same numbers, not
+merely close.
 
-Brightness is averaged over a small window of directions, because a few rays per
-degree is a noisy instrument, and only over the directions in that window which
-**have sky down them** — so a shaft's aperture keeps its true brightness instead
-of being diluted by the rock either side of it. Whether the rock is in the way is
-taken from the direction's own bin and never smoothed, so a two-degree hole is
-drawn two degrees wide. Beyond 85° nothing is traced at all and the nearest
-measurement is carried outwards, brightness *and* rock together: carrying only
-the brightness gave a well a bright horizon it should not have.
+They were two functions before, answering two subtly different questions. The
+swatch divided the light by every direction it looked in; the strip divided only
+by the directions that had sky down them. Both are defensible quantities — the
+second is the radiance of the patch you can still see — and at the bottom of a
+fifty-metre shaft the swatch went nearly black while the strip below it showed a
+bright band. Having both was the bug.
+
+**A ring about the zenith, not about the view.** A drawn ray is not one
+direction: it is the ring you get by spinning the cross-section about its own
+axis of symmetry, which is the zenith — the atmosphere is layered about it and a
+vertical shaft is bored along it. A ring at θ from the zenith covers a solid
+angle ∝ sin θ, so that is the weight. Spinning about the axis of *view* instead
+— the obvious thing, and what this did first — puts the weight to zero exactly
+where a shaft's aperture sits when you look up it, and reported **more** sky four
+degrees off the zenith than straight up it. About the zenith the aperture's solid
+angle comes out exact and the answer falls away monotonically as you turn from
+the mouth: 17.3 %, 14.9 %, 9.6 %, 4.0 %, 0.5 %, 0 across 0° to 20°.
+
+The price is that an off-zenith field of view is averaged over the annulus its
+angles sweep rather than over the disc it really is. For a sky that varies mostly
+with height above the horizon the two are close, and both are centred on the same
+direction.
 
 **A blocked direction is not black.** Black reads as an absence; what is there is
 rock, and rock has a colour. It is computed, not chosen — the ground's own
@@ -441,10 +456,20 @@ reflectance from the world's config, under two lights:
 | 80 m | `rgb(81,60,44)` | `rgb(34,21,8)` |
 | 200 m | `rgb(51,37,25)` | `rgb(19,10,3)` |
 
-The cross-section paints the inside of the shaft with the same spectrum, so the
-hole in the ground and the wings of the strip cannot drift apart. A floor keeps
-it from quite reaching black — that one is a drawing decision, and the only one
-here.
+The rock is mixed into the answer by the share of the view it fills, inside
+`measureCone` itself, so the swatch and the strip get it identically and there is
+no seam anywhere along the strip where the sky runs out. On open ground that
+share is zero and nothing changes. The cross-section paints the inside of the
+shaft with the same spectrum too, so the hole in the ground and the wings of the
+strip cannot drift apart. A floor keeps it from quite reaching black — that one
+is a drawing decision, and the only one here.
+
+Two readings come back from `measureCone` for this reason: `sky`, the light the
+traced rays deliver and nothing else, which is what the histogram bars are made
+of and what gets compared against the integrator on the theory tab; and
+`perceived`, the same sky plus the rock, which is what the swatch and the strip
+show. Comparing a field of view that is four-fifths rock against the
+integrator's sky would report a large difference and mean nothing by it.
 
 The side-by-side comparison is the exception: two observers, one set of traced
 rays, and only the integrator can answer for both. There the strip falls back to
