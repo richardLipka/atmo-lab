@@ -716,44 +716,72 @@ export function registerTests({ group, test, assert }, config) {
       }
     });
 
-    test('how bright the sky is measured to be follows how many rays there are', () => {
-      // The request this answers, and the one before it: the colour must come
-      // out of the picture rather than sit beside it. Both ways of losing light
-      // - climbing out of the air, and letting rock take the directions - have
-      // to show up as the same thing, fewer rays, and the brightness has to
-      // follow that count and not something computed behind it.
+    test('how bright the sky is measured to be follows how much sky is in view', () => {
+      // Both ways of losing light have to show up as the same thing - less sky
+      // in the field of view - and the brightness has to follow that and not
+      // something computed behind it.
+      //
+      // The subtlety a plane slice hides: a drawn ray is not one direction, it
+      // is the ring you get by spinning it about the axis of view, and a ring
+      // near the middle stands for almost no sky at all. Counting angles rather
+      // than sky made a fifty-metre shaft five times too bright. What the
+      // brightness follows is the sky, and for a round shaft that has to come
+      // out at the round-shaft geometry.
       const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
       const at = (options, zenithDeg = 0) => {
-        const paths = trace({ count: 6000, ...options });
+        const paths = trace({ count: 20000, ...options });
         const h = histogramPhotons(paths, -zenithDeg * Math.PI / 180, cone);
-        return {
-          h,
-          luminance: colorimetry.luminance(h.coneSpectrum),
-          rayShare: h.coneCast > 0 ? h.drawnInCone / h.coneCast : 0,
-        };
+        return { h, luminance: colorimetry.luminance(h.coneSpectrum) };
       };
 
       const ground = at({});
-      assert.close(ground.rayShare, 1, 0.02, 'every direction pays out at the ground');
+      assert.close(ground.h.skyShare, 1, 0.02, 'the open sky fills the view');
 
+      // Two ways to lose light, and they are not the same mechanism. Climbing
+      // leaves the whole sky in view and less air to scatter it; a shaft leaves
+      // the air alone and takes the sky away. Both end as fewer rays, and each
+      // has to track the quantity that actually causes it.
       for (const [label, options] of [
         ['10 km up', { observerZ: 10000 }],
         ['25 km up', { observerZ: 25000 }],
+      ]) {
+        const here = at(options);
+        const brightness = here.luminance / ground.luminance;
+        assert.less(brightness, 0.75, `${label} must be visibly darker`);
+        assert.close(here.h.skyShare, 1, 0.02, `${label}: the sky is all still there`);
+        assert.between(brightness / here.h.drawShare, 0.5, 2,
+          `${label}: ${(brightness * 100).toFixed(1)}% as bright from `
+          + `${(100 * here.h.drawShare).toFixed(1)}% of the air overhead`);
+      }
+
+      for (const [label, options] of [
         ['a 20 m shaft', { observerZ: -20, well: { enabled: true, radius_m: 1.5, depth_m: 20 } }],
         ['a 60 m shaft', { observerZ: -60, well: { enabled: true, radius_m: 1.5, depth_m: 60 } }],
       ]) {
         const here = at(options);
         const brightness = here.luminance / ground.luminance;
-        const rays = here.rayShare;
-        assert.less(brightness, 0.75, `${label} must be visibly darker`);
-        // The two agree to within a factor of two across a hundredfold range of
-        // brightness. They are not the same quantity - one counts directions,
-        // the other weighs what came down them - but if they ever parted
-        // company the picture would be telling a different story from the
-        // swatch, which is the whole complaint this design answers.
-        assert.between(brightness / Math.max(1e-9, rays), 0.5, 2,
+        assert.less(brightness, 0.5, `${label} must be visibly darker`);
+        assert.close(here.h.drawShare, 1, 0.02, `${label}: the air is all still there`);
+        assert.between(brightness / Math.max(1e-9, here.h.skyShare), 0.5, 2,
           `${label}: ${(brightness * 100).toFixed(1)}% as bright from `
-          + `${(rays * 100).toFixed(1)}% as many rays`);
+          + `${(100 * here.h.skyShare).toFixed(1)}% as much sky`);
+      }
+
+      // And down a shaft that share is the round-shaft one, not the flattering
+      // ratio of plane angles. At fifty metres those differ by five times.
+      for (const [depth, radius] of [[20, 1.5], [50, 1.5], [50, 4]]) {
+        const h = at({
+          observerZ: -depth, count: 40000,
+          well: { enabled: true, radius_m: radius, depth_m: depth },
+        }).h;
+        const half = wellApertureHalfAngle(depth, radius);
+        const round = fieldOfViewSkyShare(half, cone, 0);
+        const plane = Math.min(1, half / cone);
+        assert.between(h.skyShare / round, 0.6, 1.7,
+          `${depth} m, r=${radius}: measured ${(100 * h.skyShare).toFixed(2)}% `
+          + `against a round-shaft ${(100 * round).toFixed(2)}%`);
+        assert.less(h.skyShare, plane * 0.75,
+          'and it must be far below the ratio of plane angles');
       }
     });
 
@@ -799,29 +827,43 @@ export function registerTests({ group, test, assert }, config) {
       for (let i = 0; i < SPECTRUM_BINS; i++) assert.equal(away.coneSpectrum[i], 0);
     });
 
-    test('the measured sky divides by the directions looked in, not the ones that paid', () => {
-      // The bug this pins: averaging over the arrivals reports the radiance of
-      // whatever patch of sky is still visible, which down a fifty-metre shaft
-      // is as blue as open ground. Averaging over the directions looked in
-      // reports how bright the place is.
+    test('the measured sky divides by the sky looked at, not the rays that paid', () => {
+      // Two bugs pinned at once, both of which made a well too bright.
+      //
+      // Averaging over the ARRIVALS reports the radiance of whatever patch of
+      // sky is still visible, which down a fifty-metre shaft is as blue as open
+      // ground. And averaging over the drawn ANGLES treats a ray in the middle
+      // of your view as worth the same as one at the edge, when the first
+      // stands for a sliver of sky and the second for a broad ring of it.
       const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
       const paths = trace({
-        count: 6000, observerZ: -40,
+        count: 20000, observerZ: -40,
         well: { enabled: true, radius_m: 1.5, depth_m: 40 },
       });
       const h = histogramPhotons(paths, 0, cone);
       assert.greater(h.coneCast, h.coneRays * 2, 'most directions end in rock');
 
-      let sum = 0;
+      let weighted = 0, flat = 0;
       for (const p of paths) {
         if (p.kind !== 'arriving') continue;
         if (Math.abs(p.arrivalAngleRad) > cone) continue;
-        sum += p.radiance;
+        weighted += p.radiance * Math.sin(Math.abs(p.arrivalAngleRad));
+        flat += p.radiance;
       }
+      let castSky = 0;
+      for (const a of paths.castAngles) {
+        if (Math.abs(a) <= cone) castSky += Math.sin(Math.abs(a));
+      }
+
       let measured = 0;
       for (let i = 0; i < SPECTRUM_BINS; i++) measured += h.coneSpectrum[i];
-      assert.close(measured, sum / h.coneCast, 0.02,
-        'the divisor is the number of directions looked in');
+      assert.close(measured, weighted / castSky, 0.02,
+        'the divisor is the sky the field of view covers');
+
+      // And the old flat average really was several times brighter, which is
+      // the whole reason this changed.
+      assert.greater(flat / h.coneCast, (weighted / castSky) * 2,
+        'counting angles instead of sky flatters a shaft badly');
     });
 
     test('how many rays are drawn is the air left overhead, and thins smoothly', () => {

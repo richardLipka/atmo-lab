@@ -298,29 +298,47 @@ arriving rays divides both and leaves the answer alone. Across a 9× change in
 the arriving budget the measured luminance moves by 0.45 %, which is the Monte
 Carlo noise and not the knob; a test pins it.
 
-### One reason for two kinds of darkness
+### Two kinds of darkness, and a ring nobody sees
 
-How many arriving rays get drawn is read off the atmosphere: **the share of the
-air still above the observer.** Light only reaches you from a direction if
-something in that direction turned it towards you, and what does the turning is
-air, so an observer with a tenth of the column overhead is looked at by a tenth
-as many scattering events. The sky being optically thin, that is also a tenth of
-the brightness — so the rays on screen and the colour beside them fall by the
-same factor, for the same reason.
+**Climbing** thins the rays. How many get drawn is read off the atmosphere — the
+share of the air still above the observer — because light only reaches you from
+a direction if something in that direction turned it towards you, and what does
+the turning is air. The sky being optically thin, a tenth of the column overhead
+is a tenth of the brightness, so the rays on screen and the colour beside them
+fall by the same factor for the same reason.
 
-A shaft multiplies that by a second, independent count: how many directions the
-rock leaves open. Fewer rays for both reasons, one rule, and the panel reports
-what you can count — *"5 rays across 50 directions in view"*.
+**A shaft** does something different: it leaves the air alone and takes the sky
+away. And here a plane slice through a round world will mislead you if you let
+it. A drawn ray is not one direction — it is the whole **ring** of directions
+you get by spinning it about the axis of view, and a ring at angle θ covers a
+solid angle proportional to sin θ. Rays near the middle of your view stand for
+almost no sky at all; rays out at the edge stand for a great deal.
 
-| observer | rays drawn / directions in view | measured sky |
-|---|---|---|
-| open ground | 48 / 48 | `rgb(168,197,246)` |
-| 10 km up | 17 / 48 | `rgb(85,109,153)` |
-| 20 km up | 3 / 48 | `rgb(47,62,91)` |
-| 40 km up | 0 / 48 | `rgb(9,15,26)` |
-| 20 m down a 1.5 m shaft | 21 / 53 | `rgb(106,127,161)` |
-| 50 m down, looking up | 5 / 50 | `rgb(46,60,81)` |
-| 50 m down, looking 35° off | 0 / 48 | `rgb(0,0,0)` |
+Counting angles rather than sky is what made a well far too bright. A 50 m shaft
+of 1.5 m radius leaves an aperture 1.7° wide inside a 12° field of view: **one
+drawn angle in seven, but only one part in fifty of the sky.** The measurement
+now weighs every ray by the ring it stands for, which is exact when you look
+straight up a shaft — the aperture and the field of view are then circles about
+the same axis — and an average over the ring elsewhere, where the first-order
+variation of the sky across the cone cancels by symmetry.
+
+| observer | rays drawn / directions | sky in view | measured | vs round-shaft geometry |
+|---|---|---|---|---|
+| open ground | 48 / 48 | 100 % | `rgb(169,198,248)` | — |
+| 10 km up | 17 / 48 | 100 % | `rgb(94,120,168)` | — |
+| 20 km up | 3 / 48 | 100 % | `rgb(47,62,92)` | — |
+| 30 km up | 0 / 48 | 100 % | `rgb(27,37,57)` | — |
+| 20 m down a 1.5 m shaft | 21 / 53 | 17 % | `rgb(71,85,110)` | 12.8 % |
+| 50 m down | 5 / 50 | 1.5 % | `rgb(13,19,29)` | 2.1 % |
+| 100 m down | 4 / 50 | 0.83 % | `rgb(9,14,23)` | 0.5 % |
+| 200 m down | 1 / 51 | 0.16 % | `rgb(2,3,5)` | 0.1 % |
+| 50 m down, looking 35° off | 0 / 48 | 0 % | `rgb(0,0,0)` | 0 % |
+
+Before the ring weight those wells read 38 %, 8 %, 6.4 % and 1.6 % — three to
+sixteen times too bright, and a fifty-metre shaft came out a comfortable blue
+when it should be near black. The panel now reports both numbers, because they
+answer different questions: *"5 rays across 50 directions · sky fills 1 % of
+your view"*.
 
 An earlier version thinned the fan against **the brightest sky it had ever seen**,
 which made the picture depend on where the observer had been. Nothing is held now.
@@ -373,18 +391,18 @@ higher — 6 % higher, which is what it does.
 | Rayleigh scattering is **~18 % too strong** — β(550) = 1.35×10⁻⁵ m⁻¹, the value used throughout real-time graphics, against a measured 1.14×10⁻⁵ giving τ = 0.0973 | uniform +17–19 % across 400–700 nm | the sky is a fifth brighter than reality. Being uniform, it barely touches the *colour* |
 | **Single scattering only** | second order is roughly τ/2 of the first: **+14 % blue at the zenith, +28 % at 60°**, and far more near the horizon | the sky is too dark and too saturated; the horizon suffers most. Partly cancels the error above, for unrelated reasons |
 | **No ozone at all** | the Chappuis band costs τ = 0.041 vertically at 600 nm — **4 % of the orange at the zenith, 39 % at 12 air masses** | the main reason a real twilight zenith is blue. This model has no such mechanism |
-| **The cross-section is a plane slice** | a 50 m shaft of 1.5 m radius: simulation **12.2 %**, plane theory 14.3 %, round-shaft theory **2.1 %** | the simulated well is a *trench*, not a round shaft, and is about 6× too bright. The theory tab shows the round answer beside it |
+| ~~The cross-section is a plane slice~~ — **fixed** by weighting each ray by the ring it stands for | a 50 m shaft now measures **1.5 %** against a round-shaft **2.1 %**; 100 m, 0.83 % against 0.5 % | was 6× too bright, a trench rather than a round shaft. What remains is Monte Carlo scatter on the four or five rays that get through, which straddles the theory rather than sitting above it |
 | **No refraction** | air mass at 0.5° elevation is **8.6 % below** Kasten–Young, and does not improve with quality | a very low Sun sits slightly wrong; the Sun should also set about two minutes later than drawn |
 | **Nothing is sampled within 5° of the horizon** | looking at 89°, only 29 of a nominal 51 directions are cast | the brightest part of a twilight sky is outside what the rays can see. The measurement divides by what it cast, so it is not biased — it simply cannot look there |
 | No multiple ground reflection, exponential density with no temperature structure, Henyey-Greenstein standing in for Mie | | ordinary simplifications, stated for completeness |
 
 **So: is the simulation correct as it is?** For what it sets out to teach — why
-the sky is blue, why a low Sun is red, why climbing empties the sky — yes, and
-the mechanism is right rather than painted on. As a radiometric instrument it is
-not: expect the sky brightness to be right to a factor of order 1.2, the well to
-be wrong by 6× because it is drawn as a trench, and twilight colour to be
-missing its most important ingredient. The two errors that would be worth fixing
-first, in order, are the **plane-slice well** and **ozone**.
+the sky is blue, why a low Sun is red, why climbing empties the sky, why a well
+is dark — yes, and the mechanism is right rather than painted on. As a
+radiometric instrument, expect the sky brightness to be right to a factor of
+order 1.2 and twilight colour to be missing its most important ingredient. The
+error worth fixing next is **ozone**, without which no twilight zenith here can
+turn blue for the reason a real one does.
 
 ### The beam histogram
 

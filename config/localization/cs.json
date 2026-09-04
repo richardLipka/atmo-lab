@@ -159,10 +159,11 @@
     "raysArriving": "{drawn} paprsků na {cast} směrů v zorném poli",
     "noneArrive": "Ani jedním z {cast} směrů v zorném poli nepřichází jediný paprsek.",
     "noRays": "Tímto směrem nebyl trasován žádný paprsek.",
-    "measuredNote": "Sestaveno jen z paprsků na obrazovce. Poměr jejich osmi barev určuje odstín; jejich počet vůči všem směrům, kam se pozorovatel díval, určuje jas. Výš jich je méně, protože zbývá méně vzduchu, který by rozptyloval; v šachtě proto, že skála zabere směry.",
+    "measuredNote": "Sestaveno jen z paprsků na obrazovce. Poměr jejich osmi barev určuje odstín; jejich počet vůči tomu, kolik oblohy v zorném poli ještě zbývá, určuje jas. Výš je paprsků méně, protože nad hlavou zbývá méně vzduchu, který by rozptyloval; v šachtě zbývá méně oblohy, protože skála zabere směry — a nakreslený paprsek u středu zorného pole zastupuje mnohem méně oblohy než ten u okraje.",
     "agreement": "Integrátor se liší o dxy = {dxy}; poměr jasu {ratio} z {rays} paprsků.",
     "belowOneRay": "Na {cast} směrů v zorném poli připadá méně světla, než zastupuje jeden paprsek.",
-    "starInCone": "Hvězda je v zorném poli: její kotouč je asi {ratio}krát jasnější než obloha kolem ní, takže svazek na obrázku není v měřítku a ani být nemůže."
+    "starInCone": "Hvězda je v zorném poli: její kotouč je asi {ratio}krát jasnější než obloha kolem ní, takže svazek na obrázku není v měřítku a ani být nemůže.",
+    "skyFills": "obloha vyplňuje {share} zorného pole"
   },
   "data": {
     "title": "Fyzikální veličiny",

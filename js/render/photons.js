@@ -1008,14 +1008,45 @@ export function histogramPhotons(paths, axisRad, halfRad) {
 
   for (let b = 0; b < bands; b++) centres[b] = RAY_BANDS[b].centreNm;
 
-  // How many directions were looked in, inside the cone and outside it. These
-  // are the divisors, and they are what turn a sum of rays into a brightness.
+  /**
+   * How much sky each drawn direction stands for.
+   *
+   * The cross-section is a plane slice through a world that is round, and this
+   * is where that catches up with it. A drawn ray at angle theta from the axis
+   * of view is not one direction: it is the whole ring of directions you get by
+   * spinning it about that axis, and a ring at theta covers a solid angle
+   * proportional to sin(theta). Rays near the middle of your view stand for
+   * almost nothing; rays out at the edge stand for a great deal.
+   *
+   * Counting rays as though each were worth the same is what made a well far
+   * too bright. A fifty-metre shaft leaves an aperture 1.7 degrees wide inside a
+   * 12 degree field of view: one angle in seven, but only one part in fifty of
+   * the sky, because the aperture is a small disc and the field of view is a
+   * large one. The plane count said 10 % and the truth is 2.1 %. Weighting by
+   * the ring each ray stands for turns the count from a measure of ANGLE into a
+   * measure of SKY, and the two agree again.
+   *
+   * Exact when the view looks straight up a shaft, which is the case this is
+   * for: the aperture and the field of view are then circles about the same
+   * axis. Elsewhere it is the average over the ring, and the first-order
+   * variation of the sky across the cone cancels by symmetry.
+   */
+  const ringWeight = (angle) => Math.sin(Math.abs(angle - axisRad));
+
+  // How much sky was looked at, inside the cone and outside it. These are the
+  // divisors, and they are what turn a sum of rays into a brightness.
   let coneCast = 0, elsewhereCast = 0;
+  let coneCastSky = 0, elsewhereCastSky = 0;
   const cast = paths.castAngles;
   if (cast) {
     for (let i = 0; i < cast.length; i++) {
-      if (Math.abs(cast[i] - axisRad) <= halfRad) coneCast++;
-      else elsewhereCast++;
+      if (Math.abs(cast[i] - axisRad) <= halfRad) {
+        coneCast++;
+        coneCastSky += ringWeight(cast[i]);
+      } else {
+        elsewhereCast++;
+        elsewhereCastSky += 1;
+      }
     }
   }
 
@@ -1027,30 +1058,35 @@ export function histogramPhotons(paths, axisRad, halfRad) {
     && Math.abs(paths.starAngleRad - axisRad) <= halfRad;
 
   const spectra = paths.arrivingSpectra;
-  let coneRays = 0, blockedRays = 0, directRays = 0;
+  let coneRays = 0, blockedRays = 0, directRays = 0, coneArrivedSky = 0;
   let directSum = 0, directWeighted = 0;
   for (let pathIndex = 0; pathIndex < paths.length; pathIndex++) {
     const p = paths[pathIndex];
     const b = Math.min(bands - 1, p.band ?? 0);
     if (p.kind === 'arriving') {
       const inView = Math.abs(p.arrivalAngleRad - axisRad) <= halfRad;
+      // Inside the cone a ray is worth the ring it stands for. Outside it, the
+      // rest of the sky is only ever shown as a backdrop to the cone, so it
+      // keeps the plain count it always had.
+      const w = inView ? ringWeight(p.arrivalAngleRad) : 1;
       if (spectra && p.spectrumOffset != null) {
         // The ray's whole spectrum, which is what makes the measurement steady
         // enough to put a colour swatch next to the integrator's.
         for (let i = 0; i < SPECTRUM_BINS; i++) {
-          const value = spectra[p.spectrumOffset + i];
+          const value = spectra[p.spectrumOffset + i] * w;
           const bb = BAND_OF_BIN[i];
           if (inView) { coneSpectrum[i] += value; inCone[bb] += value; }
           else elsewhere[bb] += value;
         }
       } else if (inView) {
-        inCone[b] += p.radiance;
-        coneSpectrum[p.bin] += p.radiance;
+        inCone[b] += p.radiance * w;
+        coneSpectrum[p.bin] += p.radiance * w;
       } else {
         elsewhere[b] += p.radiance;
       }
       if (inView) {
         coneRays++;
+        coneArrivedSky += w;
         if (isRayDrawn(pathIndex, drawShare)) { drawnInCone++; coneBandRays[b]++; }
       }
     } else if (p.kind === 'blocked') {
@@ -1063,10 +1099,10 @@ export function histogramPhotons(paths, axisRad, halfRad) {
     }
   }
 
-  // Directions looked in, not arrivals collected. When the tracer is too old or
-  // too small to have recorded any, fall back to the arrivals so the panel
-  // still shows something rather than dividing by zero.
-  const divisor = coneCast > 0 ? coneCast : coneRays;
+  // Sky looked at, not arrivals collected. When the tracer is too old or too
+  // small to have recorded any, fall back to the arrivals so the panel still
+  // shows something rather than dividing by zero.
+  const divisor = coneCastSky > 0 ? coneCastSky : coneRays;
   if (divisor > 0) {
     for (let i = 0; i < SPECTRUM_BINS; i++) coneSpectrum[i] /= divisor;
     for (let b = 0; b < bands; b++) inCone[b] /= divisor;
@@ -1075,8 +1111,8 @@ export function histogramPhotons(paths, axisRad, halfRad) {
   // count, so the two series are the same quantity and can be stacked. Left
   // as a raw sum it was the total over three hundred rays sitting on top of an
   // average over fifty, and the coloured part of every bar vanished under it.
-  if (elsewhereCast > 0) {
-    for (let b = 0; b < bands; b++) elsewhere[b] /= elsewhereCast;
+  if (elsewhereCastSky > 0) {
+    for (let b = 0; b < bands; b++) elsewhere[b] /= elsewhereCastSky;
   }
 
   let peak = 0, directPeak = 0, coneSum = 0, coneWeighted = 0;
@@ -1098,8 +1134,11 @@ export function histogramPhotons(paths, axisRad, halfRad) {
     // share of the directions looked in is, to within the noise of a few dozen
     // samples, the brightness of the swatch beside them.
     drawnInCone, drawShare,
-    // The share of the directions looked in that had any sky down them at all.
-    // In the open this is one; down a shaft it is the whole story.
+    // The share of the FIELD OF VIEW that still has sky in it - not the share
+    // of the drawn angles, which is a different and much kinder number down a
+    // narrow shaft. In the open it is one; down a shaft it is the whole story,
+    // and it is what the brightness follows.
+    skyShare: coneCastSky > 0 ? coneArrivedSky / coneCastSky : null,
     arrivingShare: coneCast > 0 ? coneRays / coneCast : null,
     coneMeanNm: coneSum > 0 ? coneWeighted / coneSum : null,
     directMeanNm: directSum > 0 ? directWeighted / directSum : null,

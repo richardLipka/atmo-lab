@@ -227,13 +227,21 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     const measured = colorimetry.spectrumToSrgb(histogram.coneSpectrum, result.exposure);
     chip.style.background = measured.css;
 
-    // The two counts the brightness is made of, and both are on the screen: how
-    // many rays are drawn coming into the cone, and how many directions the
-    // cone covers. Their ratio is the brightness, to within the noise of a few
-    // dozen samples - which is why climbing and going down a shaft look the
-    // same on screen even though one thins the rays and the other blocks them.
+    // The two things the brightness is made of, and both are on the screen.
+    //
+    // How many rays are drawn coming into the cone - which falls as you climb,
+    // because there is less air left overhead to turn light towards you. And
+    // how much of the field of view still has sky in it - which falls down a
+    // shaft, because the rock takes the directions.
+    //
+    // The second is a share of SKY, not of drawn angles, and the difference is
+    // large. A drawn ray is not one direction: it is the ring you get by
+    // spinning it about the axis of view, and a ring near the middle of your
+    // view stands for almost no sky at all. A fifty-metre shaft leaves one
+    // drawn angle in seven but only one part in fifty of the sky.
     const cast = histogram.coneCast ?? 0;
     const drawn = histogram.drawnInCone ?? histogram.coneRays ?? 0;
+    const share = histogram.skyShare;
     if (drawn === 0) {
       // Two different nothings. Either no light arrives at all - the rock has
       // taken every direction, or the star is down - or light does arrive but
@@ -244,7 +252,8 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
           : i18n.t('color.noneArrive', { cast });
     } else {
       detail.textContent = `${measured.css}  ·  `
-        + i18n.t('color.raysArriving', { drawn, cast });
+        + i18n.t('color.raysArriving', { drawn, cast })
+        + `  ·  ${i18n.t('color.skyFills', { share: formatShare(share ?? 1) })}`;
     }
 
     renderMeasuredStar(result, histogram);
