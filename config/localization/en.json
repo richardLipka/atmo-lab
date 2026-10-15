@@ -136,7 +136,10 @@
     "viewCone": "your field of view",
     "wavelength": "Wavelength",
     "wellWall": "Shaft wall",
-    "legendStarlight": "starlight from overhead, one ray each"
+    "legendStarlight": "starlight from overhead, one ray each",
+    "starPatchTitle": "Light from the 1′ of sky around the star overhead",
+    "starPatchSky": "glow of the sky behind the star",
+    "starPatchStar": "the star (like Vega)"
   },
   "spectrum": {
     "title": "Spectrum",
@@ -283,7 +286,8 @@
     "changed": "Changed",
     "on": "on",
     "off": "off",
-    "auto": "automatic"
+    "auto": "automatic",
+    "sources": "Sources"
   },
   "units": {
     "km": "km",

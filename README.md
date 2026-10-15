@@ -799,6 +799,20 @@ The sky has to go dark instead: with the Sun 3° down the same star is 1.7 times
 (the single-scattering sky darkens a little too fast — in reality the brightest stars
 appear near the end of civil twilight, at −6°), and on the Moon millions of times.
 
+**The picture shows the same comparison.** Whenever the observer looks within 12° of the
+zenith, an inset in the corner of the cross-section draws the two things that reach the eye
+from that 1′ patch, as bars on one linear scale: the glow of the sky behind the star and the
+star itself. At noon the star is a sliver of 1.4 % beside the sky's full bar — and it is the
+same sliver at the bottom of a well, where the rays above it look so persuasive. At dusk the
+star's bar overtakes; on the Moon the sky's bar is gone.
+
+**The guide names its sources** under the steps that rely on them: apparent magnitudes and
+visual acuity (Wikipedia), Venus in daylight (Universe Today), Aristotle, Hynek and Winsor
+and Ken Tapping on the Moon (S. Odenwald, Astronomy Café), civil twilight (Geoscience
+Australia), and Armstrong's own words in NASA's transcript of the Apollo 11 post-flight
+press conference (EP-73, part VI). A test checks every source is an https link with a label
+in both languages.
+
 An earlier version reported the star's share of the whole 12° field of view instead.
 A shaft does raise that share — about a hundredfold for a 50 m well — and so the number
 hinted that a well helps, which is the very myth Hynek and Winsor's chimney tests
@@ -866,7 +880,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **148 tests** covering:
+`node tests/run-tests.js` runs **149 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine

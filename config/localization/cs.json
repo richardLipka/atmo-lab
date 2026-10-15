@@ -136,7 +136,10 @@
     "viewCone": "tvůj zorný kužel",
     "wavelength": "Vlnová délka",
     "wellWall": "Stěna šachty",
-    "legendStarlight": "světlo hvězdy nad tebou, jeden paprsek"
+    "legendStarlight": "světlo hvězdy nad tebou, jeden paprsek",
+    "starPatchTitle": "Světlo z oblohy 1′ kolem hvězdy nad tebou",
+    "starPatchSky": "záře oblohy za hvězdou",
+    "starPatchStar": "hvězda (jako Vega)"
   },
   "spectrum": {
     "title": "Spektrum",
@@ -283,7 +286,8 @@
     "changed": "Změněno",
     "on": "zapnuto",
     "off": "vypnuto",
-    "auto": "automaticky"
+    "auto": "automaticky",
+    "sources": "Zdroje"
   },
   "units": {
     "km": "km",

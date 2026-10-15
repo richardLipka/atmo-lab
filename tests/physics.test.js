@@ -2158,6 +2158,10 @@ export function registerTests({ group, test, assert }, config) {
             if (!step[field]) continue;
             assert.ok(step[field].cs && step[field].en, `${id} step ${i + 1}: ${field} in both languages`);
           }
+          for (const source of step.sources ?? []) {
+            assert.ok(/^https:\/\/[^\s]+$/.test(source.url), `${id} step ${i + 1}: source ${source.url} is an https link`);
+            assert.ok(source.label?.cs && source.label?.en, `${id} step ${i + 1}: source label in both languages`);
+          }
         }
       }
     });
@@ -2245,6 +2249,15 @@ export function registerTests({ group, test, assert }, config) {
       const air = replay('well-vs-altitude', 4);
       assert.close(air.b.metrics.skyLuminance / air.a.metrics.skyLuminance, 0.5, 0.15);
       assert.greater(xy(air.b.view.observed)[0], xy(air.a.view.observed)[0] + 0.03);
+    });
+
+    test('stars by day: every claim from outside the model names its source', () => {
+      const steps = config.experiments['stars-by-day'].steps;
+      const urls = (i) => (steps[i].sources ?? []).map((source) => source.url).join(' ');
+      assert.ok(/Apparent_magnitude/.test(urls(0)) && /Visual_acuity/.test(urls(0)), 'magnitudes and acuity');
+      assert.ok(/astronomycafe/.test(urls(2)), 'Aristotle, Hynek and Winsor');
+      assert.ok(/ga\.gov\.au/.test(urls(3)), 'civil twilight');
+      assert.ok(/nasa\.gov/.test(urls(4)), 'Armstrong');
     });
 
     test('stars by day: a well changes nothing behind the star; dusk and the Moon do', () => {

@@ -672,6 +672,15 @@ button:disabled { opacity: 0.4; cursor: default; }
   border-left-color: #7ef0c0;
   color: var(--text);
 }
+/* Where a step's claims come from. */
+.experiment-hint.is-sources {
+  background: transparent;
+  border-left-color: var(--line);
+  font-size: 11px;
+}
+.experiment-hint.is-sources a { color: var(--accent); text-decoration: underline; }
+.experiment-hint.is-sources a:hover { color: var(--text); }
+
 /* Which controls this step moved, and to what. */
 .experiment-hint.is-changes {
   background: rgba(255, 255, 255, 0.04);
