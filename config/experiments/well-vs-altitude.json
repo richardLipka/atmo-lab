@@ -4,8 +4,8 @@
   "icon": "well",
   "title": { "cs": "Paradox studny", "en": "The well paradox" },
   "summary": {
-    "cs": "Deset kilometrů nahoru a deset kilometrů dolů šachtou. V obou případech kolem tebe ubude světla, ale z úplně jiného důvodu. A je ze dna studny ve dne vidět hvězdy?",
-    "en": "Ten kilometres up, and ten kilometres down a shaft. Both leave less light around you, for completely different reasons. And can you see stars by day from the bottom of a well?"
+    "cs": "Deset kilometrů nahoru a deset kilometrů dolů šachtou. V obou případech kolem tebe ubude světla, ale z úplně jiného důvodu. Zda jsou ze studny ve dne vidět hvězdy, ukazuje průvodce „Hvězdy ve dne“.",
+    "en": "Ten kilometres up, and ten kilometres down a shaft. Both leave less light around you, for completely different reasons. Whether stars can be seen by day from a well is the subject of the “Stars by day” guide."
   },
   "goal": {
     "cs": "Rozlišit zář (jak jasný je jeden kousek oblohy) a osvětlenost (kolik světla na tebe dopadá ze všech směrů dohromady). Stoupání ubírá vzduch, a tím snižuje zář celé oblohy. Sestup do šachty vzduch nad tebou nemění; zář oblohy zůstává stejná a klesá jen osvětlenost, protože vidíš menší část oblohy.",
@@ -77,28 +77,6 @@
             "atmosphere": { "presetId": "earth" },
             "observer": { "z": -10000, "viewZenithDeg": 0, "well": { "enabled": true, "radius_m": 2, "depth_m": 10000 } }
           }
-        }
-      }
-    },
-    {
-      "title": { "cs": "Hvězdy ze dna studny", "en": "Stars from the bottom of a well" },
-      "text": {
-        "cs": "Říká se, že ze dna hluboké studny jsou ve dne vidět hvězdy. Simulace A stojí na povrchu, simulace B na dně studny hluboké 50 m o poloměru 1,5 m; obě se dívají kolmo vzhůru. Malé hvězdy nahoře v obrázcích posílají každá jeden paprsek kolmo dolů; prostřední míří na pozorovatele.",
-        "en": "It is said that stars can be seen by day from the bottom of a deep well. Simulation A stands on the surface, simulation B at the bottom of a well 50 m deep and 1.5 m in radius; both look straight up. The small stars at the top of the pictures each send one ray straight down; the middle one is aimed at the observer."
-      },
-      "observe": {
-        "cs": "Vlevo se paprsek hvězdy ztratí mezi stovkami modrých paprsků rozptýleného světla. Vpravo stěny zastavily skoro všechny a paprsek hvězdy zůstal téměř sám. Řádek „Hvězda přímo nad tebou“ v pravém panelu pod barvami udává, jakou část světla v zorném poli tvoří hvězda: pro B (vybraná) řádově jeden díl z milionu. Klikni na obrázek A: tam je to řádově jeden díl ze sta milionů.",
-        "en": "On the left the star's ray is lost among hundreds of blue rays of scattered light. On the right the walls have stopped nearly all of them and the star's ray is almost alone. The line “A star straight overhead” in the right-hand panel, under the colours, gives the share of the light in the field of view that comes from the star: for B (selected) of the order of one part in a million. Click picture A: there it is of the order of one part in a hundred million."
-      },
-      "question": {
-        "cs": "Studna zvýšila podíl hvězdy řádově stokrát, protože skála zakryla zbytek oblohy. Kousek oblohy hned vedle hvězdy je ale stejně jasný jako nahoře. Uvidíš tedy hvězdu ve dne?",
-        "en": "The well raised the star's share by the order of a hundred times, because the rock hid the rest of the sky. But the patch of sky right next to the star is as bright as it is up top. So will you see the star by day?"
-      },
-      "state": {
-        "observer": { "z": 0, "well": { "enabled": false } },
-        "compare": {
-          "active": "b",
-          "b": { "observer": { "z": -50, "well": { "enabled": true, "radius_m": 1.5, "depth_m": 50 } } }
         }
       }
     },

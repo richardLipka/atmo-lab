@@ -78,8 +78,8 @@
         "en": "We have returned the observer to the surface and switched from Earth to the Moon. The Sun is again 60° above the horizon, but there is no air above you."
       },
       "observe": {
-        "cs": "Obloha je černá i ve dne na povrchu a osvětlenost je stejná jako ve 100 km nad Zemí. Černá obloha nezávisí na výšce, ale na tom, zda je nad tebou vzduch.",
-        "en": "The sky is black even in daytime at the surface, and the illuminance is the same as 100 km above Earth. A black sky depends not on height but on whether there is air above you."
+        "cs": "Obloha je černá i ve dne na povrchu a osvětlenost je stejná jako ve 100 km nad Zemí. Černá obloha nezávisí na výšce, ale na tom, zda je nad tebou vzduch. Proč jsou proti ní vidět hvězdy i ve dne, a proč je astronauti přesto neviděli, ukazuje průvodce „Hvězdy ve dne“.",
+        "en": "The sky is black even in daytime at the surface, and the illuminance is the same as 100 km above Earth. A black sky depends not on height but on whether there is air above you. Why stars can be seen against it even by day, and why the astronauts still did not see them, is shown in the “Stars by day” guide."
       },
       "state": { "atmosphere": { "presetId": "airless-moon" }, "observer": { "z": 0 } },
       "highlight": "ctl-atmosphere-preset"

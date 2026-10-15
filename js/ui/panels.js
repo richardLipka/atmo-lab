@@ -16,7 +16,6 @@ import {
   formatAltitude, formatAngle, stationColour, formatPlace,
 } from '../render/scene-renderer.js';
 import { RAY_BANDS } from '../physics/spectrum.js';
-import { overheadStarIlluminance, starShareOfView, coneSolidAngle } from '../physics/starlight.js';
 import { VIEW_CONE_HALF_DEG } from '../render/photons.js';
 import { activeObserver } from '../state.js';
 
@@ -303,48 +302,41 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
   }
 
   /**
-   * The faint star drawn over the observer, as a number.
+   * The faint star drawn over the observer, as a number - and the right number.
    *
-   * The picture shows its one ray reaching the eye - buried among the scattered
-   * rays in the open, nearly alone at the bottom of a shaft. This says how much
-   * of the light in the field of view it really is, so the picture cannot be
-   * read as more than it shows: the shaft raises the star's share only by the
-   * sky it takes away, and the patch of sky beside the star is as bright as ever.
+   * What decides whether a star can be seen is how it compares with the patch
+   * of sky the eye cannot tell apart from it, about one arcminute across. That
+   * patch has the radiance of the sky behind the star, which a shaft does not
+   * change; so the comparison comes out the same at the bottom of a well as on
+   * open ground, and it changes only when the sky itself goes dark. An earlier
+   * version reported the star's share of the whole field of view instead, which
+   * a shaft does raise - and which therefore hinted that a well helps, when the
+   * chimney tests of Hynek and Winsor showed it does not.
    */
   function renderOverheadStar(result, histogram) {
     const state = store.state;
     const observer = activeObserver(state);
-    const inView = Math.abs(observer.viewZenithDeg) <= VIEW_CONE_HALF_DEG;
     if (!histogram) {
       overheadStarNote.textContent = '';
       return;
     }
-    if (!inView) {
+    if (Math.abs(observer.viewZenithDeg) > VIEW_CONE_HALF_DEG) {
       overheadStarNote.textContent = i18n.t('color.overheadStarOut');
       return;
     }
-    const metrics = result.primary.metrics;
-    const star = overheadStarIlluminance(
-      result.atmosphere, colorimetry, metrics.atmosphericAltitude);
-    const share = starShareOfView({
-      starIlluminance: star,
-      meanLuminance: colorimetry.luminance(histogram.coneSpectrum),
-      fieldSolidAngle: coneSolidAngle(VIEW_CONE_HALF_DEG),
-    });
-    const formatted = share >= 0.01
-      ? `${Math.round(share * 100)} %`
-      : i18n.t('color.onePartIn', { n: formatRatio(1 / Math.max(share, 1e-300)) });
-    let text = i18n.t('color.overheadStar', { share: formatted });
-    if (share >= 0.5) text += ` ${i18n.t('color.overheadStarWins')}`;
+    const star = result.primary.metrics.overheadStar;
+    const c = star.contrast;
+    // Numbers inside a sentence follow the language's decimal mark.
+    const local = (v) => (i18n.getLanguage() === 'cs' ? v.replace(/(\d)\.(\d)/g, '$1,$2') : v);
+    let text = !Number.isFinite(c) ? i18n.t('color.overheadStarBlack')
+      : c >= 1 ? i18n.t('color.overheadStarTimes', { n: local(formatRatio(c)) })
+        : i18n.t('color.overheadStarPercent', { pct: local(`${(c * 100).toPrecision(2)} %`) });
+    text += ` ${i18n.t(c >= 1 ? 'color.starVisible'
+      : c >= 0.1 ? 'color.starBorderline' : 'color.starLost')}`;
+    const scene = result.primary.scene;
     const skyShare = histogram.skyShare ?? 1;
-    if (result.primary.scene.wellActive && skyShare > 0 && skyShare < 0.999) {
-      // No factor is printed: 1/skyShare would only approximate the gain over
-      // the open sky, whose own field of view is not uniformly bright, and an
-      // approximation shown as a measurement is the thing to avoid here.
+    if (scene.wellActive && !scene.countShaftAir && skyShare < 0.999) {
       text += ` ${i18n.t('color.overheadStarShaft', { lost: formatShare(1 - skyShare) })}`;
-      if (share < 0.5 && result.primary.scene.sunElevationDeg > 0) {
-        text += ` ${i18n.t('color.overheadStarStillLoses')}`;
-      }
     }
     overheadStarNote.textContent = text;
   }

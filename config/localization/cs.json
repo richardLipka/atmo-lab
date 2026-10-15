@@ -170,12 +170,14 @@
     "belowOneRay": "Na {cast} směrů v zorném poli připadá méně světla, než zastupuje jeden paprsek.",
     "starInCone": "Hvězda je v zorném poli: její kotouč je asi {ratio}krát jasnější než obloha kolem ní, takže svazek na obrázku není v měřítku a ani být nemůže.",
     "skyFills": "obloha vyplňuje {share} zorného pole",
-    "overheadStar": "Hvězda přímo nad tebou, jasná jako Vega: {share} světla ve tvém zorném poli.",
-    "overheadStarWins": "Přezáří všechno ostatní, co vidíš.",
-    "overheadStarShaft": "Tady dole je to víc než venku, protože skála ti zakryla {lost} výhledu na oblohu, a hvězdu přitom nechala odkrytou. Obloha hned vedle hvězdy je ale přesně tak jasná jako nahoře.",
-    "overheadStarStillLoses": "Za dne proto hvězda prohrává i tady.",
-    "overheadStarOut": "Hvězda přímo nad tebou, jasná jako Vega, je mimo zorné pole. Podívej se kolmo vzhůru a její paprsek bude v něm.",
-    "onePartIn": "1 díl z {n}"
+    "overheadStarShaft": "Šachta ti zakryla {lost} výhledu na oblohu, ale kousek oblohy za hvězdou je stejně jasný jako nahoře, takže na tomto poměru nic nezměnila.",
+    "overheadStarOut": "Hvězda přímo nad tebou, jasná jako Vega, je mimo zorné pole. Podívej se kolmo vzhůru.",
+    "overheadStarPercent": "Hvězda přímo nad tebou, jasná jako Vega, má jen {pct} jasu kousku oblohy kolem ní (o průměru 1′, nejmenší detail, který oko rozliší).",
+    "overheadStarTimes": "Hvězda přímo nad tebou, jasná jako Vega, je {n}× jasnější než kousek oblohy kolem ní (o průměru 1′, nejmenší detail, který oko rozliší).",
+    "overheadStarBlack": "Hvězda přímo nad tebou, jasná jako Vega: kousek oblohy kolem ní je černý.",
+    "starVisible": "Hvězda je jasnější než obloha za ní, takže ji obloha nezakryje.",
+    "starBorderline": "Je na hranici viditelnosti: najde ji jen zkušený pozorovatel, který ví, kam se dívat.",
+    "starLost": "Obloha za ní je mnohem jasnější, takže hvězda v ní zanikne."
   },
   "data": {
     "title": "Fyzikální veličiny",
