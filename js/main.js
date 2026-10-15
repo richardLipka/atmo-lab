@@ -11,6 +11,7 @@ import { loadConfiguration } from './config-loader.js';
 import { createI18n } from './i18n.js';
 import {
   createStore, DEFAULT_STATE, maxAltitudeFor, touches, clampSpan,
+  SIMULATION_KEYS, simulationOf,
 } from './state.js';
 import { createColorimetry } from './physics/color.js';
 import { createSimulation } from './simulation.js';
@@ -19,7 +20,8 @@ import { createSkyStrip } from './render/sky-strip.js';
 import { createSpectrumChart } from './render/spectrum-chart.js';
 import { createChromaticityPlot } from './render/chromaticity.js';
 import {
-  tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
+  tracePhotons, summarisePhotons, histogramPhotons, skyFromRays,
+  shaftWallSpectrum, VIEW_CONE_HALF_DEG,
 } from './render/photons.js';
 import { createBeamHistogram } from './render/beam-histogram.js';
 import { createControls } from './ui/controls.js';
@@ -36,15 +38,28 @@ async function start() {
   const i18n = createI18n(config.localization, config.index.defaults.language ?? 'cs');
 
   const store = createStore({ ...DEFAULT_STATE, language: i18n.getLanguage() });
-  store.setContext({
-    maxAltitude: maxAltitudeFor(config.atmospheres.get(DEFAULT_STATE.atmosphere.presetId)),
-  });
+  syncCeilings();
+
+  /**
+   * How high each observer may climb, which depends on that simulation's own
+   * world. The two can be different worlds, so there are two answers.
+   */
+  function syncCeilings() {
+    const state = store.state;
+    store.setContext({
+      maxAltitude: {
+        a: maxAltitudeFor(config.atmospheres.get(state.atmosphere.presetId)),
+        b: maxAltitudeFor(config.atmospheres.get(state.compare.b.atmosphere.presetId)),
+      },
+    });
+  }
 
   const simulation = createSimulation({ config, colorimetry });
 
   const sceneRenderer = createSceneRenderer(
     document.getElementById('scene-canvas'), { i18n, colorimetry });
-  const skyStrip = createSkyStrip(document.getElementById('sky-canvas'), { i18n });
+  const skyStrip = createSkyStrip(
+    document.getElementById('sky-canvas'), { i18n, colorimetry });
   const beamHistogram = createBeamHistogram(
     document.getElementById('histogram-canvas'), { i18n });
   const spectrumChart = createSpectrumChart(document.getElementById('spectrum-canvas'), { i18n });
@@ -65,8 +80,16 @@ async function start() {
   /* ---- derived data, recomputed only when its inputs move ---- */
 
   let result = null;
-  let photons = null;
-  let photonTally = null;
+  /**
+   * Everything traced, by observer id.
+   *
+   * Each observer gets their OWN trace, their own rock and their own sweep of
+   * the sky. The comparison used to trace once and draw the result twice at two
+   * heights, which meant the second panel showed the first observer's rays with
+   * a different label under them - and the strip beneath both had to fall back
+   * to theory, because one trace cannot answer for two observers.
+   */
+  let traces = new Map();
   let needsPhysics = true;
   let needsPhotons = true;
   let needsPaint = true;
@@ -76,23 +99,71 @@ async function start() {
     needsPhysics = false;
   }
 
-  function recomputePhotons() {
+  /** Trace one simulation, and measure everything that comes off those rays. */
+  function traceFor(entry, panels) {
     const state = store.state;
-    const atmosphere = result.atmosphere;
-    photons = tracePhotons({
+    const { sim, atmosphere, source, observer } = entry;
+    const photons = tracePhotons({
       atmosphere,
-      source: result.source,
-      sunElevationDeg: state.star.elevationDeg,
-      observerZ: state.observer.z,
-      well: state.observer.well,
+      source,
+      sunElevationDeg: sim.star.elevationDeg,
+      observerZ: observer.z,
+      well: observer.well,
+      countShaftAir: observer.countShaftAir,
       count: state.rays.showScattering ? state.rays.count : 0,
+      starAngularRadiusDeg:
+        config.stars.get(sim.star.presetId)?.angularRadius_deg ?? 0.2665,
+      mix: state.rays.mix,
       // The rays must be laid out over exactly the region that will be drawn,
       // so the renderer is asked rather than the geometry guessed at.
-      ...sceneRenderer.frameFor(state, atmosphere),
+      ...sceneRenderer.frameFor(observer, atmosphere, panels),
       seed: 20260828,
     });
-    photonTally = summarisePhotons(photons, { source: result.source });
+    const tally = summarisePhotons(photons, { source });
+    // The rock the shaft is cut through, lit by the sky that reaches it. The
+    // strip fills its wings with it and the cross-section paints the hole in
+    // the ground with it, so the two cannot drift apart.
+    const wall = photons.length > 0
+      ? shaftWallSpectrum(photons, atmosphere.groundReflectance, {
+        depth_m: observer.well.depth_m,
+        radius_m: observer.well.radius_m,
+        sunZenithRad: (90 - sim.star.elevationDeg) * Math.PI / 180,
+      })
+      : null;
+    // The strip under the picture is the colour swatch swept across the sky -
+    // the same function, once per direction - so the two cannot disagree. It
+    // depends only on the traced rays, so it is rebuilt exactly when they are.
+    const sky = photons.length > 0
+      ? skyFromRays(photons, { wall: observer.well.enabled ? wall : null })
+      : null;
+    return { photons, tally, wall, sky };
+  }
+
+  function recomputePhotons() {
+    const panels = result.simulations.length;
+    traces = new Map(result.simulations.map(
+      (entry) => [entry.id, traceFor(entry, panels)]));
     needsPhotons = false;
+  }
+
+  /**
+   * The observers as the views want them: the state, the physics and the rays
+   * for each, joined up.
+   *
+   * Rebuilt on every publish rather than cached, because `result` is rebuilt
+   * whenever anything changes and the evaluations inside a cached list would go
+   * stale against it - one of those bugs that shows as a panel quietly
+   * describing the state of two moves ago.
+   */
+  function stationsNow() {
+    return result.simulations.map((entry) => {
+      const traced = traces.get(entry.id) ?? {};
+      return {
+        ...entry,
+        ...traced,
+        histogram: histogramFor(entry.observer, traced),
+      };
+    });
   }
 
   /**
@@ -101,12 +172,18 @@ async function start() {
    * when something actually changed, never once per animation frame.
    */
   function publish({ photonsChanged }) {
-    const view = { state: store.state, result, photons };
-    const histogram = beamHistogramFor(store.state);
+    const stations = stationsNow();
+    const view = {
+      state: store.state, result, stations, activeId: result.activeId,
+    };
     sceneRenderer.update(view, { keepSelection: !photonsChanged });
     skyStrip.update(view);
-    beamHistogram.update(histogram);
-    panels.update(result, photonTally, histogram);
+    beamHistogram.update(view);
+    // The readouts describe ONE observer: the selected one. Every number in
+    // them is a property of a place someone is standing, and quoting two places
+    // in one column of figures says nothing about either.
+    const active = stations.find((entry) => entry.id === result.activeId) ?? stations[0];
+    panels.update(result, active.tally, active.histogram);
     explanation.update(result);
     needsPaint = true;
   }
@@ -117,46 +194,119 @@ async function start() {
    * the same angle the cross-section colours by, so the two agree by
    * construction rather than by coincidence.
    */
-  function beamHistogramFor(state) {
-    if (!photons) return null;
-    const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
-    const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
-    return histogramPhotons(photons, axis, VIEW_CONE_HALF_DEG * Math.PI / 180);
+  function histogramFor(observer, traced) {
+    if (!traced.photons) return null;
+    const sign = Math.cos(observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
+    const axis = sign * observer.viewZenithDeg * Math.PI / 180;
+    // The same wall the strip fills its wings with, so the swatch and the
+    // column under the observer's direction are one colour, not two answers.
+    return histogramPhotons(traced.photons, axis, VIEW_CONE_HALF_DEG * Math.PI / 180,
+      observer.well.enabled ? traced.wall : null);
   }
 
   store.subscribe((state, changed) => {
     needsPhysics = true;
     needsPaint = true;
-    if (touches(changed, 'atmosphere', 'star.elevationDeg', 'star.temperatureK',
-      'star.presetId', 'star.realisticInsolation', 'rays.count', 'rays.showScattering',
-      'observer.z', 'observer.well', 'camera.span_m')) {
-      // Note that the viewing direction is absent: the scattering events are a
+    // Whatever moves the air, the star or where someone is standing - in
+    // either simulation - needs its rays traced again.
+    const perSimulation = ['star', 'atmosphere',
+      'observer.z', 'observer.well', 'observer.span_m', 'observer.countShaftAir'];
+    if (touches(changed, 'rays.count', 'rays.showScattering', 'rays.mix',
+      'compare.enabled',
+      ...perSimulation, ...perSimulation.map((path) => `compare.b.${path}`))) {
+      // Note what is absent. The viewing direction: the scattering events are a
       // property of the air and the star, not of where anyone is facing, so
       // turning the view restyles the existing rays rather than redrawing new
-      // ones. The picture stays put and only the emphasis moves.
+      // ones. And `compare.active`: choosing which simulation the controls
+      // answer for moves no one and changes no air, so both traces stand.
       needsPhotons = true;
     }
-    if (touches(changed, 'atmosphere.presetId')) {
-      store.setContext({
-        maxAltitude: maxAltitudeFor(config.atmospheres.get(state.atmosphere.presetId)),
-      });
+    if (touches(changed, 'atmosphere.presetId', 'compare.b.atmosphere.presetId')) {
+      syncCeilings();
     }
-    if (touches(changed, 'observer.viewZenithDeg', 'observer.viewAzimuthDeg')) {
-      // No new rays, but the split between "reaches you" and "does not" moves.
-      const histogram = beamHistogramFor(state);
-      beamHistogram.update(histogram);
-      panels.update(result, photonTally, histogram);
-    }
-    if (touches(changed, 'atmosphere.presetId', 'star.presetId', 'star.temperatureK')) {
-      // The held scales - the histogram's axis and the brightness the rays are
-      // drawn against - belong to one world lit by one star. Carrying them
-      // across to another would say something false about the new one.
+
+    if (touches(changed, 'atmosphere.presetId', 'star.presetId', 'star.temperatureK',
+      'compare.b.atmosphere.presetId', 'compare.b.star.presetId',
+      'compare.b.star.temperatureK')) {
+      // The histogram's held axis belongs to one world lit by one star, and
+      // carrying it across to another would say something false about the new
+      // one. The cross-section no longer holds anything: how many rays it draws
+      // is now read off the air still above the observer, so it needs no memory
+      // of how bright this world has ever been.
       beamHistogram.resetScale();
-      sceneRenderer.resetScale();
     }
     controls.update();
     syncHeader();
   });
+
+  /* ---- copying one simulation onto the other ---- */
+
+  const compareBar = document.getElementById('compare-bar');
+
+  /**
+   * Copy one simulation's whole situation onto the other.
+   *
+   * Everything that makes a situation goes: the star, the air and the observer.
+   * That is what makes it useful - land both panels on the same footing, then
+   * change exactly one thing and watch what it does. Copying a subset would
+   * leave differences the reader did not put there and cannot see.
+   */
+  function copySimulation(from, to) {
+    const source = simulationOf(store.state, from);
+    const copy = {};
+    for (const key of SIMULATION_KEYS) copy[key] = JSON.parse(JSON.stringify(source[key]));
+    store.patch(to === 'b' ? { compare: { b: copy } } : copy);
+  }
+
+  document.getElementById('sync-a-to-b').addEventListener('click', () => copySimulation('a', 'b'));
+  document.getElementById('sync-b-to-a').addEventListener('click', () => copySimulation('b', 'a'));
+
+  /* ---- saving a picture ---- */
+
+  /**
+   * Every canvas can be saved exactly as it stands.
+   *
+   * The canvas is drawn at the device pixel ratio and `toDataURL` reads the
+   * backing store, so what comes out is the full-resolution picture rather than
+   * the CSS-sized one. Nothing is re-rendered for the download and nothing is
+   * added to it: what is saved is what is on screen, which is the only claim
+   * worth making about a picture of a measurement.
+   *
+   * Only the pictures that really are about ONE simulation take its letter in
+   * the filename. The cross-section, the histogram and the strip of sky hold
+   * both panels, so calling one of them `...-a.png` would be a lie told to
+   * whoever has to sort the folder out later; the spectrum and the chromaticity
+   * diagram answer for the selected simulation alone, and there the letter is
+   * the only thing that tells two otherwise identical files apart.
+   *
+   * A blob rather than a data URL: a data URL carries the whole image through
+   * the address of the link, which browsers cap, and the cross-section at a
+   * high pixel ratio is comfortably big enough to run into that.
+   */
+  function saveCanvas(canvas, name, perSimulation) {
+    const state = store.state;
+    const parts = ['atmo-lab', name];
+    if (perSimulation && state.compare.enabled) {
+      parts.push(state.compare.active === 'b' ? 'b' : 'a');
+    }
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.download = `${parts.join('-')}.png`;
+      link.href = url;
+      link.click();
+      // Give the browser a moment to start reading it before the handle goes.
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+    }, 'image/png');
+  }
+
+  for (const button of document.querySelectorAll('[data-download]')) {
+    const canvas = document.getElementById(button.dataset.download);
+    if (!canvas) continue;
+    button.addEventListener('click', () => saveCanvas(
+      canvas, button.dataset.file, button.hasAttribute('data-per-simulation')));
+  }
 
   /* ---- header wiring ---- */
 
@@ -214,6 +364,7 @@ async function start() {
       b.classList.toggle('is-active', b.dataset.level === state.level);
     });
     document.body.dataset.level = state.level;
+    compareBar.hidden = !state.compare.enabled;
     if (experimentSelect.value !== (state.experimentId ?? '')) {
       experimentSelect.value = state.experimentId ?? '';
     }
@@ -225,10 +376,7 @@ async function start() {
     controls.update();
     panels.refreshLegendText();
     experiments.render();
-    if (result) {
-      panels.update(result, photonTally, beamHistogramFor(store.state));
-      explanation.update(result);
-    }
+    if (result) publish({ photonsChanged: false });
     needsPaint = true;
   });
 
@@ -256,10 +404,17 @@ async function start() {
    */
   sceneCanvas.addEventListener('wheel', (event) => {
     event.preventDefault();
-    const current = store.state.camera.span_m
-      ?? autoSpanFor(result.atmosphere, store.state.observer.z, store.state.observer.well);
+    // The panel under the pointer is the one that zooms, whether or not it is
+    // the selected one. Direct manipulation needs no selection to be
+    // unambiguous - you are pointing at the thing you are changing.
+    const id = sceneRenderer.panelAt(event.clientX, event.clientY) ?? store.state.compare.active;
+    const entry = result.simulations.find((one) => one.id === id) ?? result.simulations[0];
+    const observer = entry.observer;
+    const span = observer.span_m
+      ?? autoSpanFor(entry.atmosphere, observer.z, observer.well);
     const factor = Math.exp(event.deltaY * 0.0015);
-    store.patch({ camera: { span_m: clampSpan(current * factor) } });
+    const patch = { observer: { span_m: clampSpan(span * factor) } };
+    store.patch(entry.id === 'b' ? { compare: { b: patch } } : patch);
   }, { passive: false });
 
   sceneCanvas.addEventListener('mouseleave', () => {
@@ -268,9 +423,20 @@ async function start() {
     needsPaint = true;
   });
   sceneCanvas.addEventListener('click', (event) => {
+    // Clicking the panel that is not selected selects it, and does nothing
+    // else. It is the fastest way to say which simulation you mean, and it
+    // cannot be confused with picking a ray out of it, because a ray in an
+    // unselected panel is not pickable at all.
+    const panelId = sceneRenderer.panelAt(event.clientX, event.clientY);
+    if (store.state.compare.enabled && panelId && panelId !== store.state.compare.active) {
+      store.patch({ compare: { active: panelId } });
+      rayLog.hidden = true;
+      return;
+    }
     const index = sceneRenderer.pick(event.clientX, event.clientY);
     sceneRenderer.setSelected(index);
-    if (index >= 0 && photons && photons[index]) showRayLog(photons[index]);
+    const rays = traces.get(result.activeId)?.photons;
+    if (index >= 0 && rays && rays[index]) showRayLog(rays[index]);
     else rayLog.hidden = true;
     needsPaint = true;
   });
@@ -378,7 +544,9 @@ async function start() {
       chromaticity, histogram: beamHistogram,
     },
     get result() { return result; },
-    get photons() { return photons; },
+    get stations() { return stationsNow(); },
+    copySimulation,
+    get photons() { return traces.get(result?.activeId ?? 'a')?.photons ?? null; },
     /** Force one full synchronous update, bypassing the frame loop. */
     renderNow() {
       recomputePhysics();

@@ -4,12 +4,27 @@
  * Controls are declared as data rather than written out as markup, so adding a
  * new physical parameter is one entry in the list below. Each entry names the
  * state path it drives; nothing here knows anything about the physics.
+ *
+ * Every path that names part of a SIMULATION - the star, the air, the observer
+ * - is aimed at whichever simulation is selected. The entries below say
+ * `star.elevationDeg`, and if B is the selected simulation they read and write
+ * `compare.b.star.elevationDeg` instead. There is one function that does the
+ * aiming and one that does the writing, so no control can be retargeted while
+ * another is quietly forgotten.
+ *
+ * The ray section is the exception and says so: it sets how BOTH simulations
+ * are drawn. The display exposure especially - two panels rendered at two gains
+ * cannot be compared by eye, which is the one thing a comparison is for.
  */
 
 import {
   sliderToZ, zToSlider, maxAltitudeFor, MIN_SPAN_M, MAX_SPAN_M,
+  SIMULATION_KEYS, activeSimulationPath, activeSimulation, activeSimulationId,
+  activeObserver,
 } from '../state.js';
-import { formatAltitude, autoSpanFor } from '../render/scene-renderer.js';
+import {
+  formatAltitude, autoSpanFor, stationColour,
+} from '../render/scene-renderer.js';
 
 function getPath(object, path) {
   return path.split('.').reduce((node, key) => (node == null ? node : node[key]), object);
@@ -24,6 +39,41 @@ function setPath(patch, path, value) {
   }
   node[keys[keys.length - 1]] = value;
   return patch;
+}
+
+/** Does this state path name part of a simulation rather than of the page? */
+function isSimulationPath(path) {
+  return SIMULATION_KEYS.some((key) => path === key || path.startsWith(`${key}.`));
+}
+
+/** Rewrite a simulation path so it names the selected simulation. */
+function aim(path, state) {
+  if (!isSimulationPath(path)) return path;
+  const prefix = activeSimulationPath(state);
+  return prefix ? `${prefix}.${path}` : path;
+}
+
+/** Read a state path, aimed at the selected simulation. */
+function readAimed(state, path) {
+  return getPath(state, aim(path, state));
+}
+
+/**
+ * Send a patch to the selected simulation.
+ *
+ * The declarations and the `onChange` handlers below all speak of `star`,
+ * `atmosphere` and `observer`, because that is what they are about; this is the
+ * single place where "which simulation" is answered.
+ */
+function retarget(patch, state) {
+  if (activeSimulationId(state) !== 'b') return patch;
+  const moved = {};
+  const rest = {};
+  for (const [key, value] of Object.entries(patch)) {
+    if (SIMULATION_KEYS.includes(key)) moved[key] = value; else rest[key] = value;
+  }
+  if (Object.keys(moved).length === 0) return patch;
+  return { ...rest, compare: { ...(rest.compare ?? {}), b: moved } };
 }
 
 /** Surface pressure, in whatever unit keeps the number readable. */
@@ -51,20 +101,56 @@ export function createControls(root, { store, i18n, config }) {
    * wasteful on every repaint of the controls.
    */
   function atmosphereShape(state) {
-    const preset = config.atmospheres.get(state.atmosphere.presetId);
+    const air = activeSimulation(state).atmosphere;
+    const preset = config.atmospheres.get(air.presetId);
     return {
-      scaleHeightRayleigh: state.atmosphere.scaleHeight_m
+      scaleHeightRayleigh: air.scaleHeight_m
         ?? preset?.rayleigh.scaleHeight_m ?? 8500,
     };
   }
 
+  /** The configured world the selected simulation is running in. */
+  function worldOf(state) {
+    return config.atmospheres.get(activeSimulation(state).atmosphere.presetId);
+  }
+
   const sections = [
+    {
+      id: 'sec-compare', titleKey: 'compare.title',
+      controls: [
+        {
+          id: 'ctl-compare', type: 'checkbox', labelKey: 'compare.enable',
+          helpKey: 'compare.enableHelp', path: 'compare.enabled',
+          // Switching the comparison on hands the controls back to A, so that
+          // it always begins from the observer that was there a moment ago.
+          onChange: (enabled) => ({ compare: { enabled, active: 'a' } }),
+        },
+        {
+          id: 'ctl-compare-active', type: 'segment', labelKey: 'compare.controls',
+          helpKey: 'compare.controlsHelp', path: 'compare.active',
+          dependsOn: 'compare.enabled',
+          options: () => [
+            { value: 'a', label: i18n.t('compare.observerA'), colour: stationColour('a') },
+            { value: 'b', label: i18n.t('compare.observerB'), colour: stationColour('b') },
+          ],
+        },
+        {
+          // A note draws itself from its own text, so it hides itself by
+          // returning nothing rather than by declaring a dependency.
+          id: 'ctl-compare-note', type: 'note',
+          text: (state) => (state.compare.enabled
+            ? i18n.t('compare.note').replace('{observer}',
+              i18n.t(activeSimulationId(state) === 'b' ? 'compare.observerB' : 'compare.observerA'))
+            : ''),
+        },
+      ],
+    },
     {
       id: 'sec-star', titleKey: 'controls.star.title',
       controls: [
         {
           id: 'ctl-star-preset', type: 'select', labelKey: 'controls.star.preset',
-          path: 'star.presetId',
+          helpKey: 'controls.star.presetHelp', path: 'star.presetId',
           options: () => Array.from(config.stars.values()).map((s) => ({
             value: s.id, label: i18n.localized(s.name),
           })),
@@ -99,7 +185,7 @@ export function createControls(root, { store, i18n, config }) {
       controls: [
         {
           id: 'ctl-atmosphere-preset', type: 'select', labelKey: 'controls.atmosphere.preset',
-          path: 'atmosphere.presetId',
+          helpKey: 'controls.atmosphere.presetHelp', path: 'atmosphere.presetId',
           options: () => Array.from(config.atmospheres.values()).map((a) => ({
             value: a.id, label: i18n.localized(a.name),
           })),
@@ -139,7 +225,7 @@ export function createControls(root, { store, i18n, config }) {
           id: 'ctl-scale-height', type: 'range', labelKey: 'controls.atmosphere.scaleHeight',
           helpKey: 'controls.atmosphere.scaleHeightHelp', path: 'atmosphere.scaleHeight_m',
           min: 1000, max: 60000, step: 100, advanced: true,
-          fallback: (state) => config.atmospheres.get(state.atmosphere.presetId)?.rayleigh.scaleHeight_m ?? 8500,
+          fallback: (state) => worldOf(state)?.rayleigh.scaleHeight_m ?? 8500,
           format: (v) => `${(v / 1000).toFixed(1)} km`,
         },
         {
@@ -153,7 +239,7 @@ export function createControls(root, { store, i18n, config }) {
           // config/scattering/rayleigh_gases.json.
           id: 'ctl-composition', type: 'note',
           text: (state) => {
-            const world = config.atmospheres.get(state.atmosphere.presetId);
+            const world = worldOf(state);
             if (!world) return '';
             const table = config.scattering.get('rayleigh_gases')?.gases ?? {};
             const parts = (world.composition ?? [])
@@ -201,19 +287,20 @@ export function createControls(root, { store, i18n, config }) {
         },
         {
           id: 'ctl-well', type: 'checkbox', labelKey: 'controls.observer.wellEnabled',
-          path: 'observer.well.enabled',
+          helpKey: 'controls.observer.wellEnabledHelp', path: 'observer.well.enabled',
           onChange: (enabled) => {
-            const state = store.state;
+            const observer = activeObserver(store.state);
             if (enabled) {
-              const depth = state.observer.well?.depth_m ?? 50;
-              const z = state.observer.z <= 0 ? -depth : state.observer.z;
+              const depth = observer.well?.depth_m ?? 50;
+              const z = observer.z <= 0 ? -depth : observer.z;
               return { observer: { well: { enabled: true }, z } };
             }
-            return { observer: { well: { enabled: false }, z: Math.max(0, state.observer.z) } };
+            return { observer: { well: { enabled: false }, z: Math.max(0, observer.z) } };
           },
         },
         {
           id: 'ctl-well-radius', type: 'range', labelKey: 'controls.observer.wellRadius',
+          helpKey: 'controls.observer.wellRadiusHelp',
           path: 'observer.well.radius_m', min: 0.2, max: 20, step: 0.1,
           scale: 'log', dependsOn: 'observer.well.enabled',
           format: (v) => `${v.toFixed(1)} m`,
@@ -232,15 +319,13 @@ export function createControls(root, { store, i18n, config }) {
         },
         {
           id: 'ctl-zoom', type: 'range', labelKey: 'controls.observer.zoom',
-          helpKey: 'controls.observer.zoomHelp', path: 'camera.span_m',
+          helpKey: 'controls.observer.zoomHelp', path: 'observer.span_m',
           min: MIN_SPAN_M, max: MAX_SPAN_M, step: 1, scale: 'log',
-          fallback: (state) => autoSpanFor(
-            atmosphereShape(state), state.observer.z, state.observer.well),
+          fallback: (state) => {
+            const observer = activeObserver(state);
+            return autoSpanFor(atmosphereShape(state), observer.z, observer.well);
+          },
           format: (v) => formatAltitude(v),
-        },
-        {
-          id: 'ctl-compare', type: 'checkbox', labelKey: 'compare.enable',
-          path: 'compare.enabled',
         },
       ],
     },
@@ -248,8 +333,15 @@ export function createControls(root, { store, i18n, config }) {
       id: 'sec-rays', titleKey: 'controls.rays.title',
       controls: [
         {
+          // The one section that is not about a situation but about how both
+          // situations are drawn. Saying so is the difference between a shared
+          // control and a control that looks broken.
+          id: 'ctl-rays-shared', type: 'note',
+          text: (state) => (state.compare.enabled ? i18n.t('compare.sharedRays') : ''),
+        },
+        {
           id: 'ctl-ray-count', type: 'range', labelKey: 'controls.rays.count',
-          path: 'rays.count', min: 100, max: 5000, step: 100,
+          helpKey: 'controls.rays.countHelp', path: 'rays.count', min: 100, max: 5000, step: 100,
           format: (v) => String(Math.round(v)),
         },
         {
@@ -258,7 +350,7 @@ export function createControls(root, { store, i18n, config }) {
         },
         {
           id: 'ctl-animate', type: 'checkbox', labelKey: 'controls.rays.animate',
-          path: 'rays.animate',
+          helpKey: 'controls.rays.animateHelp', path: 'rays.animate',
         },
         {
           id: 'ctl-brightness', type: 'range', labelKey: 'controls.rays.brightness',
@@ -267,8 +359,13 @@ export function createControls(root, { store, i18n, config }) {
           format: (v) => `${v < 10 ? v.toFixed(2) : Math.round(v)} ×`,
         },
         {
+          id: 'ctl-mix-physical', type: 'checkbox', advanced: true,
+          labelKey: 'controls.rays.physicalMix',
+          helpKey: 'controls.rays.physicalMixHelp', path: 'rays.mix.physical',
+        },
+        {
           id: 'ctl-quality', type: 'select', labelKey: 'controls.rays.quality',
-          path: 'rays.quality', advanced: true,
+          helpKey: 'controls.rays.qualityHelp', path: 'rays.quality', advanced: true,
           options: () => [
             { value: 'preview', label: i18n.t('controls.rays.qualityPreview') },
             { value: 'normal', label: i18n.t('controls.rays.qualityNormal') },
@@ -324,7 +421,18 @@ export function createControls(root, { store, i18n, config }) {
     label.appendChild(value);
 
     let input;
-    if (control.type === 'range') {
+    if (control.type === 'segment') {
+      // A row of buttons rather than a select, because this one answers a
+      // question the reader has to be able to answer at a glance - which
+      // simulation am I steering - and a collapsed dropdown does not.
+      input = document.createElement('div');
+      input.className = 'segmented segmented-observer';
+      input.setAttribute('role', 'group');
+      input.addEventListener('click', (event) => {
+        const button = event.target.closest('button[data-value]');
+        if (button) commit(control, button.dataset.value);
+      });
+    } else if (control.type === 'range') {
       input = document.createElement('input');
       input.type = 'range';
       if (control.mapping === 'position') { input.min = -1000; input.max = 1000; input.step = 1; }
@@ -351,6 +459,10 @@ export function createControls(root, { store, i18n, config }) {
     if (control.type === 'checkbox') {
       field.appendChild(input);
       field.appendChild(label);
+    } else if (control.type === 'segment') {
+      label.htmlFor = '';
+      field.appendChild(label);
+      field.appendChild(input);
     } else {
       field.appendChild(label);
       field.appendChild(input);
@@ -366,38 +478,41 @@ export function createControls(root, { store, i18n, config }) {
     const raw = Number(input.value);
     if (control.mapping === 'position') {
       const state = store.state;
-      const atmosphereConfig = config.atmospheres.get(state.atmosphere.presetId);
-      const maxDepth = state.observer.well.enabled ? state.observer.well.depth_m : 0;
-      return sliderToZ(raw, maxAltitudeFor(atmosphereConfig), maxDepth);
+      const well = activeObserver(state).well;
+      const maxDepth = well.enabled ? well.depth_m : 0;
+      return sliderToZ(raw, maxAltitudeFor(worldOf(state)), maxDepth);
     }
     if (control.scale === 'log') return logToValue(raw / 1000, control.min, control.max);
     return raw;
   }
 
   function commit(control, value) {
+    const state = store.state;
     if (control.onChange) {
-      store.patch(control.onChange(value));
+      store.patch(retarget(control.onChange(value), state));
       return;
     }
     if (control.mapping === 'view') {
       // A signed control: negative means looking away from the star.
-      store.patch({
+      store.patch(retarget({
         observer: {
           viewZenithDeg: Math.abs(value),
           viewAzimuthDeg: value >= 0 ? 0 : 180,
         },
-      });
+      }, state));
       return;
     }
-    store.patch(setPath({}, control.path, control.nullable && value === '' ? null : value));
+    store.patch(setPath({}, aim(control.path, state),
+      control.nullable && value === '' ? null : value));
   }
 
   function currentValue(control, state) {
     if (control.mapping === 'view') {
-      const signed = state.observer.viewAzimuthDeg > 90 ? -1 : 1;
-      return state.observer.viewZenithDeg * signed;
+      const observer = activeObserver(state);
+      const signed = observer.viewAzimuthDeg > 90 ? -1 : 1;
+      return observer.viewZenithDeg * signed;
     }
-    const raw = getPath(state, control.path);
+    const raw = readAimed(state, control.path);
     if (raw == null && control.fallback) return control.fallback(state);
     return raw;
   }
@@ -406,9 +521,15 @@ export function createControls(root, { store, i18n, config }) {
   function update() {
     const state = store.state;
     const advanced = state.level === 'advanced';
-    const atmosphereConfig = config.atmospheres.get(state.atmosphere.presetId);
-    const maxAltitude = maxAltitudeFor(atmosphereConfig);
-    const maxDepth = state.observer.well.enabled ? state.observer.well.depth_m : 0;
+    const maxAltitude = maxAltitudeFor(worldOf(state));
+    const aimed = activeObserver(state);
+    const maxDepth = aimed.well.enabled ? aimed.well.depth_m : 0;
+
+    // The star, the air and the observer all belong to one of the two
+    // simulations, and the panel says which in that simulation's own colour
+    // rather than leaving it to be inferred from a picture somewhere else.
+    root.dataset.observer = state.compare.enabled ? activeSimulationId(state) : '';
+    root.style.setProperty('--observer-colour', stationColour(activeSimulationId(state)));
 
     for (const { control, field, input, value, labelText } of elements.values()) {
       if (control.type === 'note') {
@@ -423,11 +544,31 @@ export function createControls(root, { store, i18n, config }) {
       }
 
       field.hidden = (control.advanced && !advanced) ||
-        (control.dependsOn && !getPath(state, control.dependsOn));
+        (control.dependsOn && !readAimed(state, control.dependsOn));
 
       const raw = currentValue(control, state);
 
-      if (control.type === 'select') {
+      if (control.type === 'segment') {
+        const options = control.options();
+        if (input.dataset.signature !== i18n.getLanguage()) {
+          input.textContent = '';
+          for (const option of options) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.dataset.value = option.value;
+            button.textContent = option.label;
+            input.appendChild(button);
+          }
+          input.dataset.signature = i18n.getLanguage();
+        }
+        input.querySelectorAll('button').forEach((button) => {
+          const on = button.dataset.value === String(raw);
+          button.classList.toggle('is-active', on);
+          button.style.setProperty('--segment-colour',
+            options.find((o) => o.value === button.dataset.value)?.colour ?? '');
+        });
+        value.textContent = '';
+      } else if (control.type === 'select') {
         const options = control.options();
         const wanted = options.map((o) => o.value).join('|');
         if (input.dataset.signature !== wanted + '|' + i18n.getLanguage()) {

@@ -11,6 +11,10 @@
  *      * T_sun(lambda, s -> space)       how much starlight reached this point at all
  *      * I_0(lambda)  ds                 the spectrum the star emitted
  *
+ * Both transmissions count every loss - molecular and aerosol extinction and
+ * ozone absorption - while the bracket counts only what scatters, since an
+ * absorbed photon goes nowhere.
+ *
  * Every factor depends on wavelength, and the blue sky, the red sunset and the
  * black sky of space are all consequences of that one integral.
  *
@@ -24,7 +28,7 @@
 import { SPECTRUM_BINS, specNew } from './spectrum.js';
 import { rayleighPhase, henyeyGreensteinPhase } from './scattering.js';
 import { v3addScaled, v3length, v3dot, directionFromAngles } from './geometry.js';
-import { wellIsBlocked, wellApertureHalfAngle, wellShaftColumn } from './well.js';
+import { wellIsBlocked, wellApertureHalfAngle, shaftAirColumns } from './well.js';
 
 /**
  * Sampling density presets. `viewSteps` divides the viewing ray, `sunSteps`
@@ -85,10 +89,10 @@ function shaftPrefix(scene, zenithRad) {
   if (!scene.countShaftAir || !scene.wellActive) return { r: 0, a: 0 };
   const atm = scene.atmosphere;
   const sec = 1 / Math.max(0.05, Math.cos(Math.min(zenithRad, Math.PI / 2 - 1e-3)));
-  return {
-    r: wellShaftColumn(scene.wellDepth, atm.scaleHeightRayleigh) * sec,
-    a: wellShaftColumn(scene.wellDepth, atm.scaleHeightAerosol) * sec,
-  };
+  // No ozone: the shaft is the bottom of the air, and ozone lives twenty
+  // kilometres up.
+  const column = shaftAirColumns(scene.wellDepth, atm.scaleHeightRayleigh);
+  return { r: column.r * sec, a: column.a * sec };
 }
 
 /**
@@ -106,7 +110,7 @@ export function computeViewRadiance(scene, viewDir, quality = QUALITY_PRESETS.no
       blocked: true, hitGround: false,
       scattered: ZERO_SPECTRUM, observed: ZERO_SPECTRUM,
       transmittance: ZERO_SPECTRUM, opticalDepth: ZERO_SPECTRUM,
-      pathLength: 0, columnR: 0, columnA: 0, zenithRad, starVisible: false,
+      pathLength: 0, columnR: 0, columnA: 0, columnO: 0, zenithRad, starVisible: false,
     };
   }
 
@@ -119,28 +123,52 @@ export function computeViewRadiance(scene, viewDir, quality = QUALITY_PRESETS.no
   const betaR = atm.rayleighBeta0;
   const betaAext = atm.aerosolExt0;
   const betaAsca = atm.aerosolSca0;
+  const kO = atm.ozoneAbsorption0;
   const source = scene.source;
 
   const cosScatter = v3dot(viewDir, scene.sunDir);
-  const phaseR = rayleighPhase(cosScatter);
+  const phaseR = rayleighPhase(cosScatter, atm.rayleighDepolarization);
   const phaseA = henyeyGreensteinPhase(cosScatter, atm.asymmetryG);
 
-  let columnR = prefix.r, columnA = prefix.a;
+  let columnR = prefix.r, columnA = prefix.a, columnO = 0;
 
   if (distance > 0) {
     const steps = quality.viewSteps;
-    const ds = distance / steps;
+    // Where the steps fall. The air that scatters most sits at the dense end of
+    // the ray, and the aerosol is packed into its first kilometre, so the steps
+    // are graded rather than even: short at the dense end and lengthening into
+    // the thin air, t_i = L (i/N)^2. A ray that rises from the observer is
+    // densest where it starts; one that runs down into the ground is densest
+    // where it ends, so it is graded the other way round.
+    const denseAtEnd = ext.hitGround && v3length(origin) - atm.planetRadius > 0;
+    const at = (i) => {
+      const u = i / steps;
+      return distance * (denseAtEnd ? 1 - (1 - u) * (1 - u) : u * u);
+    };
+    const heightAt = (t) => v3length(v3addScaled(origin, viewDir, t)) - atm.planetRadius;
+    let t0 = 0, h0 = heightAt(0);
     for (let i = 0; i < steps; i++) {
-      const Q = v3addScaled(origin, viewDir, i * ds + ds * 0.5);
-      const h = v3length(Q) - atm.planetRadius;
-      const rhoR = atm.densityRayleigh(h);
-      const rhoA = atm.densityAerosol(h);
+      const t1 = at(i + 1);
+      const ds = t1 - t0;
+      if (!(ds > 0)) continue;
+      const tMid = 0.5 * (t0 + t1);
+      const Q = v3addScaled(origin, viewDir, tMid);
+      const hMid = v3length(Q) - atm.planetRadius;
+      const h1 = heightAt(t1);
 
-      // Column from the observer out to this sample point.
-      const midR = columnR + rhoR * ds * 0.5;
-      const midA = columnA + rhoA * ds * 0.5;
-      columnR += rhoR * ds;
-      columnA += rhoA * ds;
+      // The two halves of the step, each integrated exactly: the column out
+      // to the sample point, and the whole step's worth of scattering air.
+      const near = atm.segmentColumns(h0, hMid, 0.5 * ds);
+      const far = atm.segmentColumns(hMid, h1, 0.5 * ds);
+      const midR = columnR + near.r;
+      const midA = columnA + near.a;
+      const midO = columnO + near.o;
+      const stepR = near.r + far.r;
+      const stepA = near.a + far.a;
+      columnR += stepR;
+      columnA += stepA;
+      columnO += near.o + far.o;
+      t0 = t1; h0 = h1;
 
       // Is this point in sunlight at all? A shadow ray that runs into the
       // planet means the point sits in the shadow of the planet, which is what
@@ -151,11 +179,12 @@ export function computeViewRadiance(scene, viewDir, quality = QUALITY_PRESETS.no
 
       const totalR = midR + sunCol.columnR;
       const totalA = midA + sunCol.columnA;
-      const srcR = rhoR * phaseR * ds;
-      const srcA = rhoA * phaseA * ds;
+      const totalO = midO + sunCol.columnO;
+      const srcR = stepR * phaseR;
+      const srcA = stepA * phaseA;
 
       for (let k = 0; k < SPECTRUM_BINS; k++) {
-        const tau = betaR[k] * totalR + betaAext[k] * totalA;
+        const tau = betaR[k] * totalR + betaAext[k] * totalA + kO[k] * totalO;
         if (tau > 40) continue;
         const emitted = betaR[k] * srcR + betaAsca[k] * srcA;
         scattered[k] += Math.exp(-tau) * emitted * source[k];
@@ -163,8 +192,8 @@ export function computeViewRadiance(scene, viewDir, quality = QUALITY_PRESETS.no
     }
   }
 
-  const transmittance = atm.transmittance(columnR, columnA);
-  const opticalDepth = atm.opticalDepth(columnR, columnA);
+  const transmittance = atm.transmittance(columnR, columnA, columnO);
+  const opticalDepth = atm.opticalDepth(columnR, columnA, columnO);
 
   // If the star itself lies in this viewing direction, its disc adds a
   // radiance of (attenuated irradiance / the solid angle the disc covers).
@@ -182,7 +211,7 @@ export function computeViewRadiance(scene, viewDir, quality = QUALITY_PRESETS.no
     blocked: false,
     hitGround: ext.hitGround,
     scattered, observed, transmittance, opticalDepth,
-    pathLength: distance, columnR, columnA, zenithRad, starVisible,
+    pathLength: distance, columnR, columnA, columnO, zenithRad, starVisible,
   };
 }
 
@@ -204,8 +233,9 @@ export function computeDirectBeam(scene, quality = QUALITY_PRESETS.normal) {
 
   const columnR = col.columnR + prefix.r;
   const columnA = col.columnA + prefix.a;
-  const transmittance = atm.transmittance(columnR, columnA);
-  const opticalDepth = atm.opticalDepth(columnR, columnA);
+  const columnO = col.columnO;
+  const transmittance = atm.transmittance(columnR, columnA, columnO);
+  const opticalDepth = atm.opticalDepth(columnR, columnA, columnO);
 
   const beam = specNew();
   const visible = !blockedByWell && !belowHorizon;
@@ -217,7 +247,7 @@ export function computeDirectBeam(scene, quality = QUALITY_PRESETS.normal) {
   return {
     spectrum: beam,
     transmittance, opticalDepth,
-    columnR, columnA,
+    columnR, columnA, columnO,
     pathLength: ext.distance,
     airMass: verticalColumn > 0 ? columnR / verticalColumn : 0,
     blockedByWell, belowHorizon, visible,
@@ -310,7 +340,7 @@ export function computeIllumination(scene, colorimetry, options = {}) {
    * otherwise a deep shaft would fall between samples and report exactly zero
    * light, which is a sampling artefact and not physics.
    */
-  function integrateCone(thetaMin, thetaMax, nTheta, nPhi) {
+  function integrateCone(thetaMin, thetaMax, nTheta, nPhi, through = openScene) {
     let sum = 0, omega = 0;
     if (thetaMax <= thetaMin) return { sum, omega };
     const dTheta = (thetaMax - thetaMin) / nTheta;
@@ -321,9 +351,12 @@ export function computeIllumination(scene, colorimetry, options = {}) {
       const cosT = Math.cos(theta);
       for (let j = 0; j < nPhi; j++) {
         const dir = directionFromAngles(theta, (j + 0.5) * dPhi);
-        // The radiance of a sky patch never depends on the shaft; the shaft
-        // only decides whether the observer can see that patch at all.
-        const r = computeViewRadiance(openScene, dir, quality);
+        // The radiance of a sky patch does not depend on the shaft; the shaft
+        // only decides whether the observer can see that patch at all. The
+        // one exception is air standing in the shaft, which the light must
+        // also cross - so the cone inside the aperture is evaluated in the
+        // real scene, where every direction is open and that air is counted.
+        const r = computeViewRadiance(through, dir, quality);
         sum += colorimetry.luminance(r.scattered) * cosT * dOmega;
         omega += dOmega;
       }
@@ -334,7 +367,7 @@ export function computeIllumination(scene, colorimetry, options = {}) {
   const openIntegral = integrateCone(0, Math.PI / 2,
     options.zenithSamples ?? 9, options.azimuthSamples ?? 8);
   const coneIntegral = scene.wellActive
-    ? integrateCone(0, scene.apertureHalfAngle, 5, 6)
+    ? integrateCone(0, scene.apertureHalfAngle, 5, 6, scene)
     : openIntegral;
 
   const open = openIntegral.sum;
@@ -376,11 +409,12 @@ export function computeScatteringSource(scene, position, scatterCos = 0, quality
 
   const rhoR = atm.densityRayleigh(h);
   const rhoA = atm.densityAerosol(h);
-  const phaseR = rayleighPhase(scatterCos);
+  const phaseR = rayleighPhase(scatterCos, atm.rayleighDepolarization);
   const phaseA = henyeyGreensteinPhase(scatterCos, atm.asymmetryG);
 
   for (let k = 0; k < SPECTRUM_BINS; k++) {
-    const tau = atm.rayleighBeta0[k] * col.columnR + atm.aerosolExt0[k] * col.columnA;
+    const tau = atm.rayleighBeta0[k] * col.columnR + atm.aerosolExt0[k] * col.columnA
+      + atm.ozoneAbsorption0[k] * col.columnO;
     if (tau > 40) continue;
     const emitted = atm.rayleighBeta0[k] * rhoR * phaseR + atm.aerosolSca0[k] * rhoA * phaseA;
     out[k] = Math.exp(-tau) * emitted * scene.source[k];

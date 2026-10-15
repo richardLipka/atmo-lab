@@ -1,32 +1,48 @@
 /**
- * The spectrum of the light the drawn rays deliver, as a chart.
+ * The light the drawn rays deliver, counted by colour.
  *
  * The spectrum plot on the right is the analytic answer: smooth curves the
- * integrator produced. This is the measured one - the few hundred rays on
- * screen, each carrying an unbiased estimate of what it contributes, summed per
- * wavelength. The colour it implies is shown beside the integrator's own, and
- * the two agree, which is the point: the picture and the theory are one thing.
+ * integrator produced. This is the measured one, and it is the only one the
+ * sky colour beside it is built from - a few hundred traced rays, each carrying
+ * an unbiased estimate of what it contributes, gathered into the eight bands
+ * the rays on screen are drawn in. One bar per colour, the same eight colours,
+ * so a bar can be checked against the rays it is made of by counting them.
  *
- * An earlier version counted rays instead of weighing them. That could never
- * fall when the sky darkened - a fixed number of rays is drawn whatever the
- * state - so climbing to 40 km emptied the sky of light without moving a single
- * bar, while the colour swatch went black. Weighted by energy, and against a
- * scale that is held rather than refitted, the bars collapse with it.
+ * Two earlier versions were wrong in instructive ways. The first counted rays
+ * instead of weighing them, and a fixed number of rays is traced whatever the
+ * state, so climbing to 40 km emptied the sky without moving a single bar. The
+ * second weighed them but divided by the rays that ARRIVED, which is an average
+ * over the survivors: at the bottom of a fifty-metre shaft, where five rays get
+ * in out of fifty, it reported the same bright sky as open ground. The light
+ * collected is now divided by the directions LOOKED IN, so a direction that
+ * ends in rock contributes its nothing like any other, and the bars fall with
+ * the ray count exactly as the eye does.
  *
- * Filled bars are the light arriving at the observer: coloured from the viewing
- * cone, grey from the rest of the sky. The dashed outline is the unscattered
- * direct beam, scaled to its own peak because it carries thousands of times
- * more energy than the sky and is here for its shape - which marches red as the
- * star sinks.
+ * One chart per observer, side by side under their own panels when the
+ * comparison is running - but sharing ONE vertical scale, held at the brightest
+ * sky either of them has shown. Giving each chart its own scale would fit both
+ * to full height and hide the only thing the comparison exists to say, which is
+ * that one of these skies is a hundredth of the other.
+ *
+ * Bars are as wide as their band, which is not equal: the bands are narrow
+ * where the eye separates colours quickly and wide out in the deep red where it
+ * does not. Filled means the light arrived from inside the viewing cone; the
+ * grey stacked on top is the rest of the sky. The dashed outline is the
+ * unscattered direct beam, scaled to its own peak because it carries thousands
+ * of times more energy than the sky and is here for its shape - which marches
+ * red as the star sinks.
  */
 
-import { wavelengthToDisplayRgb } from '../physics/spectrum.js';
+import {
+  wavelengthToDisplayRgb, RAY_BANDS, SPECTRUM_MIN_NM, SPECTRUM_MAX_NM,
+} from '../physics/spectrum.js';
+import { stationColour } from './scene-renderer.js';
 
 const PAD = { left: 34, right: 10, top: 10, bottom: 22 };
 
 export function createBeamHistogram(canvas, { i18n }) {
   const ctx = canvas.getContext('2d', { alpha: false });
-  let histogram = null;
+  let data = null;
   /** The brightest the sky has been, held so the bars can visibly fall. */
   let reference = 0;
 
@@ -47,28 +63,55 @@ export function createBeamHistogram(canvas, { i18n }) {
   }
 
   function update(next) {
-    histogram = next;
+    data = next;
   }
 
   function draw() {
     const { w, h } = resize();
     ctx.fillStyle = '#0a0d16';
     ctx.fillRect(0, 0, w, h);
+    const stations = data?.stations ?? [];
+    if (stations.length === 0) return;
+
+    // The scale is shared, so it has to be settled before either chart is
+    // drawn: whichever observer has the brighter sky sets the height for both.
+    for (const station of stations) {
+      if (station.histogram && station.histogram.peak > reference) {
+        reference = station.histogram.peak;
+      }
+    }
+
+    if (stations.length === 1) {
+      drawChart(stations[0], 0, w, h, false);
+      return;
+    }
+    const gap = 10;
+    const half = (w - gap) / 2;
+    drawChart(stations[0], 0, half, h, true);
+    drawChart(stations[1], half + gap, half, h, true);
+  }
+
+  function drawChart(station, x0, w, h, labelled) {
+    const histogram = station.histogram;
     if (!histogram) return;
+    const active = station.id === data.activeId;
 
     const plot = {
-      x: PAD.left, y: PAD.top,
+      x: x0 + PAD.left, y: PAD.top,
       w: w - PAD.left - PAD.right, h: h - PAD.top - PAD.bottom,
     };
     const bins = histogram.centres.length;
-    const slot = plot.w / bins;
-    const barW = Math.max(2, slot - 2);
+    // A true wavelength axis: every band occupies exactly as much of the chart
+    // as it occupies of the spectrum. Equal slots would make the deep red, one
+    // band covering a third of the range, look like any other colour.
+    const AXIS_TO = SPECTRUM_MAX_NM + 1;
+    const nmToX = (nm) => plot.x
+      + ((nm - SPECTRUM_MIN_NM) / (AXIS_TO - SPECTRUM_MIN_NM)) * plot.w;
 
     // The vertical scale is the brightest the sky has been since the page
     // loaded, held rather than re-fitted every frame. Re-fitting would defeat
     // the whole purpose: climbing until the sky is black would keep the bars
     // exactly as tall as before, which is the bug this chart exists to answer.
-    if (histogram.peak > reference) reference = histogram.peak;
     const top = Math.max(reference, 1e-30) * 1.08;
 
     ctx.save();
@@ -82,20 +125,38 @@ export function createBeamHistogram(canvas, { i18n }) {
     }
     ctx.restore();
 
+    const base = plot.y + plot.h;
     for (let b = 0; b < bins; b++) {
+      const band = RAY_BANDS[b] ?? { fromNm: 380, edgeNm: 750, css: '#888' };
+      const x = nmToX(band.fromNm) + 1;
+      const barW = Math.max(2, nmToX(band.edgeNm) - nmToX(band.fromNm) - 2);
       const cone = histogram.inCone[b];
       const other = histogram.elsewhere[b];
-      if (cone + other <= 0) continue;
-      const x = plot.x + b * slot + (slot - barW) / 2;
-      const [r, g, bl] = wavelengthToDisplayRgb(histogram.centres[b]);
-      const coneH = Math.min(plot.h, (cone / top) * plot.h);
-      const otherH = Math.min(plot.h - coneH, (other / top) * plot.h);
-      const base = plot.y + plot.h;
+      if (cone + other > 0) {
+        const coneH = Math.min(plot.h, (cone / top) * plot.h);
+        const otherH = Math.min(plot.h - coneH, (other / top) * plot.h);
+        ctx.fillStyle = 'rgba(138, 147, 166, 0.42)';
+        ctx.fillRect(x, base - coneH - otherH, barW, otherH);
+        ctx.fillStyle = band.css;
+        ctx.fillRect(x, base - coneH, barW, coneH);
+      }
 
-      ctx.fillStyle = 'rgba(138, 147, 166, 0.42)';
-      ctx.fillRect(x, base - coneH - otherH, barW, otherH);
-      ctx.fillStyle = `rgb(${r}, ${g}, ${bl})`;
-      ctx.fillRect(x, base - coneH, barW, coneH);
+      // How many rays of this colour are arriving from the cone. The bar is
+      // what they carry; this is how many there are, and the two together are
+      // the whole of what the sky colour is built from.
+      const rays = histogram.coneBandRays ? histogram.coneBandRays[b] : 0;
+      if (rays > 0 && barW >= 14) {
+        ctx.save();
+        ctx.font = '9px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = 'rgba(255,255,255,0.68)';
+        const coneH = Math.min(plot.h, (cone / top) * plot.h);
+        const otherH = Math.min(plot.h - coneH, (other / top) * plot.h);
+        ctx.fillText(String(rays), x + barW / 2,
+          Math.max(plot.y + 9, base - coneH - otherH - 1));
+        ctx.restore();
+      }
     }
 
     // The direct beam, drawn as an outline scaled to its own peak. It carries
@@ -111,7 +172,7 @@ export function createBeamHistogram(canvas, { i18n }) {
       for (let b = 0; b < bins; b++) {
         const y = plot.y + plot.h
           - (histogram.direct[b] / histogram.directPeak) * plot.h * 0.9;
-        const x = plot.x + b * slot + slot / 2;
+        const x = nmToX(histogram.centres[b]);
         if (b === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
       }
       ctx.stroke();
@@ -139,6 +200,31 @@ export function createBeamHistogram(canvas, { i18n }) {
     ctx.fillText('380 nm', plot.x, plot.y + plot.h + 9);
     ctx.textAlign = 'right';
     ctx.fillText('750 nm', plot.x + plot.w, plot.y + plot.h + 9);
+    ctx.restore();
+
+    // Whose light this is. Same letter, same colour, same frame as the panel
+    // and the strip, so the three read as one column about one observer.
+    if (labelled) {
+      const colour = stationColour(station.id);
+      ctx.save();
+      ctx.font = '600 10px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = colour;
+      ctx.fillText(i18n.t(station.id === 'a' ? 'compare.observerA' : 'compare.observerB'),
+        plot.x + 2, plot.y + 1);
+      if (active) {
+        ctx.strokeStyle = colour;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x0 + 1, 1, w - 2, h - 2);
+      }
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.font = '9px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.textBaseline = 'top';
 
     const parts = [];
     if (histogram.coneMeanNm != null) {
@@ -162,7 +248,7 @@ export function createBeamHistogram(canvas, { i18n }) {
     ctx.fillText(share >= 0.995 ? '100 %'
       : share >= 0.01 ? `${(share * 100).toFixed(0)} %`
         : share > 0 ? `${(share * 100).toPrecision(2)} %` : '0 %',
-    2, plot.y + 6);
+    x0 + 2, plot.y + 6);
     ctx.restore();
   }
 

@@ -175,15 +175,133 @@ button:disabled { opacity: 0.4; cursor: default; }
 .panel-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 5px; }
 
 .panel-center {
-  display: grid;
-  /* The cross-section takes whatever is left; the histogram and the sky strip
-     are fixed strips beneath it. */
-  grid-template-rows: minmax(0, 1fr) auto auto auto auto;
+  /* A column, not a row template. Two of these children - the copy bar and the
+     ray log - come and go, and a hidden child leaves the grid entirely: with
+     fixed rows the survivors shifted up one and the cross-section landed on the
+     row meant for the histogram, which then had nowhere to go and drew straight
+     over the strip of sky below it. In a flex column each child simply asks for
+     its own height and the cross-section takes whatever is left, however many
+     of them happen to be showing. */
+  display: flex;
+  flex-direction: column;
   gap: 6px;
   padding: 8px;
 }
 
 /* ---- controls ----------------------------------------------------- */
+
+/* ---- which observer the controls are aimed at --------------------- *
+ *
+ * The panel says whose sliders these are in that observer's own colour: a
+ * stripe down the observer section, and the same colour on the selected
+ * button. Without it the two-observer comparison is two pictures and a set of
+ * controls with no visible owner, which is precisely how it read before.
+ */
+#controls-root[data-observer] #sec-observer {
+  border-left: 2px solid var(--observer-colour);
+  padding-left: 10px;
+  margin-left: -12px;
+}
+#controls-root[data-observer=""] #sec-observer {
+  border-left: 0;
+  padding-left: 0;
+  margin-left: 0;
+}
+.segmented-observer { display: flex; width: 100%; margin-top: 4px; }
+.segmented-observer button { flex: 1; }
+.segmented-observer button.is-active {
+  background: var(--segment-colour);
+  color: #0a0d16;
+}
+/* ---- copying one simulation onto the other ------------------------ *
+ *
+ * Above the pictures, because that is what it acts on, and small, because it
+ * is a shortcut rather than a step: land both panels on the same footing, then
+ * change one thing and watch what it does.
+ */
+.compare-bar {
+  /* Two columns on exactly the split the panels below use, so each button sits
+     over the panel it copies FROM and its arrow points at the neighbour it is
+     copying to. */
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding-bottom: 2px;
+}
+.compare-bar .sync-button { justify-self: center; }
+.sync-button {
+  background: var(--bg-input);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-family: var(--font);
+  letter-spacing: 0.03em;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: color 120ms, border-color 120ms;
+}
+.sync-button:hover { color: var(--text); border-color: var(--accent); }
+
+/* ---- saving an image ---------------------------------------------- *
+ *
+ * One button per picture, sitting in the top right corner OF THAT PICTURE, so
+ * there is never a question about which image it saves. It has to be quiet
+ * enough not to compete with the drawing and solid enough to be seen and hit:
+ * a translucent plate with a light hairline, which reads against every one of
+ * these canvases because all of them are dark.
+ *
+ * It was faint grey text on nothing before, at 9px - which on a dark drawing
+ * amounted to no button at all.
+ */
+.png-button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 4px 8px;
+  /* The plate is dark because one of these canvases - the strip of sky - can be
+     genuinely bright, and dark-on-bright survives that where the reverse does
+     not. On the dark canvases the plate all but disappears and the hairline and
+     the lettering are what carry it, so both are pitched to be read there. */
+  background: rgba(6, 9, 15, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.38);
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: var(--font);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 120ms, color 120ms, border-color 120ms;
+}
+.png-button:hover,
+.png-button:focus-visible {
+  background: rgba(16, 23, 36, 0.97);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.55);
+}
+
+/* Whatever holds a canvas is the frame its button is positioned against. */
+.canvas-frame { position: relative; display: grid; }
+
+.panel-target {
+  margin: 0 0 12px;
+  padding: 6px 9px;
+  border-left: 3px solid var(--observer-colour, var(--accent));
+  background: var(--bg-panel-2);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
 
 .control-section { margin-bottom: 18px; }
 .control-section h2 {
@@ -276,6 +394,7 @@ button:disabled { opacity: 0.4; cursor: default; }
 
 .canvas-wrap {
   position: relative;
+  flex: 1 1 auto;   /* the one child that gives up its height to the others */
   min-height: 0;
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -370,7 +489,7 @@ button:disabled { opacity: 0.4; cursor: default; }
   border-bottom: 1px solid var(--line-soft);
 }
 
-.chart-wrap { height: 172px; }
+.chart-wrap { height: 172px; position: relative; }
 #spectrum-canvas { display: block; width: 100%; height: 100%; border-radius: var(--radius-sm); }
 
 .legend {
@@ -416,11 +535,66 @@ button:disabled { opacity: 0.4; cursor: default; }
 }
 .swatch.is-dim .swatch-chip { opacity: 0.45; }
 
+/* The measured swatch is the headline, so it gets the bigger chip: what the
+   simulation says is the answer, and the theory beside it is the check. */
+#swatch-measured .swatch-chip { height: 66px; }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.tab {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 11px;
+  padding: 4px 8px 5px;
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--text-dim); }
+.tab.is-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+/* How many rays of each colour arrive: the count the sky colour is built from,
+   spelled out beside the swatch it produced. */
+.band-tally {
+  display: flex;
+  gap: 2px;
+  margin-top: 10px;
+  align-items: flex-end;
+}
+.band-tally-item {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+.band-tally-bar {
+  height: 4px;
+  border-radius: 1px;
+  margin-bottom: 3px;
+}
+.band-tally-count {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--text-faint);
+}
+.band-tally-item.is-empty .band-tally-bar { opacity: 0.22; }
+.band-tally-item.is-empty .band-tally-count { opacity: 0.4; }
+
 .note { margin: 8px 0 0; font-size: 10.5px; color: var(--text-faint); }
 .note-tally { color: var(--accent-green); }
 
 .chroma-wrap { display: grid; place-items: center; }
-#chroma-canvas { width: 100%; max-width: 220px; aspect-ratio: 1; border-radius: var(--radius-sm); }
+.chroma-frame { width: 100%; max-width: 220px; }
+#chroma-canvas { display: block; width: 100%; aspect-ratio: 1; border-radius: var(--radius-sm); }
 
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table td, .data-table th { padding: 3px 0; vertical-align: baseline; }
@@ -492,6 +666,19 @@ button:disabled { opacity: 0.4; cursor: default; }
   background: rgba(255, 180, 84, 0.08);
   border-left-color: var(--accent-warm);
 }
+/* What this guide is for, stated once at its first step. */
+.experiment-hint.is-goal {
+  background: rgba(126, 240, 192, 0.07);
+  border-left-color: #7ef0c0;
+  color: var(--text);
+}
+/* Which controls this step moved, and to what. */
+.experiment-hint.is-changes {
+  background: rgba(255, 255, 255, 0.04);
+  border-left-color: var(--line);
+  font-family: var(--mono);
+  font-size: 11px;
+}
 .hint-label {
   flex: none;
   font-size: 10px;
@@ -551,8 +738,7 @@ body[data-level="basic"] .explain-column.is-why { opacity: 0.78; }
   .layout { grid-template-columns: 1fr; }
   .panel { overflow: visible; }
   .panel-scroll { height: auto; max-height: none; overflow: visible; }
-  .canvas-wrap { height: 52vh; min-height: 300px; }
-  .panel-center { grid-template-rows: auto auto auto auto auto; }
+  .canvas-wrap { flex: 0 0 auto; height: 52vh; min-height: 300px; }
   .explain { grid-template-columns: 1fr; }
   body[data-level="basic"] .explain { grid-template-columns: 1fr; }
 }

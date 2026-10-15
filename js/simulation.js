@@ -8,6 +8,7 @@
  * place where the model is assembled.
  */
 
+import { simulationsOf, activeSimulationId } from './state.js';
 import { createAtmosphere } from './physics/atmosphere.js';
 import { makeBlackbodySpectrum, wienPeakNm, specNew, SPECTRUM_BINS } from './physics/spectrum.js';
 import { sunDirectionFromElevation, directionFromAngles, DEG } from './physics/geometry.js';
@@ -26,28 +27,40 @@ import {
 const REFERENCE_LAMBDAS = [450, 550, 650];
 
 export function createSimulation({ config, colorimetry }) {
-  /** Cache atmospheres so dragging an unrelated slider costs nothing. */
-  let atmosphereCache = { key: null, value: null };
+  /**
+   * Cache atmospheres so dragging an unrelated slider costs nothing.
+   *
+   * Keyed by what the atmosphere is made of rather than by which simulation
+   * asked for it, so two simulations of the same world share one - and a single
+   * slot would have thrashed between two different worlds on every frame.
+   */
+  const atmosphereCache = new Map();
 
-  function atmosphereFor(state) {
-    const preset = config.atmospheres.get(state.atmosphere.presetId)
+  function configFor(sim) {
+    return config.atmospheres.get(sim.atmosphere.presetId)
       ?? config.atmospheres.get('earth');
-    const a = state.atmosphere;
+  }
+
+  function atmosphereFor(sim) {
+    const preset = configFor(sim);
+    const a = sim.atmosphere;
     const key = [preset.id, a.densityScale, a.scaleHeight_m, a.aerosolScale,
       a.rayleighExponent, a.aerosolPresetId].join('|');
-    if (atmosphereCache.key !== key) {
-      atmosphereCache = {
-        key,
-        value: createAtmosphere(preset, {
-          densityScale: a.densityScale,
-          aerosolScale: a.aerosolScale,
-          rayleighExponent: a.rayleighExponent,
-          scaleHeight_m: a.scaleHeight_m ?? undefined,
-          aerosol: aerosolPreset(a.aerosolPresetId),
-        }),
-      };
+    let built = atmosphereCache.get(key);
+    if (!built) {
+      built = createAtmosphere(preset, {
+        densityScale: a.densityScale,
+        aerosolScale: a.aerosolScale,
+        rayleighExponent: a.rayleighExponent,
+        scaleHeight_m: a.scaleHeight_m ?? undefined,
+        aerosol: aerosolPreset(a.aerosolPresetId),
+      });
+      // Two simulations, so two live entries at most; anything older is a world
+      // nobody is looking at any more.
+      if (atmosphereCache.size > 4) atmosphereCache.clear();
+      atmosphereCache.set(key, built);
     }
-    return atmosphereCache.value;
+    return built;
   }
 
   /** A named haze from config/scattering/aerosols.json, or the world default. */
@@ -62,27 +75,37 @@ export function createSimulation({ config, colorimetry }) {
    * temperature is seen as a change of colour, not of brightness; the optional
    * insolation factor then restores the real difference between worlds.
    */
-  function sourceFor(state, atmosphereConfig) {
-    const spectrum = makeBlackbodySpectrum(state.star.temperatureK);
+  function sourceFor(sim, atmosphereConfig) {
+    const spectrum = makeBlackbodySpectrum(sim.star.temperatureK);
     colorimetry.normalizeToLuminance(spectrum, 1);
-    if (state.star.realisticInsolation) {
+    if (sim.star.realisticInsolation) {
       const factor = atmosphereConfig.insolationRelative ?? 1;
       for (let i = 0; i < SPECTRUM_BINS; i++) spectrum[i] *= factor;
     }
     return spectrum;
   }
 
-  function sceneFor(state, atmosphere, source, overrideZ) {
-    const starPreset = config.stars.get(state.star.presetId);
-    const z = overrideZ ?? state.observer.z;
+  /**
+   * The scene one observer stands in.
+   *
+   * The observer is passed in whole rather than as a bare altitude. It used to
+   * be an altitude, and the comparison paid for it: the second observer got the
+   * first one's shaft, the first one's viewing direction and the first one's
+   * choice about the air inside the shaft, so the two panels differed in height
+   * and in nothing else. An observer is where they stand AND what they are
+   * standing in.
+   */
+  function sceneFor(sim, atmosphere, source) {
+    const observer = sim.observer;
+    const starPreset = config.stars.get(sim.star.presetId);
     return buildScene({
       atmosphere,
       sourceSpectrum: source,
-      sunDirection: sunDirectionFromElevation(state.star.elevationDeg),
-      sunElevationDeg: state.star.elevationDeg,
-      observerZ: z,
-      well: state.observer.well,
-      countShaftAir: state.observer.countShaftAir,
+      sunDirection: sunDirectionFromElevation(sim.star.elevationDeg),
+      sunElevationDeg: sim.star.elevationDeg,
+      observerZ: observer.z,
+      well: observer.well,
+      countShaftAir: observer.countShaftAir,
       starAngularRadiusDeg: starPreset?.angularRadius_deg ?? 0.2665,
     });
   }
@@ -91,14 +114,21 @@ export function createSimulation({ config, colorimetry }) {
     return DISPLAY_EXPOSURE * (state.rays.brightness ?? 1);
   }
 
-  /** Evaluate one observer completely. */
-  function evaluate(state, atmosphere, source, overrideZ) {
+  /**
+   * Evaluate one simulation completely.
+   *
+   * `state` is here only for what the page decides rather than the situation:
+   * the integrator's quality and the display exposure, both shared by both
+   * panels. Everything physical comes from `sim`.
+   */
+  function evaluate(state, sim, atmosphere, source) {
+    const observer = sim.observer;
     const quality = QUALITY_PRESETS[state.rays.quality] ?? QUALITY_PRESETS.normal;
-    const scene = sceneFor(state, atmosphere, source, overrideZ);
+    const scene = sceneFor(sim, atmosphere, source);
     const exposure = exposureFor(state);
 
     const viewDir = directionFromAngles(
-      state.observer.viewZenithDeg * DEG, state.observer.viewAzimuthDeg * DEG);
+      observer.viewZenithDeg * DEG, observer.viewAzimuthDeg * DEG);
     const view = computeViewRadiance(scene, viewDir, quality);
     const beam = computeDirectBeam(scene, quality);
     const dome = computeSkyDome(scene, { samples: 73, quality: QUALITY_PRESETS.preview });
@@ -106,7 +136,7 @@ export function createSimulation({ config, colorimetry }) {
 
     const skyColor = colorimetry.spectrumToSrgb(view.observed, exposure);
     const perceived = perceivedSky(
-      dome, scene, view.observed, state.observer.viewZenithDeg * DEG);
+      dome, scene, view.observed, observer.viewZenithDeg * DEG);
     const perceivedColor = colorimetry.spectrumToSrgb(perceived.spectrum, exposure);
     const scatterColor = colorimetry.spectrumToSrgb(view.scattered, exposure);
     // The star is shown at its own exposure: it is a direct source, not a dim
@@ -124,8 +154,9 @@ export function createSimulation({ config, colorimetry }) {
     const atmosphericZ = Math.max(0, scene.observerZ);
     const columnR = atmosphere.verticalColumnRayleigh(atmosphericZ);
     const columnA = atmosphere.verticalColumnAerosol(atmosphericZ);
+    const columnO = atmosphere.verticalColumnOzone(atmosphericZ);
     const surfaceColumn = atmosphere.verticalColumnRayleigh(0);
-    const verticalTau = atmosphere.opticalDepth(columnR, columnA);
+    const verticalTau = atmosphere.opticalDepth(columnR, columnA, columnO);
 
     const depth = scene.observerZ < 0 ? -scene.observerZ : 0;
     const half = scene.wellActive ? wellApertureHalfAngle(depth, scene.wellRadius) : Math.PI / 2;
@@ -158,7 +189,7 @@ export function createSimulation({ config, colorimetry }) {
         analyticIlluminanceFraction: scene.wellActive
           ? wellIlluminanceFraction(depth, scene.wellRadius) : 1,
         skyLuminance: colorimetry.luminance(view.scattered),
-        peakWavelength: wienPeakNm(state.star.temperatureK),
+        peakWavelength: wienPeakNm(sim.star.temperatureK),
         scatteringAngleDeg: Math.acos(Math.max(-1, Math.min(1,
           viewDir.x * scene.sunDir.x + viewDir.y * scene.sunDir.y + viewDir.z * scene.sunDir.z))) / DEG,
         blocked: view.blocked,
@@ -218,30 +249,40 @@ export function createSimulation({ config, colorimetry }) {
   }
 
   /**
-   * Full evaluation for the current state, plus the second observer when the
-   * side-by-side comparison is running.
+   * Full evaluation of the current state: one entry per observer being
+   * simulated, and a pointer to the one the interface answers for.
+   *
+   * `primary` is not "the first observer", it is "the SELECTED observer". Every
+   * readout that quotes one number - the spectrum plot, the swatches, the
+   * table, the explanation at the foot of the page - reads it, and so every one
+   * of them describes the panel the user has selected without having to know
+   * that a comparison is running at all.
    */
   function run(state) {
-    const atmosphereConfig = config.atmospheres.get(state.atmosphere.presetId)
-      ?? config.atmospheres.get('earth');
-    const atmosphere = atmosphereFor(state);
-    const source = sourceFor(state, atmosphereConfig);
-
-    const primary = evaluate(state, atmosphere, source);
-    const result = {
-      atmosphere, atmosphereConfig, source,
-      exposure: exposureFor(state),
-      primary,
-      compare: null,
-    };
-
-    if (state.compare.enabled) {
-      result.compare = {
-        left: evaluate(state, atmosphere, source, state.compare.leftZ),
-        right: evaluate(state, atmosphere, source, state.compare.rightZ),
+    const simulations = simulationsOf(state).map(({ id, sim }) => {
+      const atmosphereConfig = configFor(sim);
+      const atmosphere = atmosphereFor(sim);
+      const source = sourceFor(sim, atmosphereConfig);
+      return {
+        id, sim, observer: sim.observer, atmosphere, atmosphereConfig, source,
+        evaluation: evaluate(state, sim, atmosphere, source),
       };
-    }
-    return result;
+    });
+    const activeId = activeSimulationId(state);
+    const active = simulations.find((entry) => entry.id === activeId) ?? simulations[0];
+
+    return {
+      exposure: exposureFor(state),
+      simulations,
+      activeId: active.id,
+      primary: active.evaluation,
+      // The world of the SELECTED simulation, for everything that still speaks
+      // of one: the readouts, the explanation, the spectrum plot. They describe
+      // the panel the reader has chosen, and so they read these.
+      atmosphere: active.atmosphere,
+      atmosphereConfig: active.atmosphereConfig,
+      source: active.source,
+    };
   }
 
   return { run, atmosphereFor, sourceFor, sceneFor, exposureFor };

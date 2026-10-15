@@ -12,10 +12,20 @@ import {
   specConst, specIntegral,
 } from '../js/physics/spectrum.js';
 import {
+  RAY_BANDS, RAY_BAND_COUNT, BAND_OF_BIN, bandOfWavelength,
+} from '../js/physics/spectrum.js';
+import {
   rayleighBetaSpectrum, aerosolBetaSpectrum, resolveAlbedoSpectrum,
   rayleighPhase, henyeyGreensteinPhase, sampleRayleighCosine,
+  AIR_DISPERSION_FACTOR, ANGSTROM_SPLIT_NM,
 } from '../js/physics/scattering.js';
-import { createAtmosphere } from '../js/physics/atmosphere.js';
+import { createAtmosphere, DOBSON_UNIT_PER_M2 } from '../js/physics/atmosphere.js';
+import { guideSituation, DESCRIBED_PATHS } from '../js/ui/experiments.js';
+import { createSimulation } from '../js/simulation.js';
+import {
+  OVERHEAD_STAR, starIlluminanceRelativeToSun, coneSolidAngle,
+  overheadStarIlluminance, starShareOfView,
+} from '../js/physics/starlight.js';
 import { createColorimetry } from '../js/physics/color.js';
 import {
   wellApertureHalfAngle, wellIsBlocked, wellSolidAngle,
@@ -29,12 +39,28 @@ import { directionFromAngles, sunDirectionFromElevation, raySphereFar, raySphere
 import {
   sliderToZ, zToSlider, createStore, DEFAULT_STATE,
   clampSpan, MIN_SPAN_M, MAX_SPAN_M,
+  makeObserver, makeSimulation, SIMULATION_KEYS,
+  simulationsOf, simulationOf, activeSimulation, activeSimulationId, activeSimulationPath,
+  activeObserver,
 } from '../js/state.js';
 import {
   tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
+  drawnRayShare, isRayDrawn, skyFromRays, shaftWallSpectrum, measureCone,
 } from '../js/render/photons.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
+
+/**
+ * Rayleigh optical depth of a standard sea-level atmosphere, 1013.25 hPa,
+ * Bodhaine, Wood, Dutton & Slusser (1999), J. Atmos. Oceanic Technol. 16,
+ * 1854, Eq. (30). Written out here independently of the engine, so the test
+ * compares the engine against the paper and not against itself.
+ */
+function bodhaineTau(nm) {
+  const l = nm / 1000, l2 = l * l;
+  return 0.0021520 * (1.0455996 - 341.29061 / l2 - 0.90230850 * l2)
+    / (1 + 0.0027059889 / l2 - 85.968563 * l2);
+}
 
 /** Numerically integrate a phase function over the whole solid angle. */
 function integratePhase(fn, samples = 40000) {
@@ -114,10 +140,22 @@ export function registerTests({ group, test, assert }, config) {
       }
     });
 
-    test('reproduces the published sea-level coefficients for Earth air', () => {
-      const beta = rayleighBetaSpectrum(1.35e-5, 4);
-      assert.close(beta[INDEX(440)], 3.31e-5, 0.02);
-      assert.close(beta[INDEX(680)], 5.8e-6, 0.02);
+    test('Earth air reproduces the measured Rayleigh optical depth, Bodhaine et al. 1999', () => {
+      // tau(550) = 0.0971 for 1013.25 hPa; the world is configured at 1013 hPa.
+      const scale = 1013 / 1013.25;
+      const tau = earth.opticalDepth(earth.verticalColumnRayleigh(0), 0);
+      for (const nm of [400, 450, 500, 550, 600, 650, 700, 750]) {
+        assert.close(tau[INDEX(nm)], bodhaineTau(nm) * scale, 0.005,
+          `tau(${nm} nm) against Eq. (30)`);
+      }
+    });
+
+    test('real air is steeper than an ideal 1/lambda^4, as dispersion and the King factor make it', () => {
+      // The exponent between 450 and 650 nm is about 4.09 for real air.
+      const beta = earth.rayleighBeta0;
+      const exponent = Math.log(beta[INDEX(450)] / beta[INDEX(650)]) / Math.log(650 / 450);
+      assert.between(exponent, 4.05, 4.12);
+      assert.close(AIR_DISPERSION_FACTOR[INDEX(550)], 1, 1e-12, 'normalised at 550 nm');
     });
 
     test('the exponent is honoured, so n = 0 gives a colourless cross-section', () => {
@@ -132,6 +170,18 @@ export function registerTests({ group, test, assert }, config) {
     test('phase function is symmetric and twice as strong forwards as sideways', () => {
       assert.close(rayleighPhase(1), rayleighPhase(-1), 1e-12);
       assert.close(rayleighPhase(1) / rayleighPhase(0), 2, 1e-12);
+    });
+
+    test('depolarisation fills in the sideways dip and keeps the phase function normalised', () => {
+      // Chandrasekhar / Hansen & Travis (1974) Eq. (2.15): with gamma = rho/(2 - rho)
+      // the forward-to-sideways ratio is (2 + 2 gamma) / (1 + 3 gamma).
+      const rho = 0.0279;
+      const gamma = rho / (2 - rho);
+      assert.close(integratePhase((mu) => rayleighPhase(mu, rho)), 1, 1e-5);
+      assert.close(rayleighPhase(1, rho) / rayleighPhase(0, rho),
+        (2 + 2 * gamma) / (1 + 3 * gamma), 1e-12);
+      assert.close(rayleighPhase(1, rho), rayleighPhase(-1, rho), 1e-12);
+      assert.equal(earth.rayleighDepolarization, rho, 'Earth uses the depolarisation of air');
     });
 
     test('sampled scattering cosines reproduce the phase function mean', () => {
@@ -153,6 +203,13 @@ export function registerTests({ group, test, assert }, config) {
       // Rayleigh is symmetric: <mu> = 0 and <mu^2> = 2/5.
       assert.between(Math.abs(sum / n), 0, 0.01, 'the mean cosine of a symmetric phase function must vanish');
       assert.close(sumSq / n, 0.4, 0.02);
+
+      // And with depolarisation, <mu^2> = (a/3 + b/5) / (a + b/3) for a + b mu^2.
+      const rho = 0.0279, gamma = rho / (2 - rho);
+      const a = 1 + 3 * gamma, b = 1 - gamma;
+      let sq = 0;
+      for (let i = 0; i < n; i++) { const mu = sampleRayleighCosine(rng, rho); sq += mu * mu; }
+      assert.close(sq / n, (a / 3 + b / 5) / (a + b / 3), 0.01);
     });
   });
 
@@ -228,9 +285,9 @@ export function registerTests({ group, test, assert }, config) {
       for (let i = 0; i < SPECTRUM_BINS; i++) assert.between(heavy[i], 0, 1);
     });
 
-    test('optical depth at 550 nm sits near the measured Rayleigh value', () => {
+    test('optical depth at 550 nm is the measured Rayleigh value', () => {
       const tau = earth.opticalDepth(earth.verticalColumnRayleigh(0), 0);
-      assert.between(tau[INDEX(550)], 0.08, 0.13);
+      assert.close(tau[INDEX(550)], 0.0971 * 1013 / 1013.25, 0.005);
     });
 
     test('short wavelengths are always attenuated more than long ones', () => {
@@ -441,13 +498,145 @@ export function registerTests({ group, test, assert }, config) {
 
     test('optical depth is far larger for blue than for red along a low path', () => {
       const beam = computeDirectBeam(sceneAt({ elevation: 5 }), QUALITY_PRESETS.high);
-      assert.greater(beam.opticalDepth[INDEX(450)], beam.opticalDepth[INDEX(650)] * 3);
+      // The molecular part alone goes as lambda^-4.09: more than four times.
+      const rayleigh = earth.opticalDepth(beam.columnR, 0);
+      assert.greater(rayleigh[INDEX(450)], rayleigh[INDEX(650)] * 4);
+      // The total less so, and rightly: the haze is greyer than the gas, and
+      // ozone takes some of the red-orange. Still well over twice.
+      assert.greater(beam.opticalDepth[INDEX(450)], beam.opticalDepth[INDEX(650)] * 2);
     });
 
     test('a star below the horizon delivers no direct light', () => {
       const beam = computeDirectBeam(sceneAt({ elevation: -5 }), QUALITY_PRESETS.high);
       assert.equal(beam.visible, false);
       assert.close(colorimetry.luminance(beam.spectrum), 0, 1e-12);
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+
+  group('measured air, ozone and haze', () => {
+    test('every world scatters as its gas column says it must', () => {
+      // tau_R(550) = sigma_air(550) * (relative cross-section) * P / (m g), the
+      // number of molecules over a square metre times what each one scatters.
+      // Earth is air itself; the others are mixed from config/scattering/rayleigh_gases.
+      const table = config.scattering.rayleigh_gases;
+      const sigmaAir = table.referenceCrossSection_m2;
+      assert.close(sigmaAir, 4.5105e-31, 1e-4, 'Bodhaine et al. 1999, Table 3, 550 nm');
+      const AMU = 1.66053907e-27;
+      for (const [id, cfg] of Object.entries(config.atmospheres)) {
+        if (!(cfg.surfacePressure_kPa > 0) || !cfg.composition?.length) continue;
+        let relative = 0, mass = 0, total = 0;
+        for (const { gas, fraction } of cfg.composition) {
+          const g = table.gases[gas];
+          relative += fraction * g.relativeCrossSection;
+          mass += fraction * g.molarMass_gpmol;
+          total += fraction;
+        }
+        if (id === 'earth') { relative = 1; mass = table.gases.air.molarMass_gpmol; total = 1; }
+        const molecules = cfg.surfacePressure_kPa * 1000
+          / ((mass / total) * AMU * cfg.surfaceGravity_mps2);
+        const expected = sigmaAir * (relative / total) * molecules;
+        const configured = cfg.rayleigh.beta550_perM * cfg.rayleigh.scaleHeight_m;
+        assert.close(configured, expected, 0.02, `${id}: tau_R(550)`);
+      }
+    });
+
+    test('the ozone layer holds the column it is configured with', () => {
+      const cfg = config.atmospheres.earth.ozone;
+      const column = earth.verticalColumnOzone(0);
+      // The relative column times the peak density is the Dobson column.
+      const peak = earth.ozoneAbsorption0[INDEX(600)] / cfg.crossSection_m2[INDEX(600)];
+      assert.close(column * peak, cfg.column_DU * DOBSON_UNIT_PER_M2, 1e-9);
+      // The closed form agrees with marching straight up.
+      const marched = earth.pathColumns(earth.observerPosition(0), { x: 0, y: 1, z: 0 },
+        earth.topAltitude, 64).columnO;
+      assert.close(marched, column, 0.005);
+      assert.equal(earth.verticalColumnOzone(cfg.profile.ceiling_m), 0);
+    });
+
+    test('ozone absorbs in the Chappuis band and scatters nothing', () => {
+      const o = earth.opticalDepth(0, 0, earth.verticalColumnOzone(0));
+      // Straight down through 300 DU: about 4 % at 600 nm, almost nothing in the blue.
+      assert.between(o[INDEX(600)], 0.035, 0.045);
+      assert.less(o[INDEX(450)], 0.003);
+      // It is absorption: no scattering coefficient knows about it.
+      const bare = createAtmosphere({ ...config.atmospheres.earth, ozone: undefined });
+      for (let i = 0; i < SPECTRUM_BINS; i++) {
+        assert.equal(earth.rayleighBeta0[i], bare.rayleighBeta0[i]);
+        assert.equal(earth.aerosolSca0[i], bare.aerosolSca0[i]);
+      }
+    });
+
+    test('ozone, not Rayleigh scattering, keeps the twilight zenith blue (Hulburt 1953)', () => {
+      const bare = createAtmosphere({ ...config.atmospheres.earth, ozone: undefined });
+      const zenithAt = (atmosphere, elevation) => colorimetry.xyzToChromaticity(
+        colorimetry.spectrumToXYZ(computeViewRadiance(
+          sceneAt({ atmosphere, elevation }), ZENITH, QUALITY_PRESETS.high).scattered));
+      // Hue angle about the white point: blue sits near -135 degrees, yellow near +50.
+      const hue = ([x, y]) => Math.atan2(y - 0.3290, x - 0.3127) * 180 / Math.PI;
+      for (const elevation of [0, -3, -6]) {
+        assert.greater(hue(zenithAt(bare, elevation)), 0,
+          `without ozone the zenith at ${elevation} degrees turns yellowish`);
+        assert.less(hue(zenithAt(earth, elevation)), -100,
+          `with ozone the zenith at ${elevation} degrees stays blue`);
+      }
+      // At noon ozone hardly matters.
+      const [a, b] = [zenithAt(bare, 60), zenithAt(earth, 60)];
+      assert.less(Math.hypot(a[0] - b[0], a[1] - b[1]), 0.006);
+    });
+
+    test('the default haze is OPAC continental clean, and the presets are OPAC types', () => {
+      // Hess, Koepke & Schult (1998), Bull. Amer. Meteor. Soc. 79, 831, Table 3.
+      const opac = {
+        earth: [0.064, 0.972, 0.709], clean: [0.064, 0.972, 0.709],
+        rural: [0.151, 0.925, 0.703], 'urban-haze': [0.643, 0.817, 0.689],
+        'desert-dust': [0.286, 0.888, 0.729],
+      };
+      const presets = config.scattering.aerosols.presets;
+      for (const [id, [tau, omega, g]] of Object.entries(opac)) {
+        const a = id === 'earth' ? config.atmospheres.earth.aerosol : presets[id];
+        assert.close(a.beta550_perM * a.scaleHeight_m, tau, 0.002, `${id}: tau(550)`);
+        const albedo = resolveAlbedoSpectrum(a.singleScatteringAlbedo);
+        assert.close(albedo[INDEX(550)], omega, 0.002, `${id}: omega(550)`);
+        assert.equal(a.asymmetry_g, g, `${id}: g`);
+      }
+    });
+
+    test('a split Angstrom law uses each exponent on its own side and is continuous', () => {
+      const beta = aerosolBetaSpectrum(1e-4, { short: 1.1, long: 1.42 });
+      const slope = (a, b) => Math.log(beta[INDEX(a)] / beta[INDEX(b)]) / Math.log(b / a);
+      assert.close(slope(400, 480), 1.1, 1e-9);
+      assert.close(slope(550, 700), 1.42, 1e-9);
+      assert.close(beta[INDEX(550)], 1e-4, 1e-12);
+      assert.equal(ANGSTROM_SPLIT_NM, 500);
+      // One number still means one law.
+      const single = aerosolBetaSpectrum(1e-4, 1.3);
+      assert.close(Math.log(single[INDEX(400)] / single[INDEX(700)]) / Math.log(700 / 400), 1.3, 1e-9);
+    });
+
+    test('a thin haze layer is integrated exactly, however coarse the steps', () => {
+      // The midpoint rule stepped over the 1.2 km aerosol layer and lost up to a
+      // third of it; the exponential is now integrated exactly between nodes.
+      const up = { x: 0, y: 1, z: 0 };
+      const start = earth.observerPosition(0);
+      for (const steps of [4, 8, 24]) {
+        const c = earth.pathColumns(start, up, earth.topAltitude, steps);
+        assert.close(c.columnA, earth.verticalColumnAerosol(0), 0.001, `${steps} steps: aerosol`);
+        assert.close(c.columnR, earth.verticalColumnRayleigh(0), 0.001, `${steps} steps: gas`);
+      }
+    });
+
+    test('the sky the integrator computes does not depend on how finely it is sampled', () => {
+      const fine = { viewSteps: 2000, sunSteps: 120 };
+      for (const elevation of [60, 10]) {
+        for (const quality of [QUALITY_PRESETS.normal, QUALITY_PRESETS.preview]) {
+          const scene = sceneAt({ elevation });
+          const coarse = colorimetry.luminance(computeViewRadiance(scene, ZENITH, quality).scattered);
+          const exact = colorimetry.luminance(computeViewRadiance(scene, ZENITH, fine).scattered);
+          assert.close(coarse, exact, 0.02, `zenith at ${elevation} degrees, ${quality.viewSteps} steps`);
+        }
+      }
     });
   });
 
@@ -646,6 +835,566 @@ export function registerTests({ group, test, assert }, config) {
       assert.greater(arrivingBlue, throughBlue * 1.6);
     });
 
+    test('every ray is drawn in one of eight colours, and they tile the spectrum', () => {
+      // Thirty-eight shades running smoothly from violet to red read as one
+      // continuous wash and cannot be counted. Eight can, which is the whole
+      // reason for the bands - so they have to be a partition: every bin in
+      // exactly one band, no gaps, no overlaps, and no two bands so close in
+      // colour that counting them is guesswork.
+      assert.between(RAY_BAND_COUNT, 7, 10);
+      assert.equal(RAY_BANDS[0].fromNm, SPECTRUM_MIN_NM);
+      assert.greater(RAY_BANDS[RAY_BAND_COUNT - 1].edgeNm, SPECTRUM_MAX_NM);
+      for (let b = 1; b < RAY_BAND_COUNT; b++) {
+        assert.equal(RAY_BANDS[b].fromNm, RAY_BANDS[b - 1].edgeNm,
+          `band ${b} must start where band ${b - 1} ends`);
+      }
+      for (let i = 0; i < SPECTRUM_BINS; i++) {
+        const band = RAY_BANDS[BAND_OF_BIN[i]];
+        assert.between(WAVELENGTHS_NM[i], band.fromNm, band.toNm,
+          `${WAVELENGTHS_NM[i]} nm was filed under ${band.fromNm}-${band.toNm}`);
+        assert.equal(bandOfWavelength(WAVELENGTHS_NM[i]), BAND_OF_BIN[i]);
+      }
+      for (let a = 0; a < RAY_BAND_COUNT; a++) {
+        for (let b = a + 1; b < RAY_BAND_COUNT; b++) {
+          const distance = Math.hypot(
+            RAY_BANDS[a].rgb[0] - RAY_BANDS[b].rgb[0],
+            RAY_BANDS[a].rgb[1] - RAY_BANDS[b].rgb[1],
+            RAY_BANDS[a].rgb[2] - RAY_BANDS[b].rgb[2]);
+          assert.greater(distance, 40,
+            `bands ${a} and ${b} are too close to tell apart on screen`);
+        }
+      }
+      for (const path of trace({ count: 400 })) {
+        assert.between(path.band, 0, RAY_BAND_COUNT - 1);
+      }
+    });
+
+    test('the eight colours come out in the ratio the spectrum holds', () => {
+      // The claim the picture makes: count the violet rays against the red ones
+      // and you have read the spectrum off the screen. That is only true if the
+      // band a ray is drawn in was picked in proportion to the light it carries.
+      const paths = trace({ count: 30000 });
+      const h = histogramPhotons(paths, 0, VIEW_CONE_HALF_DEG * Math.PI / 180);
+
+      const energy = new Float64Array(RAY_BAND_COUNT);
+      let total = 0;
+      for (let i = 0; i < SPECTRUM_BINS; i++) {
+        energy[BAND_OF_BIN[i]] += h.coneSpectrum[i];
+        total += h.coneSpectrum[i];
+      }
+      // Counted over every arriving ray, not only the drawn ones, because this
+      // is a statement about the sampling and wants all the samples it has.
+      const counts = new Int32Array(RAY_BAND_COUNT);
+      let rays = 0;
+      for (const p of paths) {
+        if (p.kind !== 'arriving') continue;
+        counts[p.band]++;
+        rays++;
+      }
+      assert.greater(rays, 5000);
+      for (let b = 0; b < RAY_BAND_COUNT; b++) {
+        const byCount = counts[b] / rays;
+        const byEnergy = energy[b] / total;
+        assert.less(Math.abs(byCount - byEnergy), 0.04,
+          `band ${b}: ${(byCount * 100).toFixed(1)}% of the rays but `
+          + `${(byEnergy * 100).toFixed(1)}% of the light`);
+      }
+    });
+
+    test('how bright the sky is measured to be follows how much sky is in view', () => {
+      // Both ways of losing light have to show up as the same thing - less sky
+      // in the field of view - and the brightness has to follow that and not
+      // something computed behind it.
+      //
+      // The subtlety a plane slice hides: a drawn ray is not one direction, it
+      // is the ring you get by spinning it about the axis of view, and a ring
+      // near the middle stands for almost no sky at all. Counting angles rather
+      // than sky made a fifty-metre shaft five times too bright. What the
+      // brightness follows is the sky, and for a round shaft that has to come
+      // out at the round-shaft geometry.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const at = (options, zenithDeg = 0) => {
+        const paths = trace({ count: 20000, ...options });
+        const h = histogramPhotons(paths, -zenithDeg * Math.PI / 180, cone);
+        return { h, luminance: colorimetry.luminance(h.coneSpectrum) };
+      };
+
+      const ground = at({});
+      assert.close(ground.h.skyShare, 1, 0.02, 'the open sky fills the view');
+
+      // Two ways to lose light, and they are not the same mechanism. Climbing
+      // leaves the whole sky in view and less air to scatter it; a shaft leaves
+      // the air alone and takes the sky away. Both end as fewer rays, and each
+      // has to track the quantity that actually causes it.
+      for (const [label, options] of [
+        ['10 km up', { observerZ: 10000 }],
+        ['25 km up', { observerZ: 25000 }],
+      ]) {
+        const here = at(options);
+        const brightness = here.luminance / ground.luminance;
+        assert.less(brightness, 0.75, `${label} must be visibly darker`);
+        assert.close(here.h.skyShare, 1, 0.02, `${label}: the sky is all still there`);
+        assert.between(brightness / here.h.drawShare, 0.5, 2,
+          `${label}: ${(brightness * 100).toFixed(1)}% as bright from `
+          + `${(100 * here.h.drawShare).toFixed(1)}% of the air overhead`);
+      }
+
+      for (const [label, options] of [
+        ['a 20 m shaft', { observerZ: -20, well: { enabled: true, radius_m: 1.5, depth_m: 20 } }],
+        ['a 60 m shaft', { observerZ: -60, well: { enabled: true, radius_m: 1.5, depth_m: 60 } }],
+      ]) {
+        const here = at(options);
+        const brightness = here.luminance / ground.luminance;
+        assert.less(brightness, 0.5, `${label} must be visibly darker`);
+        assert.close(here.h.drawShare, 1, 0.02, `${label}: the air is all still there`);
+        assert.between(brightness / Math.max(1e-9, here.h.skyShare), 0.5, 2,
+          `${label}: ${(brightness * 100).toFixed(1)}% as bright from `
+          + `${(100 * here.h.skyShare).toFixed(1)}% as much sky`);
+      }
+
+      // And down a shaft that share is the round-shaft one, not the flattering
+      // ratio of plane angles. At fifty metres those differ by five times.
+      for (const [depth, radius] of [[20, 1.5], [50, 1.5], [50, 4]]) {
+        const h = at({
+          observerZ: -depth, count: 40000,
+          well: { enabled: true, radius_m: radius, depth_m: depth },
+        }).h;
+        const half = wellApertureHalfAngle(depth, radius);
+        const round = fieldOfViewSkyShare(half, cone, 0);
+        const plane = Math.min(1, half / cone);
+        assert.between(h.skyShare / round, 0.6, 1.7,
+          `${depth} m, r=${radius}: measured ${(100 * h.skyShare).toFixed(2)}% `
+          + `against a round-shaft ${(100 * round).toFixed(2)}%`);
+        assert.less(h.skyShare, plane * 0.75,
+          'and it must be far below the ratio of plane angles');
+      }
+    });
+
+    test('a shaft takes the light away without changing its colour', () => {
+      // What a well does is subtract directions. The patch of sky left at the
+      // top is exactly as blue as it ever was, which is the paradox; what
+      // collapses is how much of your view has any sky in it. So the hue must
+      // hold while the brightness falls.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const xy = (spectrum) => {
+        const v = colorimetry.spectrumToXYZ(spectrum);
+        const sum = v[0] + v[1] + v[2];
+        return [v[0] / sum, v[1] / sum];
+      };
+      const open = histogramPhotons(trace({ count: 8000 }), 0, cone);
+      const deep = histogramPhotons(trace({
+        count: 8000, observerZ: -25,
+        well: { enabled: true, radius_m: 2, depth_m: 25 },
+      }), 0, cone);
+
+      assert.greater(deep.coneRays, 0, 'some light still comes down the shaft');
+      assert.less(colorimetry.luminance(deep.coneSpectrum),
+        colorimetry.luminance(open.coneSpectrum) * 0.6);
+      const [ax, ay] = xy(open.coneSpectrum);
+      const [bx, by] = xy(deep.coneSpectrum);
+      assert.less(Math.hypot(ax - bx, ay - by), 0.03,
+        'the sky down a shaft is the same colour, only less of it');
+    });
+
+    test('looking away from the mouth of a deep shaft measures exactly nothing', () => {
+      // Not "nearly nothing". Every direction ends in rock, so the sum of what
+      // arrives has no terms in it, and the swatch has to be black rather than
+      // a dark blue borrowed from a patch of sky nobody can see.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const paths = trace({
+        count: 4000, observerZ: -50,
+        well: { enabled: true, radius_m: 1.5, depth_m: 50 },
+      });
+      const away = histogramPhotons(paths, -35 * Math.PI / 180, cone);
+      assert.equal(away.coneRays, 0);
+      assert.greater(away.coneCast, 10, 'directions were looked in');
+      assert.greater(away.blockedRays, 10, 'and the wall stopped them');
+      for (let i = 0; i < SPECTRUM_BINS; i++) assert.equal(away.coneSpectrum[i], 0);
+    });
+
+    test('the measured sky divides by the sky looked at, not the rays that paid', () => {
+      // Two bugs pinned at once, both of which made a well too bright.
+      //
+      // Averaging over the ARRIVALS reports the radiance of whatever patch of
+      // sky is still visible, which down a fifty-metre shaft is as blue as open
+      // ground. And averaging over the drawn ANGLES treats a ray in the middle
+      // of your view as worth the same as one at the edge, when the first
+      // stands for a sliver of sky and the second for a broad ring of it.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const paths = trace({
+        count: 20000, observerZ: -40,
+        well: { enabled: true, radius_m: 1.5, depth_m: 40 },
+      });
+      const h = histogramPhotons(paths, 0, cone);
+      assert.greater(h.coneCast, h.coneRays * 2, 'most directions end in rock');
+
+      let weighted = 0, flat = 0;
+      for (const p of paths) {
+        if (p.kind !== 'arriving') continue;
+        if (Math.abs(p.arrivalAngleRad) > cone) continue;
+        weighted += p.radiance * Math.sin(Math.abs(p.arrivalAngleRad));
+        flat += p.radiance;
+      }
+      let castSky = 0;
+      for (const a of paths.castAngles) {
+        if (Math.abs(a) <= cone) castSky += Math.sin(Math.abs(a));
+      }
+
+      let measured = 0;
+      for (let i = 0; i < SPECTRUM_BINS; i++) measured += h.coneSpectrum[i];
+      assert.close(measured, weighted / castSky, 0.02,
+        'the divisor is the sky the field of view covers');
+
+      // And the old flat average really was several times brighter, which is
+      // the whole reason this changed.
+      assert.greater(flat / h.coneCast, (weighted / castSky) * 2,
+        'counting angles instead of sky flatters a shaft badly');
+    });
+
+    test('how many rays are drawn is the air left overhead, and thins smoothly', () => {
+      // A held maximum used to decide this, which made the picture depend on
+      // where the observer had been. It is now read off the atmosphere: the
+      // share of the column still above you, which in an optically thin sky is
+      // the share of the brightness too.
+      const surface = trace({ count: 600 });
+      assert.close(drawnRayShare(surface), 1, 1e-9);
+
+      const shares = [];
+      for (const z of [0, 5000, 10000, 20000, 30000]) {
+        shares.push(drawnRayShare(trace({ count: 600, observerZ: z })));
+      }
+      assert.decreasing(shares);
+      // Roughly exp(-z/H): four scale heights up, under two percent is left.
+      assert.less(shares[4], 0.03);
+
+      // Climbing must thin the fan, never reshuffle it: the rays drawn higher
+      // up are a subset of the ones drawn lower down, so they fade out one at a
+      // time instead of flickering.
+      const low = [], high = [];
+      for (let i = 0; i < 400; i++) {
+        if (isRayDrawn(i, shares[2])) low.push(i);
+        if (isRayDrawn(i, shares[3])) high.push(i);
+      }
+      assert.greater(low.length, high.length);
+      for (const index of high) {
+        assert.ok(low.includes(index), `ray ${index} appeared on the way up`);
+      }
+    });
+
+    test('the star the trace delivers is the one the integrator computes', () => {
+      // The colour panel shows a star without leaving the simulation, so the
+      // beam has to be marched by the tracer - through the same air, stopped by
+      // the same rock. This is the check that doing it twice gives one answer.
+      for (const [elevation, z, well] of [
+        [55, 0, null], [4, 0, null], [55, 20000, null],
+        [-6, 0, null],
+        [55, -20, { enabled: true, radius_m: 1.5, depth_m: 20 }],
+      ]) {
+        const traced = trace({ count: 400, sunElevationDeg: elevation, observerZ: z, well })
+          .observerBeam;
+        const scene = sceneAt({ elevation, z, well });
+        const analytic = computeDirectBeam(scene, QUALITY_PRESETS.high);
+        const where = `elevation ${elevation}, z ${z}${well ? ', in a shaft' : ''}`;
+        assert.equal(traced.visible, analytic.visible, `${where}: visibility`);
+        if (!traced.visible) continue;
+        for (const nm of [450, 550, 650]) {
+          const i = Math.round((nm - 380) / 10);
+          assert.close(traced.spectrum[i], analytic.spectrum[i], 0.02,
+            `${where}: ${nm} nm`);
+        }
+      }
+    });
+
+    test('light arrives unturned when you look at the star', () => {
+      // The complaint this answers: point the view at the Sun and every ray in
+      // the cone had scattered somewhere, as though nothing ever arrives in a
+      // straight line. Almost everything reaching an observer looking at the
+      // Sun has never been scattered at all.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const paths = trace({ sunElevationDeg: 55 });
+      const straight = paths.filter(
+        (p) => p.scatterCount === 0 && p.outcome === 'observed');
+      assert.greater(straight.length, 0, 'the beam has to be drawn');
+      for (const p of straight) {
+        assert.equal(p.kind, 'direct');
+        assert.equal(p.points.length, 2, 'it is a straight line, not a kink');
+      }
+
+      // It lies along the star's direction, and the histogram knows whether
+      // that direction is the one being looked at.
+      const starZenith = (90 - 55) * Math.PI / 180;
+      assert.close(paths.starAngleRad, starZenith, 1e-9);
+      assert.ok(histogramPhotons(paths, starZenith, cone).starInCone);
+      assert.ok(!histogramPhotons(paths, -starZenith, cone).starInCone);
+      assert.ok(!histogramPhotons(paths, starZenith + 2 * cone, cone).starInCone);
+    });
+
+    test('the beam is not drawn when nothing can deliver it', () => {
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const gone = (options) => trace({ count: 400, ...options })
+        .filter((p) => p.kind === 'direct').length;
+      assert.equal(gone({ sunElevationDeg: -6 }), 0, 'the star has set');
+      assert.equal(gone({
+        sunElevationDeg: 55, observerZ: -20,
+        well: { enabled: true, radius_m: 1.5, depth_m: 20 },
+      }), 0, 'the shaft wall is in the way');
+
+      const walled = trace({
+        count: 400, sunElevationDeg: 55, observerZ: -20,
+        well: { enabled: true, radius_m: 1.5, depth_m: 20 },
+      });
+      assert.ok(!histogramPhotons(walled, 0, cone).starInCone);
+    });
+
+    test('the star disc is far brighter than the sky, and the panel says so', () => {
+      // The one place in the picture where the number of drawn lines is not the
+      // amount of light, because it cannot be. The bundle is five lines and the
+      // truth is five orders of magnitude, so the truth has to be a number.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const starZenith = (90 - 55) * Math.PI / 180;
+      const h = histogramPhotons(
+        trace({ sunElevationDeg: 55, count: 6000 }), starZenith, cone);
+      const ratio = colorimetry.luminance(h.beam.radiance)
+        / colorimetry.luminance(h.coneSpectrum);
+      // The Sun's disc against a clear daytime sky is a few times 10^5.
+      assert.between(ratio, 3e4, 3e6, `disc/sky = ${ratio.toExponential(2)}`);
+      assert.close(h.beam.starSolidAngle,
+        2 * Math.PI * (1 - Math.cos(0.2665 * Math.PI / 180)), 1e-9);
+    });
+
+    test('tuning what gets drawn does not move what gets measured', () => {
+      // The knobs in the advanced panel are a drawing budget, and the whole
+      // reason they are safe to expose is this: the measurement divides the
+      // light it collects by the number of directions it looked in, so tracing
+      // half as many arriving rays halves both and leaves the answer alone.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const xy = (spectrum) => {
+        const v = colorimetry.spectrumToXYZ(spectrum);
+        const sum = v[0] + v[1] + v[2];
+        return [v[0] / sum, v[1] / sum];
+      };
+      const measure = (mix) => {
+        const paths = trace({ count: 20000, mix });
+        const h = histogramPhotons(paths, -35 * Math.PI / 180, cone);
+        return { h, xy: xy(h.coneSpectrum), y: colorimetry.luminance(h.coneSpectrum) };
+      };
+
+      const base = measure(null);
+      for (const mix of [
+        { scatterShare: 0.4, arrivingShare: 0.5 },
+        { scatterShare: 0.95, arrivingShare: 0.9 },
+        { scatterShare: 0.2, arrivingShare: 0.8 },
+      ]) {
+        const other = measure(mix);
+        const label = `scatter ${mix.scatterShare}, arriving ${mix.arrivingShare}`;
+        assert.less(Math.hypot(other.xy[0] - base.xy[0], other.xy[1] - base.xy[1]),
+          0.006, `${label}: the colour moved`);
+        assert.between(other.y / base.y, 0.9, 1.1, `${label}: the brightness moved`);
+      }
+    });
+
+    test('the true proportions are the ones the physics gives', () => {
+      // What the switch is for: the drawn budget is frankly unfaithful, and
+      // this is the tool admitting it. Only about a sixth of the light crossing
+      // Earth's air is scattered at all.
+      const paths = trace({ count: 6000, mix: { physical: true } });
+      const scattered = paths.filter((p) => p.scatterCount > 0).length;
+      const share = scattered / 6000;
+      assert.close(share, paths.scatteredFraction, 0.05,
+        `drew ${(share * 100).toFixed(1)} % scattered against a true `
+        + `${(paths.scatteredFraction * 100).toFixed(1)} %`);
+      assert.less(share, 0.25, 'and it is a small fraction');
+
+      // The default is the legible one, and is nothing like it.
+      assert.close(trace({ count: 6000 }).scatterShare, 0.88, 1e-9);
+    });
+
+    test('the strip is the swatch swept across the sky, to the last bit', () => {
+      // The claim that makes them one thing rather than two. Point the observer
+      // any way you like and the colour on the right must be the colour the
+      // strip already shows at that column - not close to it, the same numbers.
+      // They were two functions answering two subtly different questions, and
+      // at the bottom of a shaft the swatch went nearly black while the strip
+      // below it still showed a bright band.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      for (const options of [
+        { count: 20000 },
+        { count: 20000, sunElevationDeg: 6 },
+        {
+          count: 20000, observerZ: -20,
+          well: { enabled: true, radius_m: 1.5, depth_m: 20 },
+        },
+      ]) {
+        const paths = trace(options);
+        // No wall mixed in: that part is a separate statement, tested below.
+        const strip = skyFromRays(paths, { wall: null });
+        for (const zenithDeg of [0, -8, 35, -60]) {
+          // The column's own centre, not the angle asked for: a bin is a degree
+          // wide and the strip evaluates the middle of it.
+          const bin = strip.binOfAngle(zenithDeg);
+          const column = strip.spectrumAt(bin);
+          const swatch = measureCone(
+            paths, strip.angleOf(bin) * Math.PI / 180, cone).spectrum;
+          for (let i = 0; i < SPECTRUM_BINS; i += 6) {
+            assert.close(column[i], swatch[i], 1e-9,
+              `${JSON.stringify(options.well ?? 'open')} at ${zenithDeg} deg, bin ${i}`);
+          }
+        }
+      }
+    });
+
+    test('a shaft empties the strip everywhere its field of view has no sky', () => {
+      const depth = 20, radius = 1.5;
+      const paths = trace({
+        count: 20000, observerZ: -depth,
+        well: { enabled: true, radius_m: radius, depth_m: depth },
+      });
+      const strip = skyFromRays(paths, { wall: null });
+      const shareAt = (deg) => strip.skyShare[strip.binOfAngle(deg)];
+      const apertureDeg = wellApertureHalfAngle(depth, radius) * 180 / Math.PI;
+      assert.between(apertureDeg, 4, 4.6);
+
+      // Straight up the shaft there is sky, and not much of it.
+      assert.between(shareAt(0), 0.05, 0.4);
+      // Turn far enough that no part of the field of view can reach the mouth
+      // and there is nothing at all - which is what sends those columns to the
+      // rock rather than to a dim blue.
+      assert.equal(shareAt(apertureDeg + VIEW_CONE_HALF_DEG + 4), 0);
+      assert.equal(shareAt(45), 0);
+      assert.equal(shareAt(-45), 0);
+      // Nothing is traced past 85 degrees; the wall has to reach there too.
+      assert.equal(shareAt(88), 0);
+      assert.equal(shareAt(-88), 0);
+      // And it falls off monotonically from the mouth outwards.
+      const walk = [0, 4, 8, 12, 16, 20].map(shareAt);
+      assert.decreasing(walk.filter((v, i) => i === 0 || walk[i - 1] > 0));
+
+      // On open ground every direction is sky, which is why the strip needed no
+      // rock before a shaft was switched on.
+      const open = skyFromRays(trace({ count: 8000 }), { wall: null });
+      for (const deg of [-80, -35, 0, 35, 80]) {
+        assert.close(open.skyShare[open.binOfAngle(deg)], 1, 0.02, `${deg} deg`);
+      }
+    });
+
+    test('brown means looking at rock, and thin sky means dark, never brown', () => {
+      // Two ways of seeing very little, and they must not look alike. Looking
+      // at the wall is rock, and rock is brown. Looking UP a deep shaft is
+      // still looking at sky - there is just very little of it - and too little
+      // light has to read as dark. An earlier version mixed the rock in by the
+      // share of the view it filled, which turned the view straight up a shaft
+      // brown, as though the observer were facing a wall.
+      const depth = 20, radius = 1.5;
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const paths = trace({
+        count: 20000, observerZ: -depth,
+        well: { enabled: true, radius_m: radius, depth_m: depth },
+      });
+      const wall = shaftWallSpectrum(paths, earth.groundReflectance, {
+        depth_m: depth, radius_m: radius, sunZenithRad: 50 * Math.PI / 180,
+      });
+      const strip = skyFromRays(paths, { wall });
+      const apertureDeg = wellApertureHalfAngle(depth, radius) * 180 / Math.PI;
+      const xy = (spectrum) => {
+        const v = colorimetry.spectrumToXYZ(spectrum);
+        const sum = v[0] + v[1] + v[2];
+        return sum > 0 ? [v[0] / sum, v[1] / sum] : [0, 0];
+      };
+
+      // Out at the wall the column IS the rock, to the last decimal.
+      for (const deg of [30, 60, -45, 88]) {
+        const column = strip.spectrumAt(strip.binOfAngle(deg));
+        for (let i = 0; i < SPECTRUM_BINS; i += 6) {
+          assert.close(column[i], wall[i], 1e-9, `${deg} deg should be the rock exactly`);
+        }
+      }
+
+      // Up the shaft it is sky: dark, and bluer than the rock rather than
+      // warmer. This is the assertion that fails if the rock is blended in.
+      const up = strip.spectrumAt(strip.binOfAngle(0));
+      const [ux] = xy(up);
+      const [rx] = xy(wall);
+      assert.less(ux, rx - 0.05,
+        `looking up reads x=${ux.toFixed(3)} against rock at x=${rx.toFixed(3)}`);
+      const openUp = skyFromRays(trace({ count: 20000 }), { wall })
+        .spectrumAt(strip.binOfAngle(0));
+      assert.less(colorimetry.luminance(up), colorimetry.luminance(openUp) * 0.4,
+        'and it is much darker than the open sky');
+
+      // The boundary sits at the aperture and is sharp: sky just inside it,
+      // rock just outside, with no warm smear across the gap.
+      assert.ok(!measureCone(paths, (apertureDeg - 2) * Math.PI / 180, cone,
+        { wall }).axisBlocked, 'just inside the mouth is sky');
+      assert.ok(measureCone(paths, (apertureDeg + 2) * Math.PI / 180, cone,
+        { wall }).axisBlocked, 'just outside it is rock');
+
+      // Deep enough and the sky goes to almost nothing without ever going warm.
+      const deepPaths = trace({
+        count: 20000, observerZ: -150,
+        well: { enabled: true, radius_m: 1.5, depth_m: 150 },
+      });
+      const deepUp = measureCone(deepPaths, 0, cone, { wall }).perceived;
+      assert.less(colorimetry.luminance(deepUp),
+        colorimetry.luminance(openUp) * 0.02, 'a deep shaft is near black');
+      const [dx] = xy(deepUp);
+      assert.less(dx, rx - 0.05, 'and still not the colour of rock');
+
+      // With no shaft there is no rock anywhere in the strip.
+      const openPaths = trace({ count: 8000 });
+      const a = skyFromRays(openPaths, { wall: null });
+      const b = skyFromRays(openPaths, { wall });
+      for (const deg of [-70, 0, 70]) {
+        const p1 = a.spectrumAt(a.binOfAngle(deg));
+        const p2 = b.spectrumAt(b.binOfAngle(deg));
+        for (let i = 0; i < SPECTRUM_BINS; i += 9) assert.close(p1[i], p2[i], 1e-9);
+      }
+    });
+
+    test('the rock in a shaft has a colour, and it is not black', () => {
+      // "Do not use black for places I cannot see" - black reads as an absence,
+      // and what is there is rock. It is the ground's own reflectance under the
+      // sky it can see, plus whatever the star still reaches it with.
+      const wallAt = (depth, elevation, radius = 1.5) => {
+        const paths = trace({
+          count: 4000, sunElevationDeg: elevation, observerZ: -depth,
+          well: { enabled: true, radius_m: radius, depth_m: depth },
+        });
+        return shaftWallSpectrum(paths, earth.groundReflectance, {
+          depth_m: depth, radius_m: radius,
+          sunZenithRad: (90 - elevation) * Math.PI / 180,
+        });
+      };
+      const xy = (spectrum) => {
+        const v = colorimetry.spectrumToXYZ(spectrum);
+        const sum = v[0] + v[1] + v[2];
+        return [v[0] / sum, v[1] / sum];
+      };
+
+      // Deeper is darker, always, and never negative or empty.
+      const depths = [5, 20, 80, 200].map((d) => wallAt(d, 55));
+      for (const w of depths) {
+        for (let i = 0; i < SPECTRUM_BINS; i++) assert.ok(w[i] >= 0);
+      }
+      assert.decreasing(depths.map((w) => colorimetry.luminance(w)));
+      assert.greater(colorimetry.luminance(depths[3]), 0,
+        'two hundred metres down there is still rock, not a hole in the picture');
+
+      // Warm, because rock is: redder than the blue sky lighting it.
+      const [wx, wy] = xy(depths[1]);
+      const skyPaths = trace({ count: 4000 });
+      const [sx] = xy(histogramPhotons(skyPaths, 0,
+        VIEW_CONE_HALF_DEG * Math.PI / 180).coneSpectrum);
+      assert.greater(wx, sx + 0.05, `wall x=${wx.toFixed(3)} against sky x=${sx.toFixed(3)}`);
+      assert.between(wy, 0.28, 0.42);
+
+      // A low star reaches less of the way down, so the same shaft goes darker.
+      assert.less(colorimetry.luminance(wallAt(20, 8)),
+        colorimetry.luminance(wallAt(20, 70)) * 0.6);
+      // And at night only the sky is left to light it.
+      assert.less(colorimetry.luminance(wallAt(20, -8)),
+        colorimetry.luminance(wallAt(20, 55)) * 0.05);
+    });
+
     test('the traced paths do not depend on where the observer is looking', () => {
       // The whole point of tracing independently of the view: turning the head
       // must restyle the existing rays, never reshuffle the scene. If this ever
@@ -762,6 +1511,45 @@ export function registerTests({ group, test, assert }, config) {
         return set.reduce((a, p) => a + p.lambda, 0) / set.length;
       };
       assert.greater(meanNm(2), meanNm(80) + 30);
+    });
+
+    test('the measured sky is a cone average, and matches one', () => {
+      // Why the measurement sits a couple of percent above the integrator, and
+      // why that is not an error. The panel's number is the mean radiance over
+      // the observer's whole field of view; computeViewRadiance answers for one
+      // exact direction. Looking at the zenith, every direction in the cone is
+      // brighter than the axis, so the average must come out higher - by 6 % at
+      // the zenith and 2 % at 35 degrees. Averaged over the same fan the two
+      // agree to about a percent, which is what pins the meaning of the number.
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+      const scene = sceneAt({ elevation: 55 });
+      const zenithDeg = 35;
+
+      const point = computeViewRadiance(scene,
+        directionFromAngles(zenithDeg * Math.PI / 180, Math.PI),
+        QUALITY_PRESETS.normal).scattered;
+
+      const samples = 25;
+      const fan = new Float64Array(SPECTRUM_BINS);
+      for (let i = 0; i < samples; i++) {
+        const signed = -zenithDeg
+          + (-VIEW_CONE_HALF_DEG + (2 * VIEW_CONE_HALF_DEG * (i + 0.5)) / samples);
+        const r = computeViewRadiance(scene,
+          directionFromAngles(Math.abs(signed) * Math.PI / 180, signed <= 0 ? Math.PI : 0),
+          QUALITY_PRESETS.normal);
+        for (let k = 0; k < SPECTRUM_BINS; k++) fan[k] += r.scattered[k] / samples;
+      }
+
+      const measured = histogramPhotons(
+        trace({ sunElevationDeg: 55, count: 20000 }),
+        -zenithDeg * Math.PI / 180, cone).coneSpectrum;
+
+      const vsFan = colorimetry.luminance(measured) / colorimetry.luminance(fan);
+      const vsPoint = colorimetry.luminance(measured) / colorimetry.luminance(point);
+      assert.between(vsFan, 0.95, 1.05,
+        `against the same fan the measurement is off by ${((vsFan - 1) * 100).toFixed(1)}%`);
+      assert.greater(vsPoint, vsFan,
+        'and the cone average has to exceed the value on its axis here');
     });
 
     test('the traced rays reproduce the sky colour the integrator computes', () => {
@@ -913,13 +1701,20 @@ export function registerTests({ group, test, assert }, config) {
     });
 
     test('a vacuum produces no scattering events at all', () => {
+      // What an airless world looks like: the star, and nothing else. Light
+      // streams past, the beam arrives unchanged, and not one photon is turned
+      // towards the observer anywhere - so there is no sky.
       const moon = createAtmosphere(config.atmospheres['airless-moon']);
       const paths = trace({ atmosphere: moon, count: 400 });
       assert.greater(paths.length, 0);
       for (const path of paths) {
         assert.equal(path.scatterCount, 0);
-        assert.equal(path.kind === 'through', true, 'nothing but light streaming past');
+        assert.ok(path.kind === 'through' || path.kind === 'direct',
+          `nothing but light streaming past, and the beam itself; got ${path.kind}`);
       }
+      assert.greater(paths.filter((p) => p.kind === 'direct').length, 0,
+        'the star is still there to be looked at');
+      assert.greater(paths.observerBeam.pathLength, 0);
     });
 
     test('the reported scattered fraction follows the optical depth', () => {
@@ -1041,11 +1836,17 @@ export function registerTests({ group, test, assert }, config) {
       assert.equal(clampSpan(MAX_SPAN_M * 2), MAX_SPAN_M);
 
       const store = createStore(DEFAULT_STATE);
-      store.patch({ camera: { span_m: 25 } });
-      assert.equal(store.state.camera.span_m, 25,
+      store.patch({ observer: { span_m: 25 } });
+      assert.equal(store.state.observer.span_m, 25,
         'the store must not undo a zoom the interface offers');
-      store.patch({ camera: { span_m: 1 } });
-      assert.equal(store.state.camera.span_m, MIN_SPAN_M);
+      store.patch({ observer: { span_m: 1 } });
+      assert.equal(store.state.observer.span_m, MIN_SPAN_M);
+
+      // The second observer has a frame of their own, held to the same limits.
+      store.patch({ compare: { b: { observer: { span_m: 3 } } } });
+      assert.equal(store.state.compare.b.observer.span_m, MIN_SPAN_M);
+      assert.equal(store.state.observer.span_m, MIN_SPAN_M,
+        'and zooming one observer must not move the other');
     });
 
     test('standing at the mouth of a shaft sees the whole sky', () => {
@@ -1060,6 +1861,413 @@ export function registerTests({ group, test, assert }, config) {
     test('the mapping keeps metre resolution near the ground', () => {
       const step = sliderToZ(1, 100000, 10000) - sliderToZ(0, 100000, 10000);
       assert.less(step, 1, 'one slider notch near datum must be under a metre');
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+
+  group('two simulations, compared', () => {
+    test('the second simulation is a whole simulation, not an altitude', () => {
+      // The comparison used to hold two numbers, leftZ and rightZ, and give
+      // both observers the first one's shaft, viewing direction and choice
+      // about the air inside the shaft. So the two panels could differ in
+      // height and in nothing else, and the one thing the experiment exists to
+      // contrast - standing in a shaft against standing high up - could not be
+      // set up at all.
+      const store = createStore(DEFAULT_STATE);
+      store.setContext({ maxAltitude: 100000 });
+      store.patch({
+        compare: {
+          enabled: true,
+          b: {
+            star: { elevationDeg: 5, temperatureK: 3200 },
+            atmosphere: { presetId: 'mars', densityScale: 0.4 },
+            observer: { z: -40, viewZenithDeg: 0, countShaftAir: true,
+              well: { enabled: true, radius_m: 2, depth_m: 40 } },
+          },
+        },
+      });
+      const b = store.state.compare.b;
+      assert.equal(b.observer.z, -40);
+      assert.equal(b.observer.well.enabled, true);
+      assert.equal(b.observer.countShaftAir, true);
+      assert.equal(b.star.elevationDeg, 5);
+      assert.equal(b.atmosphere.presetId, 'mars');
+
+      // And none of it reached the first simulation. This is the assertion the
+      // whole redesign is for: a control aimed at one simulation must not move
+      // the other, and the star and the air were the two that still did.
+      assert.equal(store.state.observer.z, 0);
+      assert.equal(store.state.observer.well.enabled, false);
+      assert.equal(store.state.star.elevationDeg, DEFAULT_STATE.star.elevationDeg);
+      assert.equal(store.state.star.temperatureK, DEFAULT_STATE.star.temperatureK);
+      assert.equal(store.state.atmosphere.presetId, DEFAULT_STATE.atmosphere.presetId);
+      assert.equal(store.state.atmosphere.densityScale, 1);
+    });
+
+    test('a simulation is exactly a star, an atmosphere and an observer', () => {
+      // If a fourth thing ever joins a simulation, the copy button and the
+      // control aiming both have to learn about it, and they read this list.
+      const built = makeSimulation();
+      assert.equal(Object.keys(built).sort().join(','), 'atmosphere,observer,star');
+      assert.equal(SIMULATION_KEYS.slice().sort().join(','), 'atmosphere,observer,star');
+      for (const key of SIMULATION_KEYS) {
+        assert.ok(DEFAULT_STATE[key], `simulation A carries ${key} at the top level`);
+        assert.ok(DEFAULT_STATE.compare.b[key], `simulation B carries ${key}`);
+      }
+      // The two must not share a nested object, or moving one would move both.
+      assert.ok(DEFAULT_STATE.observer.well !== DEFAULT_STATE.compare.b.observer.well);
+      assert.ok(DEFAULT_STATE.star !== DEFAULT_STATE.compare.b.star);
+    });
+
+    test('each observer is held to the invariants on their own', () => {
+      const store = createStore(DEFAULT_STATE);
+      store.setContext({ maxAltitude: 100000 });
+      store.patch({
+        compare: { enabled: true, b: { observer: { well: { enabled: true, depth_m: 30 } } } },
+      });
+      // B is in a shaft, so B cannot climb out of it or sink through it.
+      store.patch({ compare: { b: { observer: { z: 900 } } } });
+      assert.equal(store.state.compare.b.observer.z, 0, 'B cannot climb out of its shaft');
+      store.patch({ compare: { b: { observer: { z: -900 } } } });
+      assert.equal(store.state.compare.b.observer.z, -30, 'B cannot sink through the bottom');
+      // A has no shaft, so A is free to climb - the two rules run separately.
+      store.patch({ observer: { z: 9000 } });
+      assert.equal(store.state.observer.z, 9000, "A is not bound by B's shaft");
+    });
+
+    test('the simulations being run follow the switch, and one is selected', () => {
+      const state = JSON.parse(JSON.stringify(DEFAULT_STATE));
+      assert.equal(simulationsOf(state).length, 1, 'one simulation until asked for two');
+      assert.equal(activeSimulationId(state), 'a');
+      // A is the top of the state, which is what makes switching the
+      // comparison off need no migration: what is left is A.
+      assert.equal(simulationOf(state, 'a'), state);
+
+      state.compare.enabled = true;
+      const both = simulationsOf(state);
+      assert.equal(both.length, 2);
+      assert.equal(both[0].id, 'a');
+      assert.equal(both[1].id, 'b');
+      assert.equal(both[1].sim, state.compare.b, 'and it is the real object');
+
+      state.compare.active = 'b';
+      assert.equal(activeSimulationId(state), 'b');
+      assert.equal(activeSimulation(state), state.compare.b);
+      assert.equal(activeObserver(state), state.compare.b.observer);
+      assert.equal(activeSimulationPath(state), 'compare.b');
+
+      // Selecting B and then switching the comparison off must not leave the
+      // interface aimed at a simulation that is no longer running.
+      state.compare.enabled = false;
+      assert.equal(activeSimulationId(state), 'a');
+      assert.equal(activeSimulation(state), state);
+      assert.equal(activeObserver(state), state.observer);
+      assert.equal(activeSimulationPath(state), '',
+        'A has no prefix, so nothing about A had to move');
+    });
+
+    test('two simulations can run under two different skies', () => {
+      // What being a whole simulation buys: B is allowed a different star at a
+      // different height in a different atmosphere, and the answer for one says
+      // nothing about the other.
+      const dusk = createAtmosphere(config.atmospheres.earth);
+      const build = (elevationDeg) => {
+        const spectrum = makeBlackbodySpectrum(5800);
+        colorimetry.normalizeToLuminance(spectrum, 1);
+        return computeViewRadiance(
+          buildScene({
+            atmosphere: dusk, sourceSpectrum: spectrum,
+            sunDirection: sunDirectionFromElevation(elevationDeg),
+            sunElevationDeg: elevationDeg, observerZ: 0,
+            well: { enabled: false, radius_m: 1 }, countShaftAir: false,
+          }), ZENITH, QUALITY_PRESETS.preview);
+      };
+      const high = colorimetry.luminance(build(70).observed);
+      const low = colorimetry.luminance(build(2).observed);
+      assert.less(low, high * 0.6,
+        `a sky at 2 deg (${low.toExponential(2)}) must not read as one at 70 deg (${high.toExponential(2)})`);
+    });
+
+    test('two observers give two different measurements, from two traces', () => {
+      // The heart of it. One trace cannot answer for two observers, and the
+      // comparison used to make one and show it twice: the second panel drew
+      // the first observer's rays under a different label, and the strip below
+      // both had to fall back to the integrator because nothing had been
+      // measured for either. Each observer is traced separately now, and this
+      // pins the difference that separation is for.
+      const atmosphere = earth;
+      const source = sunSpectrum;
+      const trace = (observer) => tracePhotons({
+        atmosphere, source, sunElevationDeg: 55,
+        observerZ: observer.z, well: observer.well,
+        count: 3000, seed: 4242,
+        span_m: 120000, halfWidth_m: 60000, skyExtent_m: 120000,
+      });
+
+      const open = makeObserver({ z: 0 });
+      const shaft = makeObserver({
+        z: -50, well: { enabled: true, radius_m: 1.5, depth_m: 50 },
+      });
+      const cone = VIEW_CONE_HALF_DEG * Math.PI / 180;
+
+      const openRays = trace(open);
+      const shaftRays = trace(shaft);
+      const openUp = measureCone(openRays, 0, cone);
+      const shaftUp = measureCone(shaftRays, 0, cone);
+
+      assert.greater(openUp.arrived, 50, 'open ground collects rays from everywhere');
+      assert.less(shaftUp.arrived, openUp.arrived / 4,
+        'and a shaft collects a small fraction of them');
+      assert.greater(shaftUp.blocked, 0, 'because the rock takes the rest');
+      assert.equal(openUp.blocked, 0, 'while open ground has no rock to take any');
+
+      // The brightness ratio is the point of the whole experiment, and it is
+      // large. If the two ever came out equal, the comparison would be drawing
+      // one observer twice again.
+      const openY = colorimetry.luminance(openUp.spectrum);
+      const shaftY = colorimetry.luminance(shaftUp.spectrum);
+      assert.less(shaftY, openY * 0.2,
+        `shaft ${shaftY.toExponential(2)} against open ${openY.toExponential(2)}`);
+    });
+
+    test('an observer carries their own frame, and zooming one leaves the other', () => {
+      const store = createStore(DEFAULT_STATE);
+      store.setContext({ maxAltitude: 100000 });
+      store.patch({ compare: { enabled: true } });
+      store.patch({ observer: { span_m: 400 } });
+      assert.equal(store.state.observer.span_m, 400);
+      assert.equal(store.state.compare.b.observer.span_m, null,
+        'the other observer keeps fitting its own frame to the air');
+      store.patch({ compare: { b: { observer: { span_m: 900000 } } } });
+      assert.equal(store.state.observer.span_m, 400, 'and stays where it was put');
+    });
+
+    test('copying one simulation onto the other carries all of it', () => {
+      // The copy exists so both panels can be landed on the same footing and
+      // then differ by exactly one thing. A copy that left anything behind
+      // would leave a difference the reader did not put there and cannot see,
+      // which is worse than no copy at all.
+      const store = createStore(DEFAULT_STATE);
+      store.setContext({ maxAltitude: 100000 });
+      store.patch({
+        compare: { enabled: true },
+        star: { elevationDeg: 3, temperatureK: 3400, presetId: 'red-dwarf' },
+        atmosphere: { presetId: 'mars', densityScale: 0.6, rayleighExponent: 3.5 },
+        observer: { z: 2500, viewZenithDeg: 80, span_m: 1234 },
+      });
+
+      const copy = (from, to) => {
+        const source = simulationOf(store.state, from);
+        const patch = {};
+        for (const key of SIMULATION_KEYS) {
+          patch[key] = JSON.parse(JSON.stringify(source[key]));
+        }
+        store.patch(to === 'b' ? { compare: { b: patch } } : patch);
+      };
+
+      copy('a', 'b');
+      for (const key of SIMULATION_KEYS) {
+        assert.equal(JSON.stringify(store.state.compare.b[key]),
+          JSON.stringify(store.state[key]), `${key} must be copied whole`);
+      }
+
+      // And back the other way, from a B that has since moved on.
+      store.patch({ compare: { b: { star: { elevationDeg: 44 }, observer: { z: 10 } } } });
+      copy('b', 'a');
+      assert.equal(store.state.star.elevationDeg, 44);
+      assert.equal(store.state.observer.z, 10);
+
+      // A copy is a copy, not a shared reference: moving one afterwards must
+      // not move the other.
+      store.patch({ compare: { b: { observer: { z: 900 } } } });
+      assert.equal(store.state.observer.z, 10, 'the two must not share objects');
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+
+  group('a star overhead, by day and by night', () => {
+    test('a magnitude 0 star delivers 2e-11 of the Sun at 1 AU', () => {
+      // 10^(-0.4 * 26.74): the Sun's apparent visual magnitude is -26.74.
+      assert.close(starIlluminanceRelativeToSun(0), 2.0137e-11, 1e-3);
+      assert.close(starIlluminanceRelativeToSun(5) / starIlluminanceRelativeToSun(0), 0.01, 1e-9,
+        'five magnitudes are a factor of one hundred');
+      assert.close(coneSolidAngle(90), 2 * Math.PI, 1e-12);
+    });
+
+    test('the air above takes its share of the starlight, and none above the air', () => {
+      const bare = starIlluminanceRelativeToSun(OVERHEAD_STAR.magnitude);
+      // At the modelled top a trace of air remains: e^(-100/8.5) of the column.
+      assert.close(overheadStarIlluminance(earth, colorimetry, earth.topAltitude), bare, 1e-5);
+      const ground = overheadStarIlluminance(earth, colorimetry, 0) / bare;
+      // Straight down through tau ~ 0.1 of gas and 0.06 of haze, plus ozone.
+      assert.between(ground, 0.8, 0.9);
+    });
+
+    test('by day a real star is lost in the sky, and a shaft only removes the rest of the sky', () => {
+      const star = overheadStarIlluminance(earth, colorimetry, 0);
+      const field = coneSolidAngle(VIEW_CONE_HALF_DEG);
+      const zenith = colorimetry.luminance(computeViewRadiance(
+        sceneAt({ elevation: 55 }), ZENITH, QUALITY_PRESETS.high).scattered);
+      const open = starShareOfView({ starIlluminance: star, meanLuminance: zenith, fieldSolidAngle: field });
+      assert.less(open, 1e-7, 'in the open the star is under one part in ten million');
+      // Down a shaft the field of view keeps only skyShare of its sky, at the
+      // same radiance. The star gains by exactly that factor - and no more.
+      for (const skyShare of [0.13, 0.02, 1e-4]) {
+        const down = starShareOfView({
+          starIlluminance: star, meanLuminance: zenith * skyShare, fieldSolidAngle: field,
+        });
+        assert.close(down / open, 1 / skyShare, 1e-3, `sky share ${skyShare}`);
+        assert.less(down, 1e-3, `by day the star still loses with ${skyShare} of the sky left`);
+      }
+    });
+
+    test('once the sky goes dark the same star outshines it', () => {
+      const star = overheadStarIlluminance(earth, colorimetry, 0);
+      const field = coneSolidAngle(VIEW_CONE_HALF_DEG);
+      const zenithAt = (elevation) => colorimetry.luminance(computeViewRadiance(
+        sceneAt({ elevation }), ZENITH, QUALITY_PRESETS.high).scattered);
+      const share = (elevation) => starShareOfView({
+        starIlluminance: star, meanLuminance: zenithAt(elevation), fieldSolidAngle: field,
+      });
+      assert.less(share(-3), share(-8), 'the star gains as the twilight deepens');
+      assert.greater(share(-8), share(55) * 1e3);
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+
+  group('the guided experiments keep their promises', () => {
+    const asMap = (object) => new Map(Object.entries(object));
+    const simulation = createSimulation({
+      config: {
+        atmospheres: asMap(config.atmospheres), stars: asMap(config.stars),
+        scattering: asMap(config.scattering),
+      },
+      colorimetry,
+    });
+    /** Replay a guide to a step exactly as the page does, and evaluate it. */
+    const replay = (id, index) => {
+      const store = createStore(DEFAULT_STATE);
+      store.patch(guideSituation(config.experiments[id], index));
+      const run = simulation.run(store.state);
+      const of = (which) => run.simulations.find((e) => e.id === which).evaluation;
+      return { state: store.state, a: of('a'), b: run.simulations.length > 1 ? of('b') : null };
+    };
+    const xy = (spectrum) => colorimetry.xyzToChromaticity(colorimetry.spectrumToXYZ(spectrum));
+    const T = (evaluation, nm) => evaluation.beam.transmittance[INDEX(nm)];
+
+    test('every guide states its goal, in both languages', () => {
+      for (const [id, guide] of Object.entries(config.experiments)) {
+        for (const field of ['title', 'summary', 'goal']) {
+          assert.ok(guide[field]?.cs && guide[field]?.en, `${id}: ${field}`);
+        }
+        for (const [i, step] of guide.steps.entries()) {
+          for (const field of ['title', 'text', 'observe', 'question']) {
+            if (!step[field]) continue;
+            assert.ok(step[field].cs && step[field].en, `${id} step ${i + 1}: ${field} in both languages`);
+          }
+        }
+      }
+    });
+
+    test('every setting a guide changes is one the reader can find by name', () => {
+      const allowed = new Set(DESCRIBED_PATHS);
+      const leaves = (object, prefix = '') => Object.entries(object).flatMap(([k, v]) =>
+        (v && typeof v === 'object' && !Array.isArray(v)) ? leaves(v, `${prefix}${k}.`) : [`${prefix}${k}`]);
+      for (const [id, guide] of Object.entries(config.experiments)) {
+        for (const [i, step] of guide.steps.entries()) {
+          for (const path of leaves(step.state ?? {})) {
+            const own = path.startsWith('compare.b.') ? path.slice('compare.b.'.length) : path;
+            // A step may pin the star's preset name and temperature together,
+            // and the shaft's size while it is off; all of these are named.
+            assert.ok(allowed.has(own), `${id} step ${i + 1} changes ${path}, which no control names`);
+          }
+        }
+      }
+    });
+
+    test('a guide step is the same situation however you arrive at it', () => {
+      // Going back must not keep what a later step set.
+      const forward = guideSituation(config.experiments['blue-sky'], 2);
+      assert.equal(forward.atmosphere.rayleighExponent, 0);
+      const back = guideSituation(config.experiments['blue-sky'], 1);
+      assert.equal(back.atmosphere.rayleighExponent, 4, 'step 2 has n = 4 again');
+      assert.equal(back.atmosphere.aerosolScale, 0);
+      assert.equal(guideSituation(config.experiments['blue-sky'], 0).atmosphere.aerosolScale, 1);
+    });
+
+    test('blue sky: n = 0 greys the sky and keeps its light', () => {
+      const blue = replay('blue-sky', 1).a, grey = replay('blue-sky', 2).a;
+      const [x, y] = xy(grey.view.observed);
+      assert.less(Math.hypot(x - 0.3127, y - 0.3290), 0.015, 'grey is near the white point');
+      assert.close(grey.metrics.skyLuminance, blue.metrics.skyLuminance, 0.05, 'the same amount of light');
+      assert.close(T(blue, 450), 0.77, 0.03);
+      assert.close(T(blue, 650), 0.92, 0.03);
+    });
+
+    test('sunset: the numbers the guide quotes', () => {
+      const noon = replay('sunset', 0).a, afternoon = replay('sunset', 1).a;
+      const low = replay('sunset', 2).a, horizon = replay('sunset', 3).a, control = replay('sunset', 4).a;
+      assert.close(noon.metrics.airMass, 1.15, 0.02);
+      assert.close(T(noon, 450), 0.70, 0.03); assert.close(T(noon, 650), 0.87, 0.03);
+      assert.close(afternoon.metrics.airMass, 2.9, 0.03);
+      assert.close(T(afternoon, 450), 0.41, 0.04); assert.close(T(afternoon, 650), 0.71, 0.03);
+      assert.close(low.metrics.airMass, 10, 0.05);
+      assert.close(T(low, 450), 0.042, 0.1); assert.close(T(low, 650), 0.30, 0.05);
+      assert.between(horizon.metrics.airMass, 30, 40);
+      assert.less(T(horizon, 450), 1e-6); assert.close(T(horizon, 650), 1.5e-3, 0.15);
+      // The control: without colour-dependent extinction the beam stays grey.
+      assert.close(T(control, 450) / T(control, 650), 1.12, 0.1, 'only ozone tells colours apart');
+      const [x] = xy(control.beam.spectrum);
+      assert.less(x, 0.32, 'the control beam is not orange');
+    });
+
+    test('flight: the air left above, and a black sky with the most light', () => {
+      const ground = replay('flight-to-space', 0).a;
+      const fractions = [1, 2, 3].map((i) => replay('flight-to-space', i).a.metrics.columnFraction);
+      assert.close(fractions[0], 0.56, 0.02);
+      assert.between(fractions[1], 0.09, 0.1);
+      assert.close(fractions[2], 7.8e-6, 0.05);
+      const five = replay('flight-to-space', 1).a, twenty = replay('flight-to-space', 2).a;
+      assert.close(five.metrics.skyLuminance / ground.metrics.skyLuminance, 0.25, 0.1);
+      assert.close(twenty.metrics.skyLuminance / ground.metrics.skyLuminance, 0.04, 0.15);
+      const top = replay('flight-to-space', 3).a, moon = replay('flight-to-space', 4).a;
+      assert.less(top.metrics.skyLuminance, 1e-6 * ground.metrics.skyLuminance);
+      assert.greater(top.illumination.total, twenty.illumination.total);
+      assert.close(moon.illumination.total, top.illumination.total, 0.01);
+    });
+
+    test('well: climbing dims the sky, descending dims the surroundings', () => {
+      const surface = replay('well-vs-altitude', 0).a;
+      const up = replay('well-vs-altitude', 1).a, down = replay('well-vs-altitude', 2).a;
+      assert.close(up.metrics.skyLuminance / surface.metrics.skyLuminance, 0.08, 0.15);
+      assert.close(up.illumination.total / surface.illumination.total, 1.06, 0.03);
+      assert.close(down.metrics.skyLuminance, surface.metrics.skyLuminance, 1e-9, 'not one digit changed');
+      assert.between(down.illumination.total / surface.illumination.total, 1e-9, 1e-8);
+      // Side by side: B is the shaft observer of step 3, looking up under the same Sun.
+      const side = replay('well-vs-altitude', 3);
+      assert.equal(side.state.compare.b.star.elevationDeg, 70);
+      assert.equal(side.state.compare.b.observer.viewZenithDeg, 0);
+      assert.close(side.b.metrics.skyLuminance, surface.metrics.skyLuminance, 1e-9);
+      // The shaft full of air: half the radiance, and warmer.
+      const air = replay('well-vs-altitude', 5);
+      assert.close(air.b.metrics.skyLuminance / air.a.metrics.skyLuminance, 0.5, 0.15);
+      assert.greater(xy(air.b.view.observed)[0], xy(air.a.view.observed)[0] + 0.03);
+    });
+
+    test('alien skies: a cool star gives a beige sky that is still bluer than the star', () => {
+      const home = replay('alien-skies', 0).a, cool = replay('alien-skies', 1).a;
+      const hot = replay('alien-skies', 2).a, mars = replay('alien-skies', 3).a, thin = replay('alien-skies', 4).a;
+      const sky = xy(cool.view.observed), star = xy(cool.beam.spectrum);
+      assert.greater(sky[0], 0.34, 'warm, not blue');
+      assert.less(sky[0], star[0] - 0.05, 'but bluer than its star');
+      assert.close(cool.metrics.skyLuminance, home.metrics.skyLuminance, 0.15, 'not much darker');
+      assert.less(xy(hot.view.observed)[0], xy(home.view.observed)[0], 'a hotter star, a bluer sky');
+      assert.greater(xy(mars.view.observed)[0], 0.34, 'Martian dust makes it ochre');
+      assert.less(thin.metrics.skyLuminance, home.metrics.skyLuminance / 50, 'thin CO2 is nearly black');
+      assert.less(xy(thin.view.observed)[0], 0.27, 'but blue');
     });
   });
 
@@ -1137,6 +2345,23 @@ export function registerTests({ group, test, assert }, config) {
       computeIllumination(scene, colorimetry);
       const elapsed = Date.now() - started;
       assert.less(elapsed, 33, `a full recompute took ${elapsed} ms, the budget is 33 ms`);
+    });
+
+    test('sweeping the strip across the sky stays cheap too', () => {
+      // The strip is the colour swatch evaluated once per direction, which is
+      // a hundred and eighty times the work the swatch does. That is fine - it
+      // runs on a retrace and not on a frame - but it is exactly the kind of
+      // cost that grows quietly, so it is pinned. The arrivals are bucketed by
+      // direction first so each cone touches only the rays that can fall in it.
+      const paths = tracePhotons({
+        atmosphere: earth, source: sunSpectrum, sunElevationDeg: 30, observerZ: 0,
+        count: 5000, span_m: 25500, skyExtent_m: 24225, halfWidth_m: 12364, seed: 7,
+      });
+      skyFromRays(paths, {});
+      const started = Date.now();
+      skyFromRays(paths, {});
+      const elapsed = Date.now() - started;
+      assert.less(elapsed, 60, `sweeping the sky took ${elapsed} ms`);
     });
 
     test('tracing the drawn rays stays cheap at the largest ray count', () => {

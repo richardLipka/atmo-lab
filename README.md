@@ -26,6 +26,34 @@ exponent to 0 and the sky turns grey, because the physics says it must.
 
 ---
 
+## The guided experiments
+
+Five guides walk a student through one question each. Every guide states its **goal** at
+its first step, and every step after that lists under its text exactly which controls it
+moved and to what — "Aerosol amount → 0.00 ×" — computed from the state before and after
+the step, so the list cannot drift from what the step really does.
+
+| guide | the problem it shows | how the steps get there |
+|---|---|---|
+| **Why is the sky blue?** | white sunlight and colourless air give a blue sky | the sky spectrum against the source → molecules only (haze off) → n = 0, the sky turns grey with the same amount of light → n = 4 again, the blue missing from the direct beam is the sky → towards the horizon, paler → why not violet: the Sun's spectrum and the eye |
+| **Why is the setting Sun red?** | the same white star turns red near the horizon | 60° → 20° → 5° → 0° with the 400 km chord in view, reading the air mass and the direct-beam transmission at 450 and 650 nm → control: n = 0 and no haze at 5°, the beam only dims |
+| **Flight into space** | the sky darkens to black while the Sun keeps shining | surface → 5 km → 20 km → 100 km, reading the share of the air column left and the sky radiance → control: the airless Moon at noon |
+| **The well paradox** | climbing and descending both darken your surroundings, for different reasons | surface → 10 km up (the sky itself dims) → 10 km down a shaft (the patch of sky is unchanged, the illuminance falls eight orders of magnitude) → both side by side → stars by day from a 50 m well → a shaft full of air |
+| **Alien skies** | the colour of a sky depends on the star and on what scatters | Sun on Earth → a 3000 K star gives a beige sky, still bluer than its star → a 12 000 K star → Mars, where dust scatters → Mars without the dust → Titan under its haze |
+
+**A step is rebuilt, not applied on top.** It is the guide's starting situation plus every
+step up to it, so going back, jumping ahead with the progress dots, or returning after
+moving a slider always gives exactly the situation the text describes. Applying only the
+step's own change used to leave other steps' settings behind: going back from "n = 4
+again" to "n = 0" kept n = 4.
+
+**The numbers in the texts are tested.** A test group replays every guide as the page does
+and checks the figures its texts quote — air masses, transmissions, the share of the column
+left, radiance ratios — and that every setting a guide changes is one the reader can find by
+name.
+
+---
+
 ## Running it
 
 Three ways, in order of convenience.
@@ -131,15 +159,39 @@ multiplies by each world's true insolation (Earth 1.00, Mars 0.431, Titan 0.011,
 ρ(h) = ρ₀ exp(−h/H), which integrates in closed form to C(z) = ρ₀H exp(−z/H) — the entire
 "flight into space" experiment in one line.
 
-- Rayleigh: β(λ) = β(550)·(550/λ)ⁿ, n = 4 by default and adjustable from 0 to 6.
-  Earth uses β(550) = 1.35 × 10⁻⁵ m⁻¹, H = 8.5 km, which reproduces the published
-  sea-level coefficients (3.31 × 10⁻⁵ m⁻¹ at 440 nm, 5.8 × 10⁻⁶ m⁻¹ at 680 nm) and a
-  vertical optical depth of 0.115 at 550 nm.
-- Aerosol: an Ångström power law with a Henyey-Greenstein lobe (g ≈ 0.7), plus an optional
-  wavelength-dependent single-scattering albedo. Martian dust absorbs blue about twice as
-  strongly as red, and that — not the CO₂ — is what makes the Martian sky ochre.
-- Phase functions: P_R(θ) = (3/16π)(1 + cos²θ) and the Henyey-Greenstein lobe. Both are
-  verified by numerical integration to normalise to 1 over the sphere.
+- Rayleigh: β(λ) = β(550)·(550/λ)ⁿ·D(λ), n = 4 by default and adjustable from 0 to 6.
+  D(λ) is how far real air departs from an ideal dipole — its refractive index and its
+  King factor both rise towards the blue — taken from the fit of **Bodhaine et al. (1999)**,
+  Eq. (29); it steepens the law to λ^−4.09 between 450 and 650 nm. Earth's strength is
+  Bodhaine's measured **τ(550) = 0.0971** (Eq. (30)), β(550) = 1.142 × 10⁻⁵ m⁻¹ over
+  H = 8.5 km, and a test holds every wavelength from 400 to 750 nm to that paper within
+  0.5 %. Every other world's β follows from first principles, σ_air · (relative
+  cross-section of its gases) · P/(m̄g) — the number of molecules over a square metre times
+  what each one scatters — and a test holds the configs to it within 2 %.
+- Aerosol: an Ångström power law with a Henyey-Greenstein lobe, plus an optional
+  wavelength-dependent single-scattering albedo. Earth's default haze and the named presets
+  are **OPAC** types (Hess, Koepke & Schult 1998, Table 3) — continental clean (τ = 0.064,
+  ω = 0.972, g = 0.709), continental average, urban and desert — each with OPAC's two
+  Ångström exponents, one for 350–500 nm and one for 500–800 nm. Martian dust absorbs blue
+  about twice as strongly as red, and that — not the CO₂ — is what makes the Martian sky ochre.
+- Ozone (Earth): a 300 DU layer, triangular between 10 and 40 km with its peak at 25 km,
+  absorbing with the Chappuis-band cross-sections of **Serdyuchenko et al. (2014)** at 233 K.
+  Vertically it takes only 4 % at 600 nm, so at noon it barely shows. At sunset the light
+  reaching the zenith crosses the layer edgeways, and that is what keeps the twilight zenith
+  blue — **Hulburt (1953)**'s result, which the simulator now reproduces: without ozone its
+  single-scattering zenith turns yellowish at sunset, with it the zenith stays blue and
+  deepens as the Sun sinks. Ozone appears in every transmission and in no scattering source.
+- Phase functions: the Rayleigh function with the depolarisation of air, ρ = 0.0279
+  (Chandrasekhar 1950; Hansen & Travis 1974, Eq. 2.15),
+  P_R(θ) = 3/(16π(1+2γ))·[(1+3γ) + (1−γ)cos²θ] with γ = ρ/(2−ρ) — 1.4 % more light at
+  90° from the Sun than the ideal (3/16π)(1 + cos²θ) — and the Henyey-Greenstein lobe. Both
+  are verified by numerical integration to normalise to 1 over the sphere, and the sampler
+  inverts the depolarised distribution exactly (Cardano).
+- Columns are integrated **exactly** for an exponential between nodes — L·(ρ₀−ρ₁)/((h₁−h₀)/H)
+  — rather than by the midpoint rule. Steps sized to the 8.5 km gas scale height used to
+  stride over the 1.2 km haze layer and lose 9–37 % of it on every path from the ground;
+  the integrator's view rays are also graded, short at the dense end, and a test requires
+  the sky at "preview" and "normal" quality to match a 2000-step reference to 2 %.
 
 ### Geometry
 
@@ -157,17 +209,60 @@ The scattering events are traced **independently of where the observer is lookin
 are a property of the air and the star, not of which way someone happens to face. Turning
 the view never reshuffles the scene. What moves is the emphasis: a dashed wedge marks the
 **observer's field of view**, a cone of half-angle 12° following both the zenith angle and
-the azimuth, and the rays arriving from inside it are drawn **in their own wavelength
-colours** while everything else goes **grey**. The rule is one sentence and it is the whole
-legend: *coloured means this light enters your eye from the direction you are facing.*
-Turning the view is a repaint, 0.8 ms, not a retrace.
+the azimuth. What decides whether a ray belongs to that cone is **where its scattering
+event happened**, not where the light came from: the light feeding those events arrives
+along the line to the star, which at a low Sun is nearly at right angles to where you are
+looking. A ray can enter the cone from any direction at all; what makes it yours is that
+it turned inside the cone and left along the line to your eye.
+
+Rays that do are drawn **in one of eight colours**; everything else goes **grey**. The rule
+is one sentence and it is the whole legend: *coloured means this light enters your eye from
+the direction you are facing.* Turning the view is a repaint, 0.8 ms, not a retrace.
 
 | | what it is | how it is drawn |
 |---|---|---|
-| **in the cone** | scattered once and turned into the eye from where you are looking | wavelength colour; heavy final leg into the observer, white vertex where it turned |
+| **in the cone** | turned inside the cone *and* turned into the eye | band colour; heavy final leg into the observer, white vertex where it turned |
+| **turned in view, gone elsewhere** | the same turn, made a few degrees the wrong way | brighter grey, ringed vertex, arrowhead — the control group |
 | **elsewhere in the sky** | also reaches the eye, from every other direction — this is what lights the ground | grey |
 | **missed** | scattered somewhere else and left in another direction | grey kink with an arrowhead, rejection-sampled away from the eye |
 | **through** | crossed the whole atmosphere without scattering and hit the ground | grey line, top to bottom |
+| **direct** | crossed without scattering and landed on the observer | a bundle of nine parallel lines in band colours, **not to scale** |
+
+**Light also arrives without being turned at all.** Point the view at the star
+and, before this existed, every ray in the cone had scattered somewhere — as
+though light never arrives in a straight line, when in fact almost everything
+reaching an observer looking at the Sun has never been scattered once. The beam
+is marched by the tracer along the one chord that matters and drawn as a narrow
+bundle into the eye, taking its bands from its own spectrum, so it whitens and
+reddens with elevation like everything else: at a 55° Sun the nine lines come
+out `045556677`, at 12° `156666777`, at 3° `467777777` — almost all in the
+deepest red band.
+
+The bundle is the one place in the picture where **the number of lines is not
+the amount of light**, and it cannot be: the Sun's disc runs to about
+**2×10⁵ times the radiance of the sky beside it**, so honouring the rule would
+take a hundred thousand lines. The ratio is printed in the panel instead, which
+is the only place it fits. The outer lines of the bundle stop at the ground
+rather than passing through it — that share of the beam lands beside you.
+
+### Eight colours, in the ratio the spectrum holds
+
+A ray's wavelength is sampled on the 10 nm grid, which is right for the physics and wrong
+for the picture: thirty-eight shades running smoothly from violet to red read as one
+continuous wash, and nobody can count them. So a ray is *drawn* in the colour of the band
+its wavelength fell in, and there are eight bands — violet, blue, cyan, green, chartreuse,
+yellow, orange, red.
+
+The bands are deliberately **not** of equal width. They are narrow across the blue-green,
+where a small change of wavelength is a large change of colour, and wide out past 635 nm
+where the eye stops discriminating; equal widths would have spent three of the eight
+colours on reds nobody can tell apart. Because the band is picked in proportion to the
+ray's own spectrum, **the mix of colours on screen is the spectrum** — counting violet rays
+against red ones reads it off the picture, and the test suite pins the two to within four
+percentage points per band.
+
+Nothing here enters the physics. Each ray still carries its whole 38-bin spectrum into
+every measurement.
 
 **Straight rays stay straight, and the ground curves.** The cross-section is drawn in true
 spherical geometry — planet centre at the origin of world coordinates — under a plain
@@ -191,15 +286,14 @@ Each arriving ray has exactly one scattering vertex, which is not a shortcut: it
 precisely the single-scattering approximation the engine integrates, so the picture and the
 numbers describe the same model.
 
-The panel beside it states the outcome, and those percentages are **integrated off the
-spectra, not counted from the drawn rays**, so they are exact and agree with the plot
-above them: at a 55° Sun, looking 35° from the zenith away from it, **63 % of the light
-arriving from the viewing cone is blue (< 520 nm), against 33 % of the light that crosses
-unscattered to the ground, from a star that emitted 39 % blue** — and only 16 % of the
-light crossing the air is scattered at all. On an airless world every path is a `through`
-path and no scattering vertex is drawn anywhere.
+The panel beside it states the outcome, taken off the rays: at a 55° Sun, looking 35° from
+the zenith away from it, most of the light arriving from the viewing cone is blue
+(< 520 nm) against a third of the light that crosses unscattered to the ground, from a star
+that emitted 39 % blue — and only 16 % of the light crossing the air is scattered at all.
+On an airless world every path is a `through` path and no scattering vertex is drawn
+anywhere.
 
-### The drawn rays are a measurement, not an illustration
+### The picture is the measurement, and the theory is one tab behind it
 
 Each arriving ray carries an unbiased Monte Carlo estimate of what it
 contributes to the radiance. The scattering altitude is drawn with probability
@@ -208,35 +302,110 @@ one in the sampling distribution — importance sampling that is exact for an
 exponential atmosphere — and what remains is a factor of 1/cos between the ray
 and the local vertical, which is why a ray near the horizon carries so much more.
 
-That makes the picture checkable, and the interface checks it in front of you.
-Beside the perceived colour computed by the integrator sits a second swatch,
-**measured from the drawn rays alone**, with the distance between the two printed.
-With 53 rays in the viewing cone they agree to **Δxy ≤ 0.002** at the ground, at
-20 km, at 40 km and at a 4° Sun; the test suite requires better than 0.01 in
-chromaticity and 10 % in luminance, and checks it through the same code path the
+**The colour the interface calls the sky is now built from the rays and from
+nothing else.** The integrator's answer has not gone away — it sits one tab
+across, labelled *theory, for comparison*, with the difference between the two
+printed. That separation is the point: when the two agree to a thousandth of a
+chromaticity, the agreement is *evidence about the model*, which it could not be
+if one of them were quietly derived from the other. With 53 rays in the cone they
+agree to **Δxy ≤ 0.002** and a luminance ratio of **1.02** at the ground, and the
+test suite requires better than 0.01 and 10 % through the same code path the
 interface uses.
 
-A ray is *drawn* in a single colour sampled from its own spectrum, because that
-is what one photon does. The *measurement* keeps each ray's whole spectrum,
-because throwing 37 of 38 numbers away left the estimate visibly noisy with only
-a few dozen rays in the cone.
+The star gets the same treatment. There is one star, one direction and one chord,
+so its beam is not sampled but **marched by the tracer** along that chord —
+through the same air, stopped by the same rock, with the same horizon test — and
+it reproduces the integrator's direct beam to within 2 % at 450, 550 and 650 nm,
+in daylight, at a 4° Sun, at 20 km, at night, and down a shaft.
 
-That estimate also sets **how many** arriving rays are drawn — and only how many.
-A ray either reaches the observer or it does not; the ones that do are perfectly
-ordinary rays, drawn at full strength. What changes with altitude is their
-number, so that is the only thing that changes on screen. Dimming them as well
-would say something different and wrong: that the light which does arrive
-somehow arrives weakened.
+Two numbers make the measured colour, and both are on the screen:
 
-The fraction drawn is linear in the delivered radiance, with no floor, and the
-survivors are chosen by a fixed hash of the ray index so none blinks in and out
-as unrelated things change. Above roughly 50 km the fan is simply not there; at
-100 km no arriving ray is traced at all, because there is no air above the
-observer to scatter one. The sky reads `rgb(0,0,0)`, the histogram reads 0 %, and
-the panel says in words that no scattered light reaches the observer.
+- **which colours** — the mix of the eight bands arriving from the cone;
+- **how many** — the light collected divided by the number of directions
+  *looked in*, not by the number that paid out.
+
+The second is the whole of the second question. A direction that ends in rock, or
+in air the planet's own shadow has already darkened, contributes its nothing to
+the average like any other. Averaging over the arrivals instead reported a bright
+blue sky at the bottom of a fifty-metre mine — a true statement about the patch of
+sky still visible through the mouth, and a false one about the place.
+
+### The drawing budget is adjustable, and it changes nothing measured
+
+The drawn paths are shared out by a fixed budget: what fraction of them are
+scattering events at all, and what fraction of those are aimed at the observer.
+A **draw in true proportions** switch at the advanced level replaces the first
+with the fraction this atmosphere really scatters. The two budget shares used to
+be sliders of their own; they were removed, because two controls that change
+the picture and nothing measured, with names no student could decode, were the
+least clear thing on the panel.
+
+The defaults are frankly unfaithful — 88 % of drawn paths are scattering events
+where Earth's air scatters about a sixth of the light crossing it — because a
+faithful budget leaves five arriving rays out of six hundred and nothing to look
+at. Turning the switch on is the tool admitting that: the picture fills with the
+unscattered beams that really do dominate it and the sky fan thins to almost
+nothing.
+
+**None of it moves the measurement.** The measured colour divides the light it
+collects by the number of directions it looked in, so tracing a ninth as many
+arriving rays divides both and leaves the answer alone. Across a 9× change in
+the arriving budget the measured luminance moves by 0.45 %, which is the Monte
+Carlo noise and not the knob; a test pins it.
+
+### Two kinds of darkness, and a ring nobody sees
+
+**Climbing** thins the rays. How many get drawn is read off the atmosphere — the
+share of the air still above the observer — because light only reaches you from
+a direction if something in that direction turned it towards you, and what does
+the turning is air. The sky being optically thin, a tenth of the column overhead
+is a tenth of the brightness, so the rays on screen and the colour beside them
+fall by the same factor for the same reason.
+
+**A shaft** does something different: it leaves the air alone and takes the sky
+away. And here a plane slice through a round world will mislead you if you let
+it. A drawn ray is not one direction — it is the whole **ring** of directions
+you get by spinning it about the axis of view, and a ring at angle θ covers a
+solid angle proportional to sin θ. Rays near the middle of your view stand for
+almost no sky at all; rays out at the edge stand for a great deal.
+
+Counting angles rather than sky is what made a well far too bright. A 50 m shaft
+of 1.5 m radius leaves an aperture 1.7° wide inside a 12° field of view: **one
+drawn angle in seven, but only one part in fifty of the sky.** The measurement
+now weighs every ray by the ring it stands for, which is exact when you look
+straight up a shaft — the aperture and the field of view are then circles about
+the same axis — and an average over the ring elsewhere, where the first-order
+variation of the sky across the cone cancels by symmetry.
+
+| observer | rays drawn / directions | sky in view | measured | vs round-shaft geometry |
+|---|---|---|---|---|
+| open ground | 48 / 48 | 100 % | `rgb(169,198,248)` | — |
+| 10 km up | 17 / 48 | 100 % | `rgb(94,120,168)` | — |
+| 20 km up | 3 / 48 | 100 % | `rgb(47,62,92)` | — |
+| 30 km up | 0 / 48 | 100 % | `rgb(27,37,57)` | — |
+| 20 m down a 1.5 m shaft | 21 / 53 | 17 % | `rgb(71,85,110)` | 12.8 % |
+| 50 m down | 5 / 50 | 1.5 % | `rgb(13,19,29)` | 2.1 % |
+| 100 m down | 4 / 50 | 0.83 % | `rgb(9,14,23)` | 0.5 % |
+| 200 m down | 1 / 51 | 0.16 % | `rgb(2,3,5)` | 0.1 % |
+| 50 m down, looking 35° off | 0 / 48 | 0 % | `rgb(0,0,0)` | 0 % |
+
+Before the ring weight those wells read 38 %, 8 %, 6.4 % and 1.6 % — three to
+sixteen times too bright, and a fifty-metre shaft came out a comfortable blue
+when it should be near black. The panel now reports both numbers, because they
+answer different questions: *"5 rays across 50 directions · sky fills 1 % of
+your view"*.
+
+An earlier version thinned the fan against **the brightest sky it had ever seen**,
+which made the picture depend on where the observer had been. Nothing is held now.
+Count alone, never opacity: a ray that reaches you is an ordinary ray, and drawing
+it faintly would say the light arrives weakened, which is a different claim and a
+false one. The survivors are chosen by a fixed hash of the ray index, so climbing
+thins the fan smoothly — the set at 20 km is a subset of the set at 10 km rather
+than a fresh draw — and none of them blinks as unrelated things change.
 
 Only the drawing thins. The histogram and the measured colour still use every
-traced ray, so the measurement is exactly as precise as before.
+traced ray, because a measurement should be as precise as it can be while a
+picture should be as honest as it can be, and those are different jobs.
 
 The events *below* the observer do not thin out, and that asymmetry is the point
 of the altitude experiment: the air is still there, still lit, still scattering.
@@ -249,18 +418,253 @@ surface intersection are zero, so the usual near-root test misses it. Zoomed out
 where the ground curves away and much of the frame is rock, this used to collect
 the stubs of everything scattered downwards near the limb.
 
+### How accurate is any of this?
+
+Measured, not asserted. Every number below comes from a script run against this
+build.
+
+**What is right.** The Rayleigh and Henyey-Greenstein phase functions integrate
+to 1.00000 over 4π, and Rayleigh's forward lobe is exactly twice its sideways
+one. The direct beam's air mass is within **1 % of Kasten–Young** from the
+zenith down to 10° elevation. The Monte Carlo estimator is unbiased: measured
+against the integrator *averaged over the same fan* it lands within 1 %, and its
+spread at the default 600 rays is ±2 % on brightness (±8 % looking at the
+zenith, where the cone is widest in radiance), falling to ±0.5 % at 5000 rays.
+The traced direct beam reproduces the integrator's to 2 % at 450, 550 and
+650 nm, in daylight, at a 4° Sun, at 20 km, at night and down a shaft.
+
+The two or three percent by which the measured sky exceeds `computeViewRadiance`
+is **not an error**: the panel reports the mean radiance over a 24° field of
+view and the integrator answers for one exact direction. At the zenith every
+direction in the cone is brighter than the axis, so the average must come out
+higher — 6 % higher, which is what it does.
+
+**What is wrong, and by how much.**
+
+| | size | effect |
+|---|---|---|
+| ~~Rayleigh scattering ~18 % too strong~~ — **fixed**: Earth is now Bodhaine et al. (1999), τ(550) = 0.0971, with the measured λ^−4.09 shape | within 0.5 % of Eq. (30) at every wavelength 400–750 nm | was the real-time-graphics value 1.35×10⁻⁵ m⁻¹. Mars was **3.4× too strong**, Venus 12 % too strong and Titan 25 % too weak; all four now follow σ·P/(m̄g) |
+| ~~Haze under-integrated~~ — **fixed** | the midpoint rule stepped over the 1.2 km aerosol layer: **−9 to −37 %** of its column on every path from the ground; the sky at "normal" quality was **16 % dim at the zenith** under a high Sun, "preview" (the strip) up to 45 % off | now exact between nodes: ≤ 1.8 % at "normal", ≤ 6 % at "preview", against a 2000-step reference |
+| ~~Haze not any measured type~~ — **fixed** | the default was τ = 0.025, a quarter of OPAC's cleanest continental type | now OPAC continental clean, τ = 0.064; the presets are OPAC types too |
+| ~~No ozone at all~~ — **fixed** | the Chappuis band costs τ = 0.039 vertically at 600 nm | without it the single-scattering zenith turned **yellowish** at sunset and through twilight. With it, the zenith stays blue — Hulburt (1953) — and a test holds it to that |
+| **Single scattering only** | second order is roughly τ/2 of the first: **+14 % blue at the zenith, +28 % at 60°**, and far more near the horizon | the sky is too dark and too saturated; the horizon and deep twilight suffer most. With Rayleigh now at its true strength this error is no longer partly cancelled, so the sky is darker than reality by roughly that much |
+| ~~The cross-section is a plane slice~~ — **fixed** by weighting each ray by the ring it stands for | a 50 m shaft now measures **1.5 %** against a round-shaft **2.1 %**; 100 m, 0.83 % against 0.5 % | was 6× too bright, a trench rather than a round shaft. What remains is Monte Carlo scatter on the four or five rays that get through, which straddles the theory rather than sitting above it |
+| **No refraction** | air mass at 0.5° elevation is **8.6 % below** Kasten–Young, and does not improve with quality | a very low Sun sits slightly wrong; the Sun should also set about two minutes later than drawn |
+| **Nothing is sampled within 5° of the horizon** | looking at 89°, only 29 of a nominal 51 directions are cast | the brightest part of a twilight sky is outside what the rays can see. The measurement divides by what it cast, so it is not biased — it simply cannot look there. On the strip those last five degrees at each end carry the nearest measurement outwards |
+| No multiple ground reflection, exponential density with no temperature structure, Henyey-Greenstein standing in for Mie | | ordinary simplifications, stated for completeness |
+
+**So: is the simulation correct as it is?** For what it sets out to teach — why
+the sky is blue, why a low Sun is red, why climbing empties the sky, why a well
+is dark, and why a twilight zenith stays blue — yes, and the mechanism is right
+rather than painted on. Every input that has a measured value now has that value,
+with the source named beside it. As a radiometric instrument, expect the sky to
+be **too dark by the share multiple scattering would add** — 15–30 % in daylight,
+more near the horizon and in deep twilight — and its colour to be a little too
+saturated for the same reason. That is the error worth fixing next. Two smaller
+ones are left on purpose: the Sun is a 5800 K black body (the IAU value is
+5772 K, and the measured ASTM G-173 spectrum moves the sky's chromaticity by
+Δxy ≈ 0.003, below what an eye can tell), and the per-gas cross-section ratios
+for the non-Earth worlds come from this repository's own table, good to a few
+percent.
+
+### What the observer sees: one function, two places
+
+There is exactly **one** definition of what an observer facing a given way sees,
+`measureCone`, and everything that shows a colour calls it. The swatch on the
+right calls it once, for the direction the observer faces. The strip under the
+cross-section calls it once per direction, all the way round — it *is* the
+swatch swept across the sky. Point the observer anywhere and the strip already
+shows that colour at that column; a test asserts they are the same numbers, not
+merely close.
+
+They were two functions before, answering two subtly different questions. The
+swatch divided the light by every direction it looked in; the strip divided only
+by the directions that had sky down them. Both are defensible quantities — the
+second is the radiance of the patch you can still see — and at the bottom of a
+fifty-metre shaft the swatch went nearly black while the strip below it showed a
+bright band. Having both was the bug.
+
+**A ring about the zenith, not about the view.** A drawn ray is not one
+direction: it is the ring you get by spinning the cross-section about its own
+axis of symmetry, which is the zenith — the atmosphere is layered about it and a
+vertical shaft is bored along it. A ring at θ from the zenith covers a solid
+angle ∝ sin θ, so that is the weight. Spinning about the axis of *view* instead
+— the obvious thing, and what this did first — puts the weight to zero exactly
+where a shaft's aperture sits when you look up it, and reported **more** sky four
+degrees off the zenith than straight up it. About the zenith the aperture's solid
+angle comes out exact and the answer falls away monotonically as you turn from
+the mouth: 17.3 %, 14.9 %, 9.6 %, 4.0 %, 0.5 %, 0 across 0° to 20°.
+
+The price is that an off-zenith field of view is averaged over the annulus its
+angles sweep rather than over the disc it really is. For a sky that varies mostly
+with height above the horizon the two are close, and both are centred on the same
+direction.
+
+**A blocked direction is not black.** Black reads as an absence; what is there is
+rock, and rock has a colour. It is computed, not chosen — the ground's own
+reflectance from the world's config, under two lights:
+
+- **the sky at the mouth**, which reaches all the way down. How much of it a
+  point on the wall can see depends on how far below the mouth it is, and
+  averaged over the whole depth that has a closed form, **(R/d)·arctan(d/R)** —
+  38 % of the way to a full hemisphere for a 5 m shaft, 1.2 % for a 200 m one.
+- **the star**, which reaches only as far down as the geometry allows: a patch
+  2R/tan(z) deep on one side. Without it the wall came out a cool grey, because
+  blue sky on red-brown rock very nearly cancels.
+
+| shaft | Sun at 55° | Sun at 12° |
+|---|---|---|
+| 5 m | `rgb(255,196,148)` sunlit sandstone | `rgb(137,96,56)` |
+| 20 m | `rgb(155,118,88)` | `rgb(71,48,26)` |
+| 80 m | `rgb(81,60,44)` | `rgb(34,21,8)` |
+| 200 m | `rgb(51,37,25)` | `rgb(19,10,3)` |
+
+**Brown means one thing only: you are facing rock.** Whether a direction shows
+rock is decided inside `measureCone`, so the swatch and the strip agree on it,
+and it is a hard either/or rather than a blend. Mixing the rock in by the share
+of the view it filled — which is what this did first — turned *looking straight
+up a shaft* brown, and up a shaft you are looking at sky. There is simply very
+little of it, and too little light must read as **dark**, never as rock:
+
+| | strip | swatch |
+|---|---|---|
+| 20 m shaft, straight up | `rgb(67,81,104)` | `rgb(71,85,110)` |
+| 20 m shaft, 8° off | `rgb(154,118,88)` | `rgb(154,118,88)` |
+| 80 m shaft, straight up | `rgb(7,12,19)` | `rgb(8,12,20)` |
+| 150 m shaft, straight up | `rgb(5,9,15)` | `rgb(5,9,15)` |
+| 150 m shaft, 40° off | `rgb(59,43,30)` | `rgb(59,43,30)` |
+
+The test is stated positively: you are looking at sky if **any ray arrives from
+near that direction**, and at rock only if the wall stopped something there and
+nothing came through. A majority vote among nearby directions was the obvious
+test and was wrong — the window is 2° wide and a 150 m shaft's aperture is half a
+degree, so straight up came out "rock" when it is a narrow slot of sky. Both
+halves of the condition are needed: without the first a shaft at night would be
+rock everywhere, without the second so would open ground at night.
+
+The floor that keeps rock from reaching black belongs to **rock and nothing
+else**. Applying it to sky as well warmed a nearly black sky at the bottom of a
+deep shaft into something faintly brown — the same error in miniature. The
+aperture markers are also bracketed from just outside rather than drawn on the
+aperture itself: at 150 m the sky is one pixel wide, and two marker lines at its
+edges cover the very thing they point at.
+
+Two readings come back from `measureCone` for this reason: `sky`, the light the
+traced rays deliver and nothing else, which is what the histogram bars are made
+of and what gets compared against the integrator on the theory tab; and
+`perceived`, which is the sky unless the direction faced ends in rock, in which
+case it is the rock. The cross-section paints the inside of the shaft with the
+same spectrum, so the hole in the ground and the wings of the strip cannot drift
+apart.
+
+### Two simulations, and which one you are steering
+
+Switching the comparison on adds a **second simulation of exactly the same
+kind**. A simulation is three things and only three — a **star**, an
+**atmosphere** and an **observer** standing in it — and B has its own of each.
+The two panels can therefore be a blue Earth noon beside a Martian dusk, which
+is what the whole apparatus was built to show and what it could not do while the
+star and the air were shared. One of the two is **selected**, and that single
+fact answers every question the interface used to leave open.
+
+- The **left-hand panel drives the selected simulation**. Every control
+  declares a path into one of those three keys, and one function rewrites those
+  paths to `compare.b.*` when B is selected, so there is no way for one slider
+  to be retargeted and another to be forgotten — a test asserts that the list of
+  simulation keys and the shape of a simulation are the same list, so a fourth
+  key could not be added and quietly missed. The sections are striped in that
+  simulation's colour and the sliders read back its values, not the other one's.
+- The **cross-section draws one panel per simulation**, each from its own
+  atmosphere, its own star and its own trace.
+  The selected panel is framed in its colour and says so; the other says *click
+  to select*, and clicking it does exactly that.
+- **The light analysis sits under the panel it was measured from.** Two
+  histograms and two strips of sky, laid out on the same halves as the panels
+  above them, each built from the rays drawn directly overhead. The histograms
+  share one vertical scale, held at the brighter of the two — separate scales
+  would fit both to full height and hide the only thing worth seeing, which is
+  that one of these skies is a hundredth of the other.
+- The **right-hand panel answers for the selected simulation**, and carries a
+  badge saying which one and where its observer is standing.
+- **A → B and A ← B** sit above the pictures and copy one simulation onto the
+  other, entire. That is what makes a controlled comparison possible: land both
+  panels on the same footing, then change exactly one thing. A copy that left
+  anything behind would leave a difference the reader did not put there and
+  cannot see, which is worse than no copy at all. Each button sits over the
+  panel it copies *from*, and its arrow points at the panel next to it — which
+  is the panel it is copying *to*. Written the other way round, `B → A` over the
+  right-hand panel had an arrow pointing away from its own destination, and had
+  to be read rather than seen.
+
+**Every picture can be saved.** A faint `PNG` button on each canvas writes it out
+exactly as drawn, at the device pixel ratio rather than the CSS size, with
+nothing re-rendered and nothing added — what is saved is what is on screen,
+which is the only claim worth making about a picture of a measurement. Only the
+two that answer for one simulation, the spectrum and the chromaticity diagram,
+take its letter in the filename; the cross-section, the histogram and the strip
+of sky hold both panels, and calling one of those `...-a.png` would be a lie told
+to whoever has to sort the folder out later.
+
+**The ray section is deliberately shared, and says so.** It sets how both
+simulations are *drawn* rather than what is computed. The display exposure
+especially: two panels rendered at two gains cannot be compared by eye, which is
+the one thing a comparison is for. The ray budget goes with it, because it is a
+sampling choice and not a physical one — the measured colour divides what it
+collects by the directions it looked in, so doubling the rays leaves every answer
+exactly where it was. Everything else in the control panel belongs to one
+simulation.
+
+What this replaced is worth writing down, because it looked reasonable and was
+not. The comparison used to hold two numbers, `leftZ` and `rightZ`, and give
+both observers the first one's shaft, viewing direction and choice about the
+shaft air — so the two panels could differ in height and in nothing else, and
+the one contrast the whole experiment exists for could not be set up. Worse,
+only one set of rays was traced, for an observer neither panel was drawing: the
+second panel showed the first observer's rays under a different label, and the
+strip beneath both had to fall back to the integrator, because nothing had been
+measured for either. Theory under a picture that has no say in it, in the one
+place where the argument is that two observers under the same sky see different
+things.
+
+`primary` in the evaluated result is therefore not "the first observer" but
+**"the selected observer"**. Every readout that quotes one number reads it, and
+so describes the panel the reader has chosen without having to know that a
+comparison is running at all. The table used to gain a second column; it does
+not any more, because the swatch, the spectrum plot, the band tally and the
+chromaticity diagram above it could not be doubled and went on describing
+whichever observer the rest of the interface happened to point at. Half a panel
+about one observer and half about another is worse than either.
+
+The zoom moved out of a global `camera` and into the observer for the same
+reason: two observers looking at a shaft two metres across and at a hundred
+kilometres of air cannot share one frame. Rolling the wheel zooms the panel
+under the pointer without changing the selection — pointing at a thing is
+already unambiguous about which thing you mean.
+
+Simulation A **is** the top of the state — `state.star`, `state.atmosphere`,
+`state.observer` — and B lives under `compare.b` with the same three keys. That
+is why switching the comparison off needs no migration and loses nothing: what
+is left is A, exactly as it was, and B is still there for when it is switched
+back on. It is also why nothing that speaks of "the star" or "the observer" had
+to learn that a comparison exists.
+
 ### The beam histogram
 
-Below the cross-section is the spectrum of the light those rays deliver —
-measured, not computed. Filled bars are the light arriving at the observer:
-coloured from the viewing cone, grey from the rest of the sky. The dashed outline
-is the unscattered direct beam, scaled to its own peak because it carries
-thousands of times more energy than the sky and is there for its shape.
+Below the cross-section is the light those rays deliver, **counted by colour** —
+one bar per band, the same eight colours as the rays, each labelled with how many
+of them are arriving from the cone, so a bar can be checked against the rays it
+is made of. Bars are as wide as their band, on a true wavelength axis: the deep
+red covers a third of the spectrum and is drawn a third of the chart wide. Filled
+means the light came from inside the viewing cone; the grey stacked on top is the
+rest of the sky, divided by its own direction count so the two are the same
+quantity and can be stacked at all.
 
 The vertical scale is **held at the brightest sky seen so far** rather than
-refitted each frame, and this matters. An earlier version counted rays: a fixed
-number is drawn whatever the state, so climbing to 40 km emptied the sky of light
-without moving a single bar, while the colour swatch beside it went black. Now
+refitted each frame, and this matters. Two earlier versions were wrong in
+instructive ways. The first counted rays: a fixed number is traced whatever the
+state, so climbing to 40 km emptied the sky without moving a single bar. The
+second weighed them but divided by the rays that *arrived*, so five rays out of
+fifty at the bottom of a shaft reported the same bright sky as open ground. Now
 the bars fall with it — the percentage in the corner reads 100 % at the ground
 and 0 % at 30 km — and the two mean wavelengths under the axis move apart as the
 star sinks: at a 55° Sun the sky averages **501 nm** and the direct beam
@@ -274,7 +678,8 @@ Single scattering. For each viewing ray the engine integrates
 L(λ) = ∫ T_view(λ, 0→s) · [β_R(λ)ρ_R(s)P_R(θ) + β_M(λ)ρ_M(s)P_M(θ)] · T_sun(λ, s→space) · I₀(λ) ds
 ```
 
-with a shadow ray at every sample, so the planet's own shadow darkens the sky from the
+where both transmissions count molecular and aerosol extinction **and ozone absorption**,
+and the bracket counts only what scatters, with a shadow ray at every sample, so the planet's own shadow darkens the sky from the
 bottom up after sunset without any special-case code.
 
 ### Colour
@@ -369,10 +774,36 @@ column per sample. That handed a third of the strip to an aperture worth two per
 sky. Sampling density is a numerical concern and must not decide how wide anything looks;
 the aperture is now marked, not widened.
 
+### Stars by day, from the bottom of a well
+
+The oldest version of the question this simulator exists for: *can you see the stars
+by day from the bottom of a well?* A row of small stars sits along the top of the
+cross-section, each sending **one ray straight down**. The one in the middle stands over
+the observer, so its ray is the one that ends in their eye — or runs down the shaft to its
+floor. The rays are drawn *beneath* the scattered light, on purpose: in the open the blue
+rays converging on the observer bury the star's single line, and down a shaft the walls
+have already stopped nearly all of them, so it stands almost alone.
+
+The panel says what that is worth, for a star as bright as Vega (magnitude 0, 2 × 10⁻¹¹ of
+the Sun) carried through the air above: its share of the light in the 12° field of view.
+At noon on open ground that is about **1 part in 10⁸**. Fifty metres down a 1.5 m shaft it
+is about **1 part in 10⁶** — the walls have taken 99 % of the sky out of the view. But
+that is all they have done. The patch of sky right beside the star is exactly as bright as
+it is up top (the well paradox again), so by day the star still loses by a factor of a
+million. As the Sun sets and the scattered light fades, the same star outshines the sky;
+the tests hold both halves of that.
+
 An **advanced toggle, "count air inside the shaft"**, is off by default so that descending
-is purely geometric, as specified. Switching it on adds the denser air that would really
-fill a deep shaft (C = H(e^(d/H) − 1)) — and only then does descending finally become an
-atmospheric effect too. That contrast is the last step of the well experiment.
+is purely geometric, as specified. Switching it on fills the shaft with air: the gas is
+hydrostatic and keeps getting denser on the way down (C = H(e^(d/H) − 1)), while the haze is
+held at its surface concentration — its 1.2 km scale height describes how the boundary layer
+mixes dust upwards, not a weight it piles up under, and continuing it ten kilometres down
+had made the haze four thousand times denser than at the surface and the sky black. Only
+with the switch on does descending become an atmospheric effect too: at the bottom of a
+10 km shaft the patch of sky comes through half as bright and warm white. The tracer, the
+integrator and the illuminance all count that air; before, only the integrator did, so the
+switch changed the table and nothing in the picture. That contrast is the last step of the
+well experiment.
 
 ---
 
@@ -381,12 +812,17 @@ atmospheric effect too. That contrast is the last step of the well experiment.
 Stated plainly, because a simulation that hides its approximations teaches the wrong
 lesson:
 
-- **Single scattering only.** Accurate while τ ≲ 1. It under-predicts deep twilight (real
-  twilight is darker and more purple) and the surface brightness of very dense atmospheres
-  like Venus, where photons bounce many times before arriving. The explanation panel says
-  so on screen whenever the state is one where it matters.
+- **Single scattering only.** Accurate while τ ≲ 1. It under-predicts the brightness of
+  the daylight sky by the 15–30 % second-order scattering would add, more near the horizon,
+  deep twilight, and the surface of very dense atmospheres like Venus, where photons bounce
+  many times before arriving. It also cannot make twilight's purple light, which is red
+  sunlight scattered forward by stratospheric haze. The explanation panel says so on screen
+  whenever the state is one where it matters.
 - **No atmospheric refraction**, so no flattened solar disc and no geometric horizon lift.
-- **No ozone Chappuis band**, which contributes to the real zenith blue.
+- **No absorption by water vapour or O₂** (the 687 nm B band, the 720 nm water band). They
+  are narrow and barely touch a colour.
+- The **Sun is a black body**, not the measured spectrum with its Fraunhofer lines; the
+  difference in sky colour is below an eye's threshold (see above).
 - **No ground-reflected light** feeding back into the sky.
 - **Mie scattering is approximated**, not solved. Real Mie theory needs Maxwell's equations
   on a sphere; here it is a power law plus an asymmetry parameter, which reproduces the two
@@ -414,11 +850,23 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **98 tests** covering:
+`node tests/run-tests.js` runs **147 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
-- σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
-- phase-function normalisation over the sphere, and the sampled cosines matching ⟨μ²⟩ = 2/5;
+- σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine
+  et al. (1999) Eq. (30) to 0.5 % at every wavelength, and its effective exponent of 4.09;
+- every world's Rayleigh strength against σ·P/(m̄g), the ozone layer's column against its
+  Dobson units, ozone absorbing but never scattering, the default haze and the presets
+  against OPAC Table 3, and the split Ångström law;
+- **Hulburt's twilight**: without ozone the zenith at 0°, −3° and −6° turns yellowish;
+  with it, it stays blue;
+- the star overhead: 2 × 10⁻¹¹ of the Sun at magnitude 0, losing to the daylight sky by
+  more than 10⁷ in the open and still by 10³ with a ten-thousandth of the sky left in view,
+  gaining exactly by the sky the shaft removes, and winning once the sky is dark;
+- exact column integration at four steps, and the sky at "preview" and "normal" quality
+  matching a 2000-step reference;
+- phase-function normalisation over the sphere, with and without depolarisation, and the
+  sampled cosines matching ⟨μ²⟩ = 2/5 and its depolarised value;
 - Beer-Lambert behaviour: T = exp(−τ), T ∈ [0,1], doubling the column squaring the transmission;
 - the closed-form column integral and the mass column against p/g;
 - air mass against sec z, and a finite horizon air mass;
@@ -443,7 +891,9 @@ lesson:
   monotonically with depth, vanishes when you look away from the shaft, and goes as the
   square of the aperture once it is narrow;
 - config integrity, including CZ/EN key parity and bilingual completeness of every
-  experiment step;
+  experiment step and goal;
+- the guided experiments: each replayed as the page does, its quoted numbers checked, every
+  setting it changes nameable, and each step the same situation however it is reached;
 - the drawn light paths: that arriving light is measurably bluer than its source and than
   the light that got through, that every arriving path really ends at the observer with a
   single scattering vertex, that every missed path genuinely leaves in a direction that is

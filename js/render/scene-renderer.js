@@ -14,12 +14,20 @@
  * Nothing here invents a colour. The glow of the air is evaluated by the
  * scattering integrator on a coarse grid and then smoothed; the ground tint is
  * its albedo times the light actually falling on it.
+ *
+ * One panel per simulation. When the comparison is running there are two, and
+ * each is drawn from ITS OWN everything - its own star, its own air, its own
+ * traced rays, its own shaft, its own frame - rather than from one trace shown
+ * twice at two heights, which is what it used to be and which made the second
+ * panel a picture of the first observer's rays relabelled. One panel is
+ * selected: it takes the controls, it answers the readouts, and it is the only
+ * one that responds to the pointer. Clicking the other selects it.
  */
 
 import { computeScatteringSource, QUALITY_PRESETS } from '../physics/radiance.js';
 import { wellApertureHalfAngle } from '../physics/well.js';
-import { wavelengthToDisplayRgb } from '../physics/spectrum.js';
-import { VIEW_CONE_HALF_DEG } from './photons.js';
+import { RAY_BANDS } from '../physics/spectrum.js';
+import { VIEW_CONE_HALF_DEG, drawnRayShare, isRayDrawn } from './photons.js';
 import { clampSpan } from '../state.js';
 import { v3 } from '../physics/geometry.js';
 
@@ -36,13 +44,20 @@ const MAX_DRAWN_BLOCKED = 26;
 export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   const ctx = canvas.getContext('2d', { alpha: false });
   let data = null;
-  let field = null;          // offscreen canvas holding the atmospheric glow
-  let fieldKey = null;       // what that glow was computed for
-  let layout = null;         // geometry of the last frame, for hit testing
+  /** Baked glow images, one per panel, keyed by what each was computed for. */
+  const fields = new Map();
+  let layout = null;         // geometry of the selected panel, for hit testing
+  /** Where each panel was drawn last frame, so a click can find its panel. */
+  let panelBoxes = [];
+  /**
+   * The panel being drawn: one observer and everything measured for them.
+   * Every helper below reads this rather than reaching for `data.state.observer`
+   * - which is how the comparison used to end up drawing the shaft, the viewing
+   * cone and the rays of observer A inside observer B's panel.
+   */
+  let current = null;
   let hoveredPath = -1;
   let selectedPath = -1;
-  /** The brightest arriving bundle seen, so a dimmer one can be drawn dimmer. */
-  let rayReference = 0;
 
   function cssSize() {
     const rect = canvas.getBoundingClientRect();
@@ -72,9 +87,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * the surface or above the atmosphere are left transparent; the ground and
    * the black of space are painted separately.
    */
-  function buildField(result, camera, plot) {
-    const scene = result.primary.scene;
-    const atm = result.atmosphere;
+  function buildField(scene, camera, plot) {
+    const atm = current.atmosphere;
     const off = document.createElement('canvas');
     off.width = FIELD_COLUMNS;
     off.height = FIELD_ROWS;
@@ -95,7 +109,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
         }
         const point = v3(world.x, world.y, 0);
         const spectrum = computeScatteringSource(scene, point, 0, QUALITY_PRESETS.preview);
-        const c = colorimetry.spectrumToSrgb(spectrum, result.exposure * FIELD_GAIN);
+        const c = colorimetry.spectrumToSrgb(spectrum, data.result.exposure * FIELD_GAIN);
         image.data[i] = c.rgb[0];
         image.data[i + 1] = c.rgb[1];
         image.data[i + 2] = c.rgb[2];
@@ -107,12 +121,12 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   }
 
   /** Ground colour: what the surface reflects of the light reaching it. */
-  function groundColor(result) {
-    const albedo = result.atmosphere.groundAlbedo;
-    const ill = result.primary.illumination;
-    const beam = result.primary.beam;
+  function groundColor(evaluation) {
+    const albedo = current.atmosphere.groundAlbedo;
+    const ill = evaluation.illumination;
+    const beam = evaluation.beam;
     const spectrum = new Float64Array(beam.spectrum.length);
-    const cosSun = Math.max(0, result.primary.scene.sunDir.y);
+    const cosSun = Math.max(0, evaluation.scene.sunDir.y);
     // The terrain is lit by the beam that reaches the SURFACE, which is not the
     // beam that reaches the observer: down a shaft the latter is blocked, and
     // colouring the whole landscape from it turned the ground black while the
@@ -121,7 +135,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const lit = !beam.belowHorizon;
     for (let i = 0; i < spectrum.length; i++) {
       spectrum[i] = lit
-        ? albedo * result.source[i] * beam.transmittance[i] * cosSun : 0;
+        ? albedo * current.source[i] * beam.transmittance[i] * cosSun : 0;
     }
     const c = colorimetry.spectrumToSrgb(spectrum, 1.6);
     const floor = Math.max(0.03, Math.min(1, ill.totalOpen * 4));
@@ -130,38 +144,41 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   function update(next, options = {}) {
     data = next;
-    field = null;
     // Clicking a ray should survive an unrelated slider move; only a fresh set
     // of traced photons invalidates the choice.
     if (!options.keepSelection) selectedPath = -1;
-    // The glow field is built lazily on the first draw, because it depends on
-    // the plot rectangle and so on the size of the canvas.
-    fieldKey = null;
+    // The glow fields are built lazily on the first draw, because they depend
+    // on the plot rectangle and so on the size of the canvas.
+    fields.clear();
   }
 
   function draw(timeMs) {
     const { w, h } = resize();
     ctx.fillStyle = '#05070d';
     ctx.fillRect(0, 0, w, h);
-    if (!data || !data.result) return;
+    panelBoxes = [];
+    layout = null;
+    if (!data || !data.result || !data.stations || data.stations.length === 0) return;
 
-    if (data.state.compare.enabled && data.result.compare) {
-      const gap = 10;
-      const half = (w - gap) / 2;
-      drawPanel(0, 0, half, h, data.result.compare.left, data.state.compare.leftZ, timeMs, i18n.t('compare.left'));
-      drawPanel(half + gap, 0, half, h, data.result.compare.right, data.state.compare.rightZ, timeMs, i18n.t('compare.right'));
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.beginPath();
-      ctx.moveTo(half + gap / 2, 8);
-      ctx.lineTo(half + gap / 2, h - 8);
-      ctx.stroke();
-      layout = null;
-    } else {
-      drawPanel(0, 0, w, h, data.result.primary, data.state.observer.z, timeMs, null);
+    const stations = data.stations;
+    if (stations.length === 1) {
+      drawPanel(0, 0, w, h, stations[0], timeMs, false);
+      return;
     }
+
+    const gap = 10;
+    const half = (w - gap) / 2;
+    drawPanel(0, 0, half, h, stations[0], timeMs, true);
+    drawPanel(half + gap, 0, half, h, stations[1], timeMs, true);
   }
 
-  function drawPanel(x0, y0, pw, ph, evaluation, z, timeMs, caption) {
+  function drawPanel(x0, y0, pw, ph, station, timeMs, labelled) {
+    const active = station.id === data.activeId;
+    // `labelled` is also how much room the badge takes at the top left, which
+    // the legend and the aperture label have to keep clear of.
+    current = { ...station, active, labelled, topInset: labelled ? 38 : 0 };
+    panelBoxes.push({ id: station.id, x: x0, y: y0, w: pw, h: ph });
+
     ctx.save();
     ctx.beginPath();
     ctx.rect(x0, y0, pw, ph);
@@ -173,14 +190,57 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     // simulation did not actually simulate - it was a diagram of what the
     // answer would be. The shaft is now part of the same cross-section, cut out
     // of the ground, with the same traced rays running into its walls.
-    drawAtmosphereView(pw, ph, evaluation, z, timeMs, caption === null);
+    drawAtmosphereView(pw, ph, timeMs, x0, y0);
+    if (labelled) drawPanelBadge(pw, station, active);
+    ctx.restore();
 
-    if (caption) {
-      ctx.fillStyle = 'rgba(255,255,255,0.85)';
-      ctx.font = '600 12px system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(caption + ' - ' + formatAltitude(z), 10, 18);
+    // The frame of the selected panel, drawn last so nothing paints over it.
+    // Two panels are worth nothing if the reader cannot tell which one the
+    // controls and the numbers belong to.
+    if (labelled && active) {
+      ctx.save();
+      ctx.strokeStyle = stationColour(station.id);
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x0 + 1, y0 + 1, pw - 2, ph - 2);
+      ctx.restore();
     }
+    current = null;
+  }
+
+  /**
+   * Which observer this panel is, and whether it is the selected one.
+   *
+   * The badge carries the whole answer to "what am I controlling": the letter,
+   * the height, and either the word for selected or an invitation to click. It
+   * is drawn in the observer's own colour, the same colour the controls, the
+   * strip and the histogram use for that observer.
+   */
+  function drawPanelBadge(pw, station, active) {
+    const colour = stationColour(station.id);
+    const name = i18n.t(station.id === 'a' ? 'compare.observerA' : 'compare.observerB');
+    const title = `${name} - ${formatPlace(station.observer.z, i18n)}`;
+    const hint = i18n.t(active ? 'compare.selected' : 'compare.selectHint');
+
+    ctx.save();
+    ctx.font = '600 12px system-ui, sans-serif';
+    const titleWidth = ctx.measureText(title).width;
+    ctx.font = '10px system-ui, sans-serif';
+    const hintWidth = ctx.measureText(hint).width;
+    const boxW = Math.min(pw - 16, Math.max(titleWidth, hintWidth) + 18);
+
+    ctx.fillStyle = active ? 'rgba(8, 11, 18, 0.85)' : 'rgba(8, 11, 18, 0.6)';
+    ctx.fillRect(8, 8, boxW, 34);
+    ctx.fillStyle = colour;
+    ctx.fillRect(8, 8, 3, 34);
+    ctx.globalAlpha = active ? 1 : 0.75;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = '600 12px system-ui, sans-serif';
+    ctx.fillStyle = active ? colour : 'rgba(255,255,255,0.8)';
+    ctx.fillText(title, 17, 22);
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.fillText(hint, 17, 36);
     ctx.restore();
   }
 
@@ -188,22 +248,26 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   /* Atmosphere view                                                   */
   /* ---------------------------------------------------------------- */
 
-  function drawAtmosphereView(w, h, evaluation, z, timeMs, allowInteraction) {
-    const atm = data.result.atmosphere;
+  function drawAtmosphereView(w, h, timeMs, originX, originY) {
+    const atm = current.atmosphere;
+    const observer = current.observer;
+    const evaluation = current.evaluation;
+    const z = observer.z;
 
     const plot = plotRect(w, h);
-    const span = spanFor(data.state, atm, z);
+    const span = spanFor(observer, atm);
     const camera = makeCamera(atm, plot, span,
-      belowGroundFor(data.state), Math.max(0, -z));
+      belowGroundFor(observer), Math.max(0, -z));
 
     // The glow is expensive, so it is rebuilt only when what it depends on
-    // moves - which now includes the zoom and the size of the canvas.
+    // moves - which now includes the zoom and the size of the canvas. Each
+    // panel keeps its own, because each has its own frame.
     const key = `${span}|${Math.round(plot.w)}x${Math.round(plot.h)}`;
-    if (allowInteraction && fieldKey !== key) {
-      field = buildField(data.result, camera, plot);
-      fieldKey = key;
-    }
-    const panelField = allowInteraction ? field : buildField(data.result, camera, plot);
+    const cached = fields.get(current.id);
+    const panelField = cached && cached.key === key
+      ? cached.image
+      : buildField(evaluation.scene, camera, plot);
+    fields.set(current.id, { key, image: panelField });
 
     ctx.save();
     ctx.beginPath();
@@ -219,23 +283,31 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
     // The planet, drawn as the arc it is. At close zoom the sagitta is a
     // fraction of a pixel and it looks like a flat horizon on its own.
-    fillPlanet(plot, camera, groundColor(data.result));
+    fillPlanet(plot, camera, groundColor(evaluation));
 
     drawAltitudeArcs(plot, camera, atm);
-    drawStarMarker(plot, evaluation);
+    drawStarMarker(plot);
     drawApertureCone(plot, camera, z);
     drawViewCone(plot, camera, z);
-    if (data.photons && data.state.rays.showScattering) {
-      drawPhotons(plot, camera.project, timeMs, allowInteraction);
+    // Starlight goes in BEFORE the scattered light, on purpose: in the open the
+    // scattered rays should be able to bury it, and down a shaft the walls have
+    // already stopped most of them, so it shows.
+    const stars = overheadStars(plot, camera);
+    drawStarRays(stars);
+    if (current.photons && data.state.rays.showScattering) {
+      drawPhotons(plot, camera, z, timeMs);
     }
     drawObserverAt(camera, z, evaluation);
+    drawStarIcons(stars, timeMs);
     ctx.restore();
 
     // Outside the clip: the labels live in the left margin, which is not part
     // of the plot rectangle the rays are clipped to.
     drawAltitudeLabels(plot, camera, atm);
     drawScaleBar(plot, camera);
-    if (allowInteraction) layout = { plot, camera, mode: 'atmosphere' };
+    // Only the selected panel is hit-tested, and the origin travels with the
+    // geometry so a click in the right-hand panel lands where it was drawn.
+    if (current.active) layout = { plot, camera, originX, originY };
   }
 
   /** The drawing area inside the canvas, shared by the view and the tracer. */
@@ -251,12 +323,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * drawn, and it runs before the first frame, so it asks here rather than
    * guessing at the canvas geometry.
    */
-  function frameFor(state, atmosphere) {
+  function frameFor(observer, atmosphere, panels = 1) {
     const { w, h } = cssSize();
-    const plot = plotRect(w, h);
+    // In the comparison each observer gets half the canvas, and the rays have
+    // to be laid out over the frame they will actually be drawn in.
+    const plot = plotRect(panels > 1 ? (w - 10) / 2 : w, h);
     const camera = makeCamera(atmosphere, plot,
-      spanFor(state, atmosphere, state.observer.z), belowGroundFor(state),
-      Math.max(0, -state.observer.z));
+      spanFor(observer, atmosphere), belowGroundFor(observer),
+      Math.max(0, -observer.z));
     return {
       span_m: camera.span,
       halfWidth_m: camera.halfWidth,
@@ -264,17 +338,17 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     };
   }
 
-  /** How far below the surface the frame has to reach, in metres. */
-  function belowGroundFor(state) {
-    const well = state.observer.well;
-    return well.enabled ? Math.max(well.depth_m, -state.observer.z) : 0;
+  /** How far below the surface this observer's frame has to reach, in metres. */
+  function belowGroundFor(observer) {
+    const well = observer.well;
+    return well.enabled ? Math.max(well.depth_m, -observer.z) : 0;
   }
 
   /** Which vertical extent is on screen: the observer's choice, or the default. */
-  function spanFor(state, atmosphere, z) {
-    return state.camera?.span_m != null
-      ? clampSpan(state.camera.span_m)
-      : autoSpanFor(atmosphere, z, state.observer.well);
+  function spanFor(observer, atmosphere) {
+    return observer.span_m != null
+      ? clampSpan(observer.span_m)
+      : autoSpanFor(atmosphere, observer.z, observer.well);
   }
 
   /**
@@ -315,7 +389,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * hundred kilometres of air - zoom in to see it.
    */
   function cutShaft(camera) {
-    const well = data.state.observer.well;
+    const well = current.observer.well;
     if (!well.enabled) return;
     const top = camera.project({ x: -well.radius_m, y: camera.R });
     const bottom = camera.project({ x: well.radius_m, y: camera.R - well.depth_m });
@@ -323,7 +397,13 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     if (width < 0.4) return;
 
     ctx.save();
-    ctx.fillStyle = '#05070c';
+    // The inside of a shaft is rock, not a void. It was painted near-black,
+    // which read as a hole cut out of the picture rather than as the thing that
+    // takes the sky away. It is now the ground's own reflectance lit by the sky
+    // that still gets down there - the same spectrum the strip fills its wings
+    // with, so the two agree - with a floor, because two hundred metres down the
+    // truth is black and black tells the reader nothing.
+    ctx.fillStyle = shaftWallCss();
     ctx.fillRect(top.x, top.y, width, bottom.y - top.y);
     ctx.strokeStyle = 'rgba(255,235,205,0.55)';
     ctx.lineWidth = 1.4;
@@ -432,14 +512,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * version of the same light, and a second set of decorative rays only
    * competed with it.
    */
-  function drawStarMarker(plot, evaluation) {
-    const color = data.result.primary.colors.source.css;
+  function drawStarMarker(plot) {
+    const color = current.evaluation.colors.source.css;
     ctx.save();
     ctx.globalAlpha = 0.9;
     ctx.fillStyle = color;
     const mx = plot.x + plot.w - 8;
     const my = plot.y + 10
-      + (1 - Math.max(0, Math.min(1, data.state.star.elevationDeg / 90))) * (plot.h * 0.35);
+      + (1 - Math.max(0, Math.min(1, current.sim.star.elevationDeg / 90))) * (plot.h * 0.35);
     ctx.beginPath();
     ctx.arc(mx - 26, my, 6, 0, Math.PI * 2);
     ctx.fill();
@@ -447,6 +527,87 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.textAlign = 'right';
     ctx.fillText(i18n.t('canvas.star'), mx, my + 3);
+    ctx.restore();
+  }
+
+  /**
+   * Faint stars along the top of the frame, each sending one ray straight down.
+   *
+   * By day the stars are all still there; what hides them is the scattered
+   * sunlight arriving from every other direction at once. Each one is drawn
+   * with exactly one ray - a thin white line to the ground - and the one in the
+   * middle stands directly over the observer, so its ray is the one that ends
+   * in their eye, or runs down the shaft to the bottom.
+   *
+   * They are evenly spread across the middle of the frame and kept clear of the
+   * star marker at the right. The middle one is placed first and exactly on the
+   * observer's line, because it is the only one whose light is anybody's.
+   */
+  const OVERHEAD_STAR_SPREAD = [0, -1, 1, -2, 2, -3, 3];
+
+  function overheadStars(plot, camera) {
+    const step = plot.w * 0.11;
+    const top = plot.y + current.topInset + 7;
+    const well = current.observer.well;
+    const shaft = well.enabled && well.depth_m > 0;
+    // Nothing may sit under the legend box, which is drawn over the top left
+    // whenever the rays are. The star over the observer is never dropped.
+    const legendShown = current.photons && data.state.rays.showScattering;
+    const clearOf = legendShown ? plot.x + 8 + legendBoxWidth() + 8 : plot.x;
+    return OVERHEAD_STAR_SPREAD.filter((k) => k === 0 || camera.cx + k * step - 6 > clearOf)
+      .map((k, index) => {
+      const sx = camera.cx + k * step;
+      const x = (sx - camera.cx) / camera.scale;
+      const fromY = camera.unproject(sx, top).y;
+      // Straight down until it meets rock: the floor of the shaft if the star
+      // stands over the opening, the curved ground anywhere else.
+      const inShaft = shaft && Math.abs(x) < well.radius_m;
+      const ground = Math.sqrt(Math.max(0, camera.R * camera.R - x * x));
+      const toY = inShaft ? camera.R - well.depth_m : ground;
+      return {
+        index, sx, top, overObserver: k === 0,
+        from: camera.project({ x, y: Math.max(fromY, toY) }),
+        to: camera.project({ x, y: toY }),
+      };
+      });
+  }
+
+  function drawStarRays(stars) {
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const star of stars) {
+      ctx.strokeStyle = 'rgba(244, 247, 255, 1)';
+      ctx.globalAlpha = star.overObserver ? 0.85 : 0.5;
+      ctx.lineWidth = star.overObserver ? 1.3 : 1;
+      ctx.beginPath();
+      ctx.moveTo(star.sx, star.top + 4);
+      ctx.lineTo(star.to.x, star.to.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** The stars themselves: small four-pointed sparks, on top of everything. */
+  function drawStarIcons(stars, timeMs) {
+    const animate = data.state.rays.animate;
+    ctx.save();
+    for (const star of stars) {
+      const twinkle = animate ? 0.8 + 0.2 * Math.sin(timeMs / 520 + star.index * 1.9) : 1;
+      const r = star.overObserver ? 4.2 : 3.4;
+      ctx.globalAlpha = 0.95 * twinkle;
+      ctx.fillStyle = '#f4f7ff';
+      ctx.beginPath();
+      ctx.moveTo(star.sx, star.top - r);
+      ctx.quadraticCurveTo(star.sx, star.top, star.sx + r, star.top);
+      ctx.quadraticCurveTo(star.sx, star.top, star.sx, star.top + r);
+      ctx.quadraticCurveTo(star.sx, star.top, star.sx - r, star.top);
+      ctx.quadraticCurveTo(star.sx, star.top, star.sx, star.top - r);
+      ctx.fill();
+      ctx.globalAlpha = 0.35 * twinkle;
+      ctx.beginPath();
+      ctx.arc(star.sx, star.top, r * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -460,7 +621,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * out through the mouth. The blue you can actually have is the blue inside it.
    */
   function drawApertureCone(plot, camera, z) {
-    const well = data.state.observer.well;
+    const well = current.observer.well;
     if (!well.enabled || z >= 0) return;
     const half = wellApertureHalfAngle(-z, well.radius_m);
     if (!(half > 0) || half >= Math.PI / 2 - 1e-6) return;
@@ -496,7 +657,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.font = '10px system-ui, sans-serif';
     ctx.fillStyle = 'rgba(180, 220, 255, 0.85)';
     ctx.textAlign = 'left';
-    ctx.fillText('θmax = ' + formatAngle(half * 180 / Math.PI), plot.x + 8, plot.y + 14);
+    ctx.fillText('θmax = ' + formatAngle(half * 180 / Math.PI),
+      plot.x + 8, plot.y + 14 + current.topInset);
     ctx.restore();
   }
 
@@ -509,9 +671,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * are everything else.
    */
   function drawViewCone(plot, camera, z) {
-    const state = data.state;
-    const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
-    const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
+    const observer = current.observer;
+    const sign = Math.cos(observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
+    const axis = sign * observer.viewZenithDeg * Math.PI / 180;
     const half = VIEW_CONE_HALF_DEG * Math.PI / 180;
     const origin = { x: 0, y: camera.R + z };
     const reach = camera.span * 3;
@@ -566,77 +728,76 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * where the observer will never see it, then the light arriving from the rest
    * of the sky, and last, brightest, the rays inside the viewing cone.
    */
-  function drawPhotons(plot, project, timeMs, allowInteraction) {
-    const paths = data.photons;
+  function drawPhotons(plot, camera, observerZ, timeMs) {
+    const project = camera.project;
+    const paths = current.photons;
     const animate = data.state.rays.animate;
     const phase = animate ? (timeMs / 2600) % 1 : 1;
 
-    const state = data.state;
-    const sign = Math.cos(state.observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
-    const axis = sign * state.observer.viewZenithDeg * Math.PI / 180;
+    const observer = current.observer;
+    const sign = Math.cos(observer.viewAzimuthDeg * Math.PI / 180) >= 0 ? 1 : -1;
+    const axis = sign * observer.viewZenithDeg * Math.PI / 180;
     const half = VIEW_CONE_HALF_DEG * Math.PI / 180;
+    // Hover and selection are indices into the SELECTED panel's rays; the same
+    // index in the other panel is a different ray, so it must not light up.
+    const hovered = current.active ? hoveredPath : -1;
+    const selected = current.active ? selectedPath : -1;
+
+    const observerWorld = { x: 0, y: camera.R + observerZ };
+
+    /**
+     * Where in the sky a scattering event sits, as the observer sees it.
+     *
+     * The cone is a volume, not a list of ray labels, and what decides whether
+     * a ray belongs to it is where its event happened. This matters because the
+     * light feeding those events arrives from somewhere else entirely - down
+     * the line to the star, which at a low Sun is nearly at right angles to
+     * where you are looking. A ray can therefore come into the cone from any
+     * direction at all; what makes it yours is that it turned inside the cone
+     * and left along the line to your eye.
+     */
+    const eventAngle = (p) => {
+      const e = p.events[1];
+      return Math.atan2(e.x - observerWorld.x, e.y - observerWorld.y);
+    };
+
+    /** Did this ray's turn happen inside the cone the observer is looking down? */
+    const turnsInCone = (p) => p.scatterCount > 0
+      && Math.abs(eventAngle(p) - axis) <= half;
 
     /**
      * Is this ray part of what the observer is currently looking at?
      *
-     * Colour is reserved for exactly these. Everything else - light arriving
-     * from the rest of the sky, light thrown in directions that miss the eye,
-     * light that crossed without ever interacting - is drawn grey. The rule is
-     * one sentence long and it is the whole legend: coloured means this light
-     * enters your eye from the direction you are facing.
+     * Colour is reserved for exactly these: light that turned inside the cone
+     * AND turned towards the eye. Everything else - the same turn made a few
+     * degrees the wrong way, light arriving from the rest of the sky, light
+     * that crossed without ever interacting - is drawn grey. The rule is one
+     * sentence long and it is the whole legend.
      */
-    const involved = (p) => p.kind === 'arriving'
-      && Math.abs(p.arrivalAngleRad - axis) <= half;
+    const involved = (p) => p.kind === 'arriving' && turnsInCone(p);
 
     /**
-     * How many of the arriving rays get drawn.
+     * An event inside the cone whose light goes somewhere else.
      *
-     * A fixed number is traced whatever the state, so without this the fan
-     * converging on the observer looks the same at 30 km as at the ground - the
-     * picture saying nothing changed while the physics says the sky went out.
-     * Each ray carries an unbiased estimate of what it delivers; the mean of
-     * those, against the most this configuration has ever delivered, is how
-     * much light there actually is.
-     *
-     * Only the arriving families thin out. The events below - light thrown
-     * where it misses you, light crossing unscattered - happen in air the
-     * observer has climbed above, and they do not stop just because you left.
+     * These are the control group, and they are the reason the cone is drawn as
+     * a volume rather than a bundle of lines: the same air, the same star, the
+     * same deflection, one of them lands in your eye and the other does not.
+     * They are ringed rather than coloured, so they read as events you are
+     * looking straight at and still cannot see.
      */
-    let radianceSum = 0, arrivingCount = 0;
-    for (const p of paths) {
-      if (p.kind !== 'arriving') continue;
-      radianceSum += p.radiance ?? 0;
-      arrivingCount++;
-    }
-    const meanArriving = arrivingCount > 0 ? radianceSum / arrivingCount : 0;
-    if (meanArriving > rayReference) rayReference = meanArriving;
-    // How much light arrives, as a fraction of the most this configuration has
-    // ever delivered - and the fraction of the arriving rays that get drawn.
-    //
-    // Count alone, not opacity. A ray either reaches the observer or it does
-    // not; the ones that do are perfectly ordinary rays and there is no reason
-    // to draw them faintly. What changes with altitude is how many there are,
-    // so that is what changes on screen. Dimming them as well said something
-    // different and wrong: that the light which does arrive somehow arrives
-    // weakened.
-    const share = rayReference > 0 ? Math.min(1, meanArriving / rayReference) : 1;
+    const missedInCone = (p) => p.kind === 'missed' && turnsInCone(p);
 
-    /**
-     * Which arriving rays survive the thinning.
-     *
-     * A fixed hash of the index rather than a prefix or a counter, so a ray does
-     * not blink in and out as unrelated things change, and the surviving set is
-     * an unbiased sample of the whole. Only the DRAWING is thinned: the
-     * histogram and the measured colour beside it still use every traced ray,
-     * so the measurement stays as precise as it was while the picture stops
-     * claiming light that is not there.
-     */
-    const drawnArriving = (index) => {
-      if (share >= 1) return true;
-      return (((index * 2654435761) >>> 0) / 4294967296) < share;
-    };
+    // How many of the arriving rays get drawn, and why that number and not
+    // another. See paths.columnFraction: it is the share of the air still above
+    // the observer, which is the share of the sky's brightness that is left, so
+    // the rays on screen and the colour beside them fall by the same factor.
+    // Count alone, never opacity - a ray that reaches you is an ordinary ray,
+    // and drawing it faintly would say the light arrives weakened, which is a
+    // different claim and a false one.
+    const share = drawnRayShare(paths);
+    const drawnArriving = (index) => isRayDrawn(index, share);
 
-    const GREY = '#8a93a6';
+    const GREY = CONTEXT_GREY;
     // Grey, but not invisible: zoomed out, the long chord an unscattered beam
     // has to cross IS the demonstration, so it gets the strongest of the greys.
     const contextAlpha = { through: 0.30, missed: 0.16, arriving: 0.13 };
@@ -650,7 +811,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
      * the panels report.
      */
     const GREY_ARRIVING_STRIDE = 3;
-    const asContext = (p, i) => !involved(p)
+    const asContext = (p, i) => !involved(p) && !missedInCone(p)
       && (p.kind !== 'arriving' || (i % GREY_ARRIVING_STRIDE === 0 && drawnArriving(i)));
 
     /* ---- everything outside the cone, in grey ---- */
@@ -664,7 +825,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       for (let i = 0; i < paths.length; i++) {
         const p = paths[i];
         if (p.kind !== kind || !asContext(p, i)) continue;
-        if (i === selectedPath || i === hoveredPath) continue;
+        if (i === selected || i === hovered) continue;
         strokePath(p, project, phase);
       }
       ctx.stroke();
@@ -679,7 +840,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       const p = paths[i];
       if (p.scatterCount === 0 || !asContext(p, i)) continue;
       ctx.globalAlpha = 0.22;
-      if (i === selectedPath || i === hoveredPath) continue;
+      if (i === selected || i === hovered) continue;
       const e = project(p.events[1]);
       ctx.beginPath();
       ctx.arc(e.x, e.y, 1.4, 0, Math.PI * 2);
@@ -691,10 +852,51 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     for (let i = 0; i < paths.length; i++) {
       const p = paths[i];
       if (p.kind !== 'missed' || !asContext(p, i)) continue;
-      if (i === selectedPath || i === hoveredPath) continue;
+      if (i === selected || i === hovered) continue;
       const from = project(p.points[p.points.length - 2]);
       const to = project(p.points[p.points.length - 1]);
       drawArrowHead(from.x, from.y, to.x, to.y, 4.5);
+    }
+    ctx.restore();
+
+    /* ---- events inside the cone whose light goes elsewhere ---- */
+
+    // Drawn brighter than the rest of the grey, and ringed. You are looking
+    // straight at these; the air turned the light exactly where the coloured
+    // rays turned it, and a few degrees of deflection sent it past your eye
+    // instead of into it. Without them the cone looks like a place where light
+    // simply arrives, rather than a place where most of what happens misses.
+    ctx.save();
+    ctx.strokeStyle = GREY;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.45;
+    ctx.beginPath();
+    for (let i = 0; i < paths.length; i++) {
+      if (!missedInCone(paths[i]) || i === selected || i === hovered) continue;
+      strokePath(paths[i], project, phase);
+    }
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.55;
+    ctx.fillStyle = GREY;
+    for (let i = 0; i < paths.length; i++) {
+      const p = paths[i];
+      if (!missedInCone(p) || i === selected || i === hovered) continue;
+      const from = project(p.points[p.points.length - 2]);
+      const to = project(p.points[p.points.length - 1]);
+      drawArrowHead(from.x, from.y, to.x, to.y, 4.5);
+    }
+
+    ctx.globalAlpha = 0.75;
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+    ctx.lineWidth = 1.1;
+    for (let i = 0; i < paths.length; i++) {
+      const p = paths[i];
+      if (!missedInCone(p) || i === selected || i === hovered) continue;
+      const e = project(p.events[1]);
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, 3, 0, Math.PI * 2);
+      ctx.stroke();
     }
     ctx.restore();
 
@@ -707,8 +909,9 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     const buckets = new Map();
     for (let i = 0; i < paths.length; i++) {
       if (!involved(paths[i]) || !drawnArriving(i)) continue;
-      if (i === selectedPath || i === hoveredPath) continue;
-      const key = Math.round(paths[i].lambda / 20) * 20;
+      if (i === selected || i === hovered) continue;
+      // One bucket per band, so the picture holds eight colours and no more.
+      const key = paths[i].band ?? 0;
       if (!buckets.has(key)) buckets.set(key, []);
       buckets.get(key).push(i);
     }
@@ -716,9 +919,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.save();
     ctx.lineWidth = 1.3;
     ctx.globalAlpha = 0.85;
-    for (const [lambda, indices] of buckets) {
-      const [r, g, b] = wavelengthToDisplayRgb(lambda);
-      ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+    for (const [band, indices] of buckets) {
+      ctx.strokeStyle = RAY_BANDS[band].css;
       ctx.beginPath();
       for (const index of indices) strokePath(paths[index], project, phase);
       ctx.stroke();
@@ -731,9 +933,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       ctx.save();
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
-      for (const [lambda, indices] of buckets) {
-        const [r, g, b] = wavelengthToDisplayRgb(lambda);
-        ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+      for (const [band, indices] of buckets) {
+        ctx.strokeStyle = RAY_BANDS[band].css;
         ctx.beginPath();
         for (const index of indices) {
           const pts = paths[index].points;
@@ -759,15 +960,19 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
     ctx.restore();
 
+    /* ---- light that never turned at all, and landed on the observer ---- */
+
+    drawDirectBeam(paths, project, axis, half);
+
     /* ---- hover and selection ---- */
 
-    for (const index of [hoveredPath, selectedPath]) {
+    for (const index of [hovered, selected]) {
       if (index < 0 || index >= paths.length) continue;
       const p = paths[index];
-      const [r, g, b] = wavelengthToDisplayRgb(p.lambda);
+      const [r, g, b] = RAY_BANDS[p.band ?? 0].rgb;
       ctx.save();
       ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
-      ctx.lineWidth = index === selectedPath ? 2.6 : 1.8;
+      ctx.lineWidth = index === selected ? 2.6 : 1.8;
       ctx.shadowColor = `rgba(${r}, ${g}, ${b}, 0.9)`;
       ctx.shadowBlur = 8;
       ctx.beginPath();
@@ -786,6 +991,50 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
 
     drawPathLegend(plot);
+  }
+
+  /**
+   * The star's own beam, arriving unturned.
+   *
+   * Point the view at the star and, before this existed, every ray in the cone
+   * had scattered somewhere - as though light never arrives in a straight line.
+   * The truth is the other way round: almost everything reaching an observer
+   * looking at the Sun has never been scattered at all.
+   *
+   * The bundle is drawn in band colours when the star is inside the viewing
+   * cone, obeying the rule that governs everything else on screen, and in grey
+   * when it is not. It is deliberately NOT to scale, and it is the one place in
+   * the picture where the number of lines is not the amount of light: the
+   * beam's irradiance runs to thousands of times the whole sky's, and drawing
+   * that many lines is not possible. The ratio is printed in the panel instead,
+   * which is the only place it fits.
+   */
+  function drawDirectBeam(paths, project, axis, half) {
+    const direct = [];
+    for (const p of paths) if (p.kind === 'direct') direct.push(p);
+    if (direct.length === 0) return;
+    const inView = Math.abs(direct[0].arrivalAngleRad - axis) <= half;
+
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const p of direct) {
+      const from = project(p.points[0]);
+      const to = project(p.points[1]);
+      if (inView) {
+        ctx.strokeStyle = RAY_BANDS[p.band ?? 0].css;
+        ctx.globalAlpha = 0.9;
+        ctx.lineWidth = 1.8;
+      } else {
+        ctx.strokeStyle = CONTEXT_GREY;
+        ctx.globalAlpha = 0.34;
+        ctx.lineWidth = 1.2;
+      }
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   /**
@@ -832,6 +1081,13 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.restore();
   }
 
+  /** The rock inside the shaft, shared with the strip so they cannot diverge. */
+  function shaftWallCss() {
+    if (!current.wall || !colorimetry) return '#241c16';
+    const c = colorimetry.spectrumToSrgb(current.wall, data.result.exposure);
+    return `rgb(${Math.max(22, c.rgb[0])}, ${Math.max(16, c.rgb[1])}, ${Math.max(12, c.rgb[2])})`;
+  }
+
   function drawArrowHead(x1, y1, x2, y2, size) {
     const angle = Math.atan2(y2 - y1, x2 - x1);
     ctx.beginPath();
@@ -842,51 +1098,97 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fill();
   }
 
-  /** One rule in four lines: colour means this light reaches your eye. */
+  /**
+   * The rule, and the palette it is written in.
+   *
+   * Every coloured ray is one of eight bands, picked in proportion to the
+   * light's own spectrum, so the colours are countable and counting them reads
+   * the spectrum off the picture. The swatch shows them as eight blocks rather
+   * than a smooth ramp for exactly that reason: a ramp cannot be counted.
+   */
+  const LEGEND_ROWS = [
+    { key: 'canvas.legendArriving', style: 'bands', width: 2.4 },
+    { key: 'canvas.legendDirect', style: 'bands', width: 1.4 },
+    { key: 'canvas.legendInCone', style: 'ring', width: 1 },
+    { key: 'canvas.legendOffView', style: 'grey', width: 1 },
+    { key: 'canvas.legendMissed', style: 'grey', width: 1 },
+    { key: 'canvas.legendThrough', style: 'grey', width: 1 },
+    { key: 'canvas.legendStarlight', style: 'starlight', width: 1.3 },
+  ];
+  const LEGEND_SWATCH_W = 34;
+
+  /** How wide the legend box is, so other things can keep out of it. */
+  function legendBoxWidth() {
+    ctx.save();
+    ctx.font = '10px system-ui, sans-serif';
+    let width = 0;
+    for (const row of LEGEND_ROWS) width = Math.max(width, ctx.measureText(i18n.t(row.key)).width);
+    ctx.restore();
+    return width + LEGEND_SWATCH_W + 20;
+  }
+
   function drawPathLegend(plot) {
-    const rows = [
-      { key: 'canvas.legendArriving', colour: true, width: 2.4 },
-      { key: 'canvas.legendOffView', colour: false, width: 1 },
-      { key: 'canvas.legendMissed', colour: false, width: 1 },
-      { key: 'canvas.legendThrough', colour: false, width: 1 },
-    ];
+    const rows = LEGEND_ROWS;
+    const swatchW = LEGEND_SWATCH_W;
     ctx.save();
     ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const labels = rows.map((row) => i18n.t(row.key));
-    let width = 0;
-    for (const label of labels) width = Math.max(width, ctx.measureText(label).width);
-    const boxW = width + 32;
+    const boxW = legendBoxWidth();
     const boxH = rows.length * 15 + 8;
     const x = plot.x + 8;
-    const y = plot.y + 8;
+    const y = plot.y + 8 + current.topInset + (current.observer.well.enabled ? 14 : 0);
     ctx.fillStyle = 'rgba(5, 7, 13, 0.66)';
     ctx.fillRect(x, y, boxW, boxH);
+
+    const left = x + 6;
+    const right = left + swatchW - 12;
     for (let i = 0; i < rows.length; i++) {
       const cy = y + 12 + i * 15;
       ctx.lineWidth = rows[i].width;
-      if (rows[i].colour) {
-        // The swatch is a spectrum, because that is what the rule means: these
-        // are the rays whose wavelength you are being shown.
+      if (rows[i].style === 'bands') {
         ctx.globalAlpha = 0.95;
-        const gradient = ctx.createLinearGradient(x + 6, 0, x + 22, 0);
-        for (let k = 0; k <= 4; k++) {
-          const [r, g, b] = wavelengthToDisplayRgb(430 + k * 60);
-          gradient.addColorStop(k / 4, `rgb(${r}, ${g}, ${b})`);
+        const step = (right - left) / RAY_BANDS.length;
+        for (let b = 0; b < RAY_BANDS.length; b++) {
+          ctx.strokeStyle = RAY_BANDS[b].css;
+          ctx.beginPath();
+          ctx.moveTo(left + b * step, cy);
+          // A hair of overlap, so the blocks abut instead of leaving seams.
+          ctx.lineTo(left + (b + 1) * step + 0.5, cy);
+          ctx.stroke();
         }
-        ctx.strokeStyle = gradient;
+      } else if (rows[i].style === 'starlight') {
+        ctx.globalAlpha = 0.85;
+        ctx.strokeStyle = '#f4f7ff';
+        ctx.beginPath();
+        ctx.moveTo(left, cy);
+        ctx.lineTo(right, cy);
+        ctx.stroke();
+      } else if (rows[i].style === 'ring') {
+        ctx.globalAlpha = 0.55;
+        ctx.strokeStyle = '#8a93a6';
+        ctx.beginPath();
+        ctx.moveTo(left, cy);
+        ctx.lineTo(right, cy);
+        ctx.stroke();
+        ctx.globalAlpha = 0.75;
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.arc((left + right) / 2, cy, 3, 0, Math.PI * 2);
+        ctx.stroke();
       } else {
         ctx.globalAlpha = 0.5;
         ctx.strokeStyle = '#8a93a6';
+        ctx.beginPath();
+        ctx.moveTo(left, cy);
+        ctx.lineTo(right, cy);
+        ctx.stroke();
       }
-      ctx.beginPath();
-      ctx.moveTo(x + 6, cy);
-      ctx.lineTo(x + 22, cy);
-      ctx.stroke();
-      ctx.globalAlpha = rows[i].colour ? 0.92 : 0.55;
+      ctx.globalAlpha = rows[i].style === 'bands' || rows[i].style === 'starlight' ? 0.92 : 0.55;
       ctx.fillStyle = '#ffffff';
-      ctx.fillText(labels[i], x + 27, cy);
+      ctx.fillText(labels[i], x + swatchW, cy);
     }
     ctx.restore();
   }
@@ -907,8 +1209,8 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   }
 
   function drawObserver(px, py, evaluation, z) {
-    const zenith = data.state.observer.viewZenithDeg * Math.PI / 180;
-    const azimuth = data.state.observer.viewAzimuthDeg * Math.PI / 180;
+    const zenith = current.observer.viewZenithDeg * Math.PI / 180;
+    const azimuth = current.observer.viewAzimuthDeg * Math.PI / 180;
     // In the cross-section, azimuth 0 points towards the star (to the right).
     const sign = Math.cos(azimuth) >= 0 ? 1 : -1;
     const dx = Math.sin(zenith) * sign;
@@ -940,16 +1242,36 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
 
   /* ---------------------------------------------------------------- */
 
-  /** Find the traced ray nearest to a canvas point. */
-  function pick(clientX, clientY) {
-    if (!layout || !data || !data.photons) return -1;
+  /** Which panel a canvas point falls in, as an observer id, or null. */
+  function panelAt(clientX, clientY) {
     const rect = canvas.getBoundingClientRect();
     const px = clientX - rect.left;
     const py = clientY - rect.top;
+    for (const box of panelBoxes) {
+      if (px >= box.x && px <= box.x + box.w && py >= box.y && py <= box.y + box.h) {
+        return box.id;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Find the traced ray nearest to a canvas point.
+   *
+   * Only the selected panel is searched. Picking a ray out of the panel that is
+   * not being controlled would open a log about rays that the readouts beside
+   * it do not describe.
+   */
+  function pick(clientX, clientY) {
+    const rays = selectedStation()?.photons;
+    if (!layout || !rays) return -1;
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left - layout.originX;
+    const py = clientY - rect.top - layout.originY;
     const project = layout.camera.project;
     let best = -1, bestDist = 12;
-    for (let i = 0; i < data.photons.length; i++) {
-      const pts = data.photons[i].points;
+    for (let i = 0; i < rays.length; i++) {
+      const pts = rays[i].points;
       let previous = project(pts[0]);
       for (let k = 1; k < pts.length; k++) {
         const current = project(pts[k]);
@@ -968,17 +1290,50 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
   }
 
-  /** Forget the held brightness, so a new world or star starts from its own. */
-  function resetScale() {
-    rayReference = 0;
+  /** The panel the controls and the readouts belong to. */
+  function selectedStation() {
+    if (!data || !data.stations) return null;
+    return data.stations.find((entry) => entry.id === data.activeId) ?? data.stations[0];
   }
 
   return {
-    update, draw, pick, frameFor, resetScale,
+    update, draw, pick, panelAt, frameFor,
     setHovered(index) { hoveredPath = index; },
     setSelected(index) { selectedPath = index; },
     getSelected() { return selectedPath; },
   };
+}
+
+/** The one grey everything outside the viewing cone is drawn in. */
+const CONTEXT_GREY = '#8a93a6';
+
+/**
+ * The two observers' identity colours.
+ *
+ * Deliberately unlike anything the physics produces: the sky is blue, the rock
+ * is brown, the star is warm white, so an identity colour must be none of
+ * those or it reads as a measurement. Every place that has to say WHICH
+ * observer - the panel frame, the badge, the strip, the histogram, the control
+ * panel - uses these, so the answer is always the same colour.
+ */
+export const STATION_COLOURS = { a: '#ff8fa3', b: '#b197fc' };
+
+export function stationColour(id) {
+  return STATION_COLOURS[id] ?? STATION_COLOURS.a;
+}
+
+/**
+ * Where an observer is, said the way a person would say it.
+ *
+ * "-50 m" is a coordinate, not a place. Fifty metres underground is a place,
+ * and the labels that name an observer have to name somewhere the reader can
+ * picture, because that is the whole of what distinguishes the two of them.
+ */
+export function formatPlace(z, i18n) {
+  if (Math.abs(z) < 0.5) return i18n.t('controls.observer.groundLevel');
+  return z > 0
+    ? formatAltitude(z)
+    : `${formatAltitude(-z)} ${i18n.t('controls.observer.underground')}`;
 }
 
 /* Shared constants and helpers -------------------------------------- */

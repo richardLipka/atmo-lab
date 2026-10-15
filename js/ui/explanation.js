@@ -9,6 +9,7 @@
  */
 
 import { formatAltitude, formatAngle } from '../render/scene-renderer.js';
+import { activeSimulation } from '../state.js';
 
 const SPACE_COLUMN_FRACTION = 2e-3;
 const AIRLESS_TAU = 1e-6;
@@ -27,6 +28,9 @@ export function createExplanation(root, { i18n, store }) {
   function classify(result, state) {
     const m = result.primary.metrics;
     const scene = result.primary.scene;
+    // The star of the SELECTED simulation, which in a comparison need not be
+    // the other panel's star at all.
+    const star = activeSimulation(state).star;
     const tau550 = m.verticalTau[550];
 
     if (scene.wellActive) {
@@ -44,9 +48,22 @@ export function createExplanation(root, { i18n, store }) {
     // A world with real air but almost none of it: the scattering law is
     // untouched, only the amount of material is missing.
     if (surfaceTau < THIN_TAU && m.atmosphericAltitude < 3000) return 'thinAir';
-    if (state.star.elevationDeg < 0) return 'twilight';
-    if (state.star.elevationDeg < 10) return 'sunset';
+    if (star.elevationDeg < 0) return 'twilight';
+    // A low star is only a red sunset if the air takes more blue than red. With
+    // the wavelength dependence switched off it merely dims, and the sunset
+    // text - "blue is stripped out while red survives" - would contradict the
+    // very numbers it quotes.
+    if (star.elevationDeg < 10) {
+      return m.beamTau[450] > 1.25 * m.beamTau[650] ? 'sunset' : 'greySunset';
+    }
     if (tau550 > DENSE_TAU) return 'denseAtmosphere';
+
+    // Molecules that scatter every colour alike make a grey sky, and the
+    // day-sky text - "the shorter the wavelength, the stronger" - would then
+    // quote a ratio of one against itself.
+    const beta = result.atmosphere.rayleighBeta0;
+    const i450 = Math.round((450 - 380) / 10), i650 = Math.round((650 - 380) / 10);
+    if (beta[i650] > 0 && beta[i450] / beta[i650] < 1.5) return 'greySky';
 
     // Is the aerosol doing more of the scattering than the gas?
     const atmosphere = result.atmosphere;
@@ -56,8 +73,8 @@ export function createExplanation(root, { i18n, store }) {
     if (dust > gas) return 'dusty';
 
     if (m.atmosphericAltitude > 3000) return 'highAltitude';
-    if (state.star.temperatureK < 4000) return 'coldStar';
-    if (state.star.temperatureK > 9000) return 'hotStar';
+    if (star.temperatureK < 4000) return 'coldStar';
+    if (star.temperatureK > 9000) return 'hotStar';
     return 'daySky';
   }
 
@@ -74,6 +91,7 @@ export function createExplanation(root, { i18n, store }) {
 
     return {
       ratio: scatterRatio.toFixed(1),
+      exponent: Number(activeSimulation(state).atmosphere.rayleighExponent ?? 4).toFixed(1),
       airmass: m.airMass >= 10 ? Math.round(m.airMass) : m.airMass.toFixed(1),
       tau450: formatTau(m.beamTau[450]),
       tau650: formatTau(m.beamTau[650]),
@@ -101,6 +119,13 @@ export function createExplanation(root, { i18n, store }) {
     const state = store.state;
     const key = classify(result, state);
     const params = parameters(result, state);
+    // Czech writes a decimal comma. These numbers sit inside Czech sentences,
+    // where "4.5krát" reads as a typo; the data table keeps its own format.
+    if (i18n.getLanguage() === 'cs') {
+      for (const [k, v] of Object.entries(params)) {
+        if (typeof v === 'string') params[k] = v.replace(/(\d)\.(\d)/g, '$1,$2');
+      }
+    }
     // The well texts quote the illuminance ratio under the name `ratio`.
     if (key === 'wellDeep') params.ratio = params.illuminanceRatio;
 
