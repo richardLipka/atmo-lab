@@ -49,7 +49,13 @@ export function createExplanation(root, { i18n, store }) {
     // untouched, only the amount of material is missing.
     if (surfaceTau < THIN_TAU && m.atmosphericAltitude < 3000) return 'thinAir';
     if (star.elevationDeg < 0) return 'twilight';
-    if (star.elevationDeg < 10) return 'sunset';
+    // A low star is only a red sunset if the air takes more blue than red. With
+    // the wavelength dependence switched off it merely dims, and the sunset
+    // text - "blue is stripped out while red survives" - would contradict the
+    // very numbers it quotes.
+    if (star.elevationDeg < 10) {
+      return m.beamTau[450] > 1.25 * m.beamTau[650] ? 'sunset' : 'greySunset';
+    }
     if (tau550 > DENSE_TAU) return 'denseAtmosphere';
 
     // Is the aerosol doing more of the scattering than the gas?

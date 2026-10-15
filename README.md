@@ -26,6 +26,34 @@ exponent to 0 and the sky turns grey, because the physics says it must.
 
 ---
 
+## The guided experiments
+
+Five guides walk a student through one question each. Every guide states its **goal** at
+its first step, and every step after that lists under its text exactly which controls it
+moved and to what — "Aerosol amount → 0.00 ×" — computed from the state before and after
+the step, so the list cannot drift from what the step really does.
+
+| guide | the problem it shows | how the steps get there |
+|---|---|---|
+| **Why is the sky blue?** | white sunlight and colourless air give a blue sky | the sky spectrum against the source → molecules only (haze off) → n = 0, the sky turns grey with the same amount of light → n = 4 again, the blue missing from the direct beam is the sky → towards the horizon, paler → why not violet: the Sun's spectrum and the eye |
+| **Why is the setting Sun red?** | the same white star turns red near the horizon | 60° → 20° → 5° → 0° with the 400 km chord in view, reading the air mass and the direct-beam transmission at 450 and 650 nm → control: n = 0 and no haze at 5°, the beam only dims |
+| **Flight into space** | the sky darkens to black while the Sun keeps shining | surface → 5 km → 20 km → 100 km, reading the share of the air column left and the sky radiance → control: the airless Moon at noon |
+| **The well paradox** | climbing and descending both darken your surroundings, for different reasons | surface → 10 km up (the sky itself dims) → 10 km down a shaft (the patch of sky is unchanged, the illuminance falls eight orders of magnitude) → both side by side → stars by day from a 50 m well → a shaft full of air |
+| **Alien skies** | the colour of a sky depends on the star and on what scatters | Sun on Earth → a 3000 K star gives a beige sky, still bluer than its star → a 12 000 K star → Mars, where dust scatters → Mars without the dust → Titan under its haze |
+
+**A step is rebuilt, not applied on top.** It is the guide's starting situation plus every
+step up to it, so going back, jumping ahead with the progress dots, or returning after
+moving a slider always gives exactly the situation the text describes. Applying only the
+step's own change used to leave other steps' settings behind: going back from "n = 4
+again" to "n = 0" kept n = 4.
+
+**The numbers in the texts are tested.** A test group replays every guide as the page does
+and checks the figures its texts quote — air masses, transmissions, the share of the column
+left, radiance ratios — and that every setting a guide changes is one the reader can find by
+name.
+
+---
+
 ## Running it
 
 Three ways, in order of convenience.
@@ -304,10 +332,13 @@ sky still visible through the mouth, and a false one about the place.
 
 ### The drawing budget is adjustable, and it changes nothing measured
 
-Three controls under *Rays* at the advanced level set how the drawn paths are
-shared out: what fraction of them are scattering events at all, what fraction of
-those are aimed at the observer, and a **true proportions** switch that replaces
-the first with the fraction this atmosphere really scatters.
+The drawn paths are shared out by a fixed budget: what fraction of them are
+scattering events at all, and what fraction of those are aimed at the observer.
+A **draw in true proportions** switch at the advanced level replaces the first
+with the fraction this atmosphere really scatters. The two budget shares used to
+be sliders of their own; they were removed, because two controls that change
+the picture and nothing measured, with names no student could decode, were the
+least clear thing on the panel.
 
 The defaults are frankly unfaithful — 88 % of drawn paths are scattering events
 where Earth's air scatters about a sixth of the light crossing it — because a
@@ -763,9 +794,16 @@ million. As the Sun sets and the scattered light fades, the same star outshines 
 the tests hold both halves of that.
 
 An **advanced toggle, "count air inside the shaft"**, is off by default so that descending
-is purely geometric, as specified. Switching it on adds the denser air that would really
-fill a deep shaft (C = H(e^(d/H) − 1)) — and only then does descending finally become an
-atmospheric effect too. That contrast is the last step of the well experiment.
+is purely geometric, as specified. Switching it on fills the shaft with air: the gas is
+hydrostatic and keeps getting denser on the way down (C = H(e^(d/H) − 1)), while the haze is
+held at its surface concentration — its 1.2 km scale height describes how the boundary layer
+mixes dust upwards, not a weight it piles up under, and continuing it ten kilometres down
+had made the haze four thousand times denser than at the surface and the sky black. Only
+with the switch on does descending become an atmospheric effect too: at the bottom of a
+10 km shaft the patch of sky comes through half as bright and warm white. The tracer, the
+integrator and the illuminance all count that air; before, only the integrator did, so the
+switch changed the table and nothing in the picture. That contrast is the last step of the
+well experiment.
 
 ---
 
@@ -812,7 +850,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **139 tests** covering:
+`node tests/run-tests.js` runs **147 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine
@@ -853,7 +891,9 @@ lesson:
   monotonically with depth, vanishes when you look away from the shaft, and goes as the
   square of the aperture once it is narrow;
 - config integrity, including CZ/EN key parity and bilingual completeness of every
-  experiment step;
+  experiment step and goal;
+- the guided experiments: each replayed as the page does, its quoted numbers checked, every
+  setting it changes nameable, and each step the same situation however it is reached;
 - the drawn light paths: that arriving light is measurably bluer than its source and than
   the light that got through, that every arriving path really ends at the observer with a
   single scattering vertex, that every missed path genuinely leaves in a direction that is

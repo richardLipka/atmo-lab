@@ -123,6 +123,9 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     mass: (v) => v == null ? '-' : `${Math.round(v).toLocaleString(i18n.getLanguage() === 'cs' ? 'cs-CZ' : 'en-GB')} kg/m²`,
   };
 
+  /** The share of one colour the direct beam keeps; nothing to say once the star has set. */
+  const beamShare = (beam, bin) => (beam.belowHorizon ? '-' : fmt.percent(beam.transmittance[bin]));
+
   /**
    * Build the readout rows for one observer. Rows that are meaningless in the
    * current situation - a shaft aperture when there is no shaft - are dropped
@@ -136,10 +139,15 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
       { key: 'data.airColumnMass', value: fmt.mass(m.massColumn), advanced: true },
       { key: 'data.scaleHeight', value: fmt.length(m.scaleHeight), advanced: true },
       { separator: true },
-      { key: 'data.opticalDepthAt', params: { lambda: 450 }, value: fmt.sci(m.verticalTau[450], 3) },
+      // Straight up through the air above the observer: what climbing changes.
+      { key: 'data.opticalDepthAt', params: { lambda: 450 }, value: fmt.sci(m.verticalTau[450], 3), advanced: true },
       { key: 'data.opticalDepthAt', params: { lambda: 550 }, value: fmt.sci(m.verticalTau[550], 3), advanced: true },
-      { key: 'data.opticalDepthAt', params: { lambda: 650 }, value: fmt.sci(m.verticalTau[650], 3) },
+      { key: 'data.opticalDepthAt', params: { lambda: 650 }, value: fmt.sci(m.verticalTau[650], 3), advanced: true },
+      // Along the path to the star: what lowering it changes. The share of each
+      // colour that survives is the sunset, so it is shown as it is.
       { key: 'data.airMass', value: fmt.fixed(m.airMass, 2) },
+      { key: 'data.beamTransmissionAt', params: { lambda: 450 }, value: beamShare(evaluation.beam, 7) },
+      { key: 'data.beamTransmissionAt', params: { lambda: 650 }, value: beamShare(evaluation.beam, 27) },
       { key: 'data.pathLength', value: fmt.length(m.pathLength), advanced: true },
       { separator: true },
       { key: 'data.skyLuminance', value: fmt.sci(m.skyLuminance, 3) },
@@ -330,10 +338,10 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     if (share >= 0.5) text += ` ${i18n.t('color.overheadStarWins')}`;
     const skyShare = histogram.skyShare ?? 1;
     if (result.primary.scene.wellActive && skyShare > 0 && skyShare < 0.999) {
-      text += ` ${i18n.t('color.overheadStarShaft', {
-        gain: formatRatio(1 / skyShare),
-        lost: formatShare(1 - skyShare),
-      })}`;
+      // No factor is printed: 1/skyShare would only approximate the gain over
+      // the open sky, whose own field of view is not uniformly bright, and an
+      // approximation shown as a measurement is the thing to avoid here.
+      text += ` ${i18n.t('color.overheadStarShaft', { lost: formatShare(1 - skyShare) })}`;
       if (share < 0.5 && result.primary.scene.sunElevationDeg > 0) {
         text += ` ${i18n.t('color.overheadStarStillLoses')}`;
       }

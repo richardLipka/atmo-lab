@@ -20,6 +20,8 @@ import {
   AIR_DISPERSION_FACTOR, ANGSTROM_SPLIT_NM,
 } from '../js/physics/scattering.js';
 import { createAtmosphere, DOBSON_UNIT_PER_M2 } from '../js/physics/atmosphere.js';
+import { guideSituation, DESCRIBED_PATHS } from '../js/ui/experiments.js';
+import { createSimulation } from '../js/simulation.js';
 import {
   OVERHEAD_STAR, starIlluminanceRelativeToSun, coneSolidAngle,
   overheadStarIlluminance, starShareOfView,
@@ -2131,6 +2133,141 @@ export function registerTests({ group, test, assert }, config) {
       });
       assert.less(share(-3), share(-8), 'the star gains as the twilight deepens');
       assert.greater(share(-8), share(55) * 1e3);
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+
+  group('the guided experiments keep their promises', () => {
+    const asMap = (object) => new Map(Object.entries(object));
+    const simulation = createSimulation({
+      config: {
+        atmospheres: asMap(config.atmospheres), stars: asMap(config.stars),
+        scattering: asMap(config.scattering),
+      },
+      colorimetry,
+    });
+    /** Replay a guide to a step exactly as the page does, and evaluate it. */
+    const replay = (id, index) => {
+      const store = createStore(DEFAULT_STATE);
+      store.patch(guideSituation(config.experiments[id], index));
+      const run = simulation.run(store.state);
+      const of = (which) => run.simulations.find((e) => e.id === which).evaluation;
+      return { state: store.state, a: of('a'), b: run.simulations.length > 1 ? of('b') : null };
+    };
+    const xy = (spectrum) => colorimetry.xyzToChromaticity(colorimetry.spectrumToXYZ(spectrum));
+    const T = (evaluation, nm) => evaluation.beam.transmittance[INDEX(nm)];
+
+    test('every guide states its goal, in both languages', () => {
+      for (const [id, guide] of Object.entries(config.experiments)) {
+        for (const field of ['title', 'summary', 'goal']) {
+          assert.ok(guide[field]?.cs && guide[field]?.en, `${id}: ${field}`);
+        }
+        for (const [i, step] of guide.steps.entries()) {
+          for (const field of ['title', 'text', 'observe', 'question']) {
+            if (!step[field]) continue;
+            assert.ok(step[field].cs && step[field].en, `${id} step ${i + 1}: ${field} in both languages`);
+          }
+        }
+      }
+    });
+
+    test('every setting a guide changes is one the reader can find by name', () => {
+      const allowed = new Set(DESCRIBED_PATHS);
+      const leaves = (object, prefix = '') => Object.entries(object).flatMap(([k, v]) =>
+        (v && typeof v === 'object' && !Array.isArray(v)) ? leaves(v, `${prefix}${k}.`) : [`${prefix}${k}`]);
+      for (const [id, guide] of Object.entries(config.experiments)) {
+        for (const [i, step] of guide.steps.entries()) {
+          for (const path of leaves(step.state ?? {})) {
+            const own = path.startsWith('compare.b.') ? path.slice('compare.b.'.length) : path;
+            // A step may pin the star's preset name and temperature together,
+            // and the shaft's size while it is off; all of these are named.
+            assert.ok(allowed.has(own), `${id} step ${i + 1} changes ${path}, which no control names`);
+          }
+        }
+      }
+    });
+
+    test('a guide step is the same situation however you arrive at it', () => {
+      // Going back must not keep what a later step set.
+      const forward = guideSituation(config.experiments['blue-sky'], 2);
+      assert.equal(forward.atmosphere.rayleighExponent, 0);
+      const back = guideSituation(config.experiments['blue-sky'], 1);
+      assert.equal(back.atmosphere.rayleighExponent, 4, 'step 2 has n = 4 again');
+      assert.equal(back.atmosphere.aerosolScale, 0);
+      assert.equal(guideSituation(config.experiments['blue-sky'], 0).atmosphere.aerosolScale, 1);
+    });
+
+    test('blue sky: n = 0 greys the sky and keeps its light', () => {
+      const blue = replay('blue-sky', 1).a, grey = replay('blue-sky', 2).a;
+      const [x, y] = xy(grey.view.observed);
+      assert.less(Math.hypot(x - 0.3127, y - 0.3290), 0.015, 'grey is near the white point');
+      assert.close(grey.metrics.skyLuminance, blue.metrics.skyLuminance, 0.05, 'the same amount of light');
+      assert.close(T(blue, 450), 0.77, 0.03);
+      assert.close(T(blue, 650), 0.92, 0.03);
+    });
+
+    test('sunset: the numbers the guide quotes', () => {
+      const noon = replay('sunset', 0).a, afternoon = replay('sunset', 1).a;
+      const low = replay('sunset', 2).a, horizon = replay('sunset', 3).a, control = replay('sunset', 4).a;
+      assert.close(noon.metrics.airMass, 1.15, 0.02);
+      assert.close(T(noon, 450), 0.70, 0.03); assert.close(T(noon, 650), 0.87, 0.03);
+      assert.close(afternoon.metrics.airMass, 2.9, 0.03);
+      assert.close(T(afternoon, 450), 0.41, 0.04); assert.close(T(afternoon, 650), 0.71, 0.03);
+      assert.close(low.metrics.airMass, 10, 0.05);
+      assert.close(T(low, 450), 0.042, 0.1); assert.close(T(low, 650), 0.30, 0.05);
+      assert.between(horizon.metrics.airMass, 30, 40);
+      assert.less(T(horizon, 450), 1e-6); assert.close(T(horizon, 650), 1.5e-3, 0.15);
+      // The control: without colour-dependent extinction the beam stays grey.
+      assert.close(T(control, 450) / T(control, 650), 1.12, 0.1, 'only ozone tells colours apart');
+      const [x] = xy(control.beam.spectrum);
+      assert.less(x, 0.32, 'the control beam is not orange');
+    });
+
+    test('flight: the air left above, and a black sky with the most light', () => {
+      const ground = replay('flight-to-space', 0).a;
+      const fractions = [1, 2, 3].map((i) => replay('flight-to-space', i).a.metrics.columnFraction);
+      assert.close(fractions[0], 0.56, 0.02);
+      assert.between(fractions[1], 0.09, 0.1);
+      assert.close(fractions[2], 7.8e-6, 0.05);
+      const five = replay('flight-to-space', 1).a, twenty = replay('flight-to-space', 2).a;
+      assert.close(five.metrics.skyLuminance / ground.metrics.skyLuminance, 0.25, 0.1);
+      assert.close(twenty.metrics.skyLuminance / ground.metrics.skyLuminance, 0.04, 0.15);
+      const top = replay('flight-to-space', 3).a, moon = replay('flight-to-space', 4).a;
+      assert.less(top.metrics.skyLuminance, 1e-6 * ground.metrics.skyLuminance);
+      assert.greater(top.illumination.total, twenty.illumination.total);
+      assert.close(moon.illumination.total, top.illumination.total, 0.01);
+    });
+
+    test('well: climbing dims the sky, descending dims the surroundings', () => {
+      const surface = replay('well-vs-altitude', 0).a;
+      const up = replay('well-vs-altitude', 1).a, down = replay('well-vs-altitude', 2).a;
+      assert.close(up.metrics.skyLuminance / surface.metrics.skyLuminance, 0.08, 0.15);
+      assert.close(up.illumination.total / surface.illumination.total, 1.06, 0.03);
+      assert.close(down.metrics.skyLuminance, surface.metrics.skyLuminance, 1e-9, 'not one digit changed');
+      assert.between(down.illumination.total / surface.illumination.total, 1e-9, 1e-8);
+      // Side by side: B is the shaft observer of step 3, looking up under the same Sun.
+      const side = replay('well-vs-altitude', 3);
+      assert.equal(side.state.compare.b.star.elevationDeg, 70);
+      assert.equal(side.state.compare.b.observer.viewZenithDeg, 0);
+      assert.close(side.b.metrics.skyLuminance, surface.metrics.skyLuminance, 1e-9);
+      // The shaft full of air: half the radiance, and warmer.
+      const air = replay('well-vs-altitude', 5);
+      assert.close(air.b.metrics.skyLuminance / air.a.metrics.skyLuminance, 0.5, 0.15);
+      assert.greater(xy(air.b.view.observed)[0], xy(air.a.view.observed)[0] + 0.03);
+    });
+
+    test('alien skies: a cool star gives a beige sky that is still bluer than the star', () => {
+      const home = replay('alien-skies', 0).a, cool = replay('alien-skies', 1).a;
+      const hot = replay('alien-skies', 2).a, mars = replay('alien-skies', 3).a, thin = replay('alien-skies', 4).a;
+      const sky = xy(cool.view.observed), star = xy(cool.beam.spectrum);
+      assert.greater(sky[0], 0.34, 'warm, not blue');
+      assert.less(sky[0], star[0] - 0.05, 'but bluer than its star');
+      assert.close(cool.metrics.skyLuminance, home.metrics.skyLuminance, 0.15, 'not much darker');
+      assert.less(xy(hot.view.observed)[0], xy(home.view.observed)[0], 'a hotter star, a bluer sky');
+      assert.greater(xy(mars.view.observed)[0], 0.34, 'Martian dust makes it ochre');
+      assert.less(thin.metrics.skyLuminance, home.metrics.skyLuminance / 50, 'thin CO2 is nearly black');
+      assert.less(xy(thin.view.observed)[0], 0.27, 'but blue');
     });
   });
 

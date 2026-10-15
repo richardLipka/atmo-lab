@@ -2,179 +2,103 @@
   "id": "alien-skies",
   "order": 5,
   "icon": "planet",
-  "title": {
-    "cs": "Cizí oblohy",
-    "en": "Alien skies"
-  },
+  "title": { "cs": "Cizí oblohy", "en": "Alien skies" },
   "summary": {
-    "cs": "Barva oblohy je součin spektra hvězdy a rozptylového zákona atmosféry. Vyměň obojí a uvidíš.",
-    "en": "Sky colour is the product of the star spectrum and the scattering law of the atmosphere. Swap both and see."
+    "cs": "Barva oblohy závisí na dvou věcech: jaké světlo hvězda vyzařuje a co ve vzduchu rozptyluje. Měníme obojí: hvězdu za chladnější a teplejší, plyn za prach.",
+    "en": "The colour of a sky depends on two things: what light the star emits, and what in the air does the scattering. We change both: the star for a cooler and a hotter one, the gas for dust."
+  },
+  "goal": {
+    "cs": "Pochopit, že rozptyl na molekulách obloze vždy přidá modrou oproti hvězdě, ale výsledná barva závisí i na spektru hvězdy, a že prach rozptyluje jinak než plyn.",
+    "en": "Understand that scattering on molecules always makes a sky bluer than its star, but that the resulting colour also depends on the star's spectrum, and that dust scatters differently from gas."
   },
   "steps": [
     {
-      "title": {
-        "cs": "Domov",
-        "en": "Home"
-      },
+      "title": { "cs": "Domov", "en": "Home" },
       "text": {
-        "cs": "Slunce o teplotě 5800 K nad zemskou atmosférou. Tohle je referenční obloha, se kterou budeme vše porovnávat.",
-        "en": "A 5800 K Sun above the atmosphere of Earth. This is the reference sky we will compare everything against."
+        "cs": "Slunce o povrchové teplotě 5800 K, 50° nad zemským obzorem; díváš se 20° od svislice. Zapnuli jsme „Skutečnou vzdálenost od hvězdy“, aby každá planeta dostávala tolik světla, kolik ve skutečnosti dostává; ten přepínač je jen na pokročilé úrovni, proto jsme na ni přepnuli. Tohle je obloha, se kterou budeme porovnávat.",
+        "en": "A Sun with a surface temperature of 5800 K, 50° above Earth's horizon; you are looking 20° from the vertical. We have switched on “Realistic distance from star” so that each planet receives as much light as it really does; that switch exists only at the advanced level, so we switched to it. This is the sky we will compare against."
       },
       "observe": {
-        "cs": "Modrá obloha, teple bílá hvězda.",
-        "en": "A blue sky and a warm white star."
+        "cs": "Obloha je modrá, hvězda teple bílá.",
+        "en": "The sky is blue and the star warm white."
       },
       "state": {
-        "star": {
-          "presetId": "sun-5800k",
-          "temperatureK": 5800,
-          "elevationDeg": 50,
-          "realisticInsolation": true
-        },
-        "atmosphere": {
-          "presetId": "earth",
-          "densityScale": 1,
-          "aerosolScale": 1,
-          "rayleighExponent": 4
-        },
-        "observer": {
-          "z": 0,
-          "viewZenithDeg": 20,
-          "well": {
-            "enabled": false
-          }
-        },
-        "compare": {
-          "enabled": false
-        },
-        "rays": {
-          "brightness": 1
-        }
+        "level": "advanced",
+        "star": { "presetId": "sun-5800k", "temperatureK": 5800, "elevationDeg": 50, "realisticInsolation": true },
+        "atmosphere": { "presetId": "earth" },
+        "observer": { "z": 0, "viewZenithDeg": 20 }
       }
     },
     {
-      "title": {
-        "cs": "Červený trpaslík",
-        "en": "A red dwarf"
-      },
+      "title": { "cs": "Chladná hvězda", "en": "A cool star" },
       "text": {
-        "cs": "Stejná atmosféra, ale hvězda o teplotě 3000 K. Rozptylový zákon 1/λ⁴ se vůbec nezměnil.",
-        "en": "The same atmosphere, but a star at 3000 K. The 1/lambda^4 scattering law has not changed at all."
+        "cs": "Slunce jsme vyměnili za červeného trpaslíka o teplotě 3000 K. Atmosféra je stejná, rozptyl na molekulách se dál řídí zákonem 1/λ⁴. Jas hvězdy zůstal stejný, změnilo se jen její spektrum.",
+        "en": "We have swapped the Sun for a red dwarf at 3000 K. The atmosphere is the same; scattering on molecules still follows 1/λ⁴. The star is as bright as before; only its spectrum has changed."
       },
       "observe": {
-        "cs": "Obloha je kalně šedomodrá až fialová a mnohem tmavší. Zákon pořád upřednostňuje modrou, jenže hvězda skoro žádnou modrou nevyzařuje.",
-        "en": "The sky is a murky grey-blue to violet and far darker. The law still prefers blue, but the star emits almost none."
+        "cs": "Hvězda je oranžová a obloha béžová. Obloha je pořád modřejší než hvězda, ze které světlo pochází, ale modrá není: hvězda vyzařuje tak málo modrého světla, že i přednostní rozptyl modré ho přidá jen málo.",
+        "en": "The star is orange and the sky beige. The sky is still bluer than the star its light came from, but it is not blue: the star emits so little blue light that even scattering that favours blue adds only a little of it."
       },
       "question": {
-        "cs": "Je za barvu oblohy zodpovědný rozptyl, nebo zdroj?",
-        "en": "Is the colour of a sky the responsibility of the scattering, or of the source?"
+        "cs": "Je za barvu oblohy zodpovědný rozptyl, nebo hvězda?",
+        "en": "Is the colour of a sky down to the scattering, or to the star?"
       },
-      "state": {
-        "star": {
-          "presetId": "red-dwarf-3000k",
-          "temperatureK": 3000
-        },
-        "rays": {
-          "brightness": 1
-        }
-      },
+      "state": { "star": { "presetId": "red-dwarf-3000k", "temperatureK": 3000 } },
       "highlight": "ctl-temperature"
     },
     {
-      "title": {
-        "cs": "Modrý veleobr",
-        "en": "A blue supergiant"
-      },
+      "title": { "cs": "Horká hvězda", "en": "A hot star" },
       "text": {
-        "cs": "Vyšplhej s teplotou na 12 000 K, jako má Rigel.",
-        "en": "Take the temperature up to 12,000 K, like Rigel."
+        "cs": "Hvězdu jsme vyměnili za horkou modrobílou hvězdu o teplotě 12 000 K, jakou je Rigel. Atmosféra je stále zemská.",
+        "en": "We have swapped the star for a hot blue-white star at 12,000 K, like Rigel. The atmosphere is still Earth's."
       },
       "observe": {
-        "cs": "Obloha je sytě, téměř fialově modrá. Stejná atmosféra, jiná surovina.",
-        "en": "The sky is an intense, almost violet blue. The same atmosphere, different raw material."
+        "cs": "Obloha je sytě modrá, skoro do fialova. Stejný vzduch, ale světlo hvězdy obsahuje mnohem víc krátkých vlnových délek.",
+        "en": "The sky is a deep blue, almost violet. The same air, but the star's light contains far more short wavelengths."
       },
-      "state": {
-        "star": {
-          "presetId": "rigel-12000k",
-          "temperatureK": 12000
-        },
-        "rays": {
-          "brightness": 1
-        }
-      }
+      "state": { "star": { "presetId": "rigel-12000k", "temperatureK": 12000 } },
+      "highlight": "ctl-temperature"
     },
     {
-      "title": {
-        "cs": "Mars: když rozptyluje prach",
-        "en": "Mars: when dust does the scattering"
-      },
+      "title": { "cs": "Mars: rozptyluje prach", "en": "Mars: dust does the scattering" },
       "text": {
-        "cs": "Zpátky ke Slunci, ale přesuň se na Mars. Plynu je tu asi stokrát méně než na Zemi, zato je vzduch trvale plný prachu.",
-        "en": "Back to the Sun, but move to Mars. There is about a hundred times less gas than on Earth, but the air is permanently full of dust."
+        "cs": "Vrátili jsme Slunce (5800 K) a přesunuli se na Mars. Tlak u povrchu je asi 160× nižší než na Zemi, ale ve vzduchu se trvale vznáší jemný prach.",
+        "en": "We have brought back the Sun (5800 K) and moved to Mars. The surface pressure is about 160 times lower than on Earth, but fine dust is permanently suspended in the air."
       },
       "observe": {
-        "cs": "Obloha je máslově okrová. Prachová zrna jsou velká jako vlnová délka, takže rozptylují všechny barvy skoro stejně, a navíc pohlcují modrou silněji než červenou.",
-        "en": "The sky is butterscotch. The dust grains are the size of the wavelength, so they scatter every colour almost equally, and on top of that they absorb blue more strongly than red."
+        "cs": "Obloha je okrová. Prachová zrna jsou velká asi jako vlnová délka světla, takže rozptylují všechny barvy přibližně stejně, a navíc pohlcují modré světlo silněji než červené.",
+        "en": "The sky is ochre. The dust grains are about the size of the wavelength of light, so they scatter every colour roughly equally, and they also absorb blue light more strongly than red."
       },
       "state": {
-        "star": {
-          "presetId": "sun-5800k",
-          "temperatureK": 5800
-        },
-        "atmosphere": {
-          "presetId": "mars",
-          "densityScale": 1,
-          "aerosolScale": 1
-        },
-        "rays": {
-          "brightness": 1
-        }
+        "star": { "presetId": "sun-5800k", "temperatureK": 5800 },
+        "atmosphere": { "presetId": "mars" }
       },
       "highlight": "ctl-atmosphere-preset"
     },
     {
-      "title": {
-        "cs": "Mars bez prachu",
-        "en": "Mars without the dust"
-      },
+      "title": { "cs": "Mars bez prachu", "en": "Mars without the dust" },
       "text": {
-        "cs": "Ponech marsovský plyn, ale vypni prach. Zůstane čistý řídký CO₂.",
-        "en": "Keep the Martian gas but switch the dust off. Pure thin CO2 remains."
+        "cs": "Nastavili jsme svět „Řídký CO₂ (bez prachu)“: stejný plyn jako na Marsu, ale bez prachu. Rozptylují jen molekuly CO₂.",
+        "en": "We have chosen the “Thin CO2 (dust-free)” world: the same gas as on Mars, but without the dust. Only the CO₂ molecules scatter."
       },
       "observe": {
-        "cs": "Obloha je téměř černá s náznakem tmavé modři. Rayleighův rozptyl tu funguje úplně stejně jako na Zemi, jen je ho stokrát méně. Marsovská obloha tedy není okrová kvůli CO₂, ale kvůli prachu.",
-        "en": "The sky is nearly black with a hint of deep blue. Rayleigh scattering works exactly as it does on Earth, there is simply a hundred times less of it. So the Martian sky is not ochre because of CO2, it is ochre because of dust."
+        "cs": "Obloha je skoro černá s nádechem tmavé modři. Molekuly rozptylují stejně jako na Zemi, jen je jich nad povrchem tak málo, že rozptyl je asi 40× slabší, a Slunce na Mars svítí jen 43 % zemské intenzity. Okrovou barvu marsovské obloze tedy dává prach, ne CO₂.",
+        "en": "The sky is nearly black with a hint of dark blue. The molecules scatter just as they do on Earth, but there are so few of them above the surface that the scattering is about 40 times weaker, and the Sun shines on Mars with only 43 % of its strength at Earth. So the Martian sky gets its ochre from the dust, not from the CO₂."
       },
-      "state": {
-        "atmosphere": {
-          "presetId": "thin-co2"
-        },
-        "rays": {
-          "brightness": 1
-        }
-      }
+      "state": { "atmosphere": { "presetId": "thin-co2" } },
+      "highlight": "ctl-atmosphere-preset"
     },
     {
-      "title": {
-        "cs": "Titan a Venuše",
-        "en": "Titan and Venus"
-      },
+      "title": { "cs": "Titan: hustý opar", "en": "Titan: a thick haze" },
       "text": {
-        "cs": "Projdi si ještě Titan s organickým oparem a velmi hustou venušskou atmosféru. Na Titanu je navíc zapnuta skutečná vzdálenost od Slunce, takže tam dopadá necelé procento zemského osvětlení.",
-        "en": "Finally look at Titan with its organic haze and the very dense atmosphere of Venus. On Titan the realistic distance from the Sun is also applied, so it receives under one percent of the illumination Earth gets."
+        "cs": "Přesunuli jsme se na Titan, Saturnův měsíc s hustou dusíkovou atmosférou a oparem z organických částic. Dopadá na něj jen asi 1 % slunečního světla, které dostává Země, proto jsme zesílení jasu nastavili na 400×. To mění jen jas zobrazení, ne výpočet ani barvu.",
+        "en": "We have moved to Titan, Saturn's moon with a thick nitrogen atmosphere and a haze of organic particles. It receives only about 1 % of the sunlight Earth gets, so we have set the brightness boost to 400×. That changes only how bright the display is, not the calculation or the colour."
       },
       "observe": {
-        "cs": "Na obou světech je pod hustou vrstvou šero a světlo je silně zbarvené do oranžova. Krátké vlnové délky prostě k povrchu nedojdou.",
-        "en": "On both worlds it is gloomy beneath the dense layer and the light is strongly tinted orange. Short wavelengths simply never reach the surface."
+        "cs": "Obloha je oranžová a tmavá. Opar pohlcuje a rozptyluje krátké vlnové délky tak silně, že k povrchu projde při 450 nm jen asi 2 setiny promile světla, při 650 nm skoro 0,1 %. Pod takto hustým oparem se světlo ve skutečnosti rozptýlí mnohokrát; tento model počítá jen jeden rozptyl, a proto ukazuje oblohu tmavší, než je, a ani její odstín není přesný.",
+        "en": "The sky is orange and dark. The haze absorbs and scatters short wavelengths so strongly that only about 2 parts in a hundred thousand of the light reach the surface at 450 nm, against almost 0.1 % at 650 nm. Under a haze this thick, light is really scattered many times; this model follows only one scattering, so it shows the sky darker than it is, and its shade is only approximate."
       },
-      "state": {
-        "atmosphere": {
-          "presetId": "titan-haze"
-        },
-        "rays": {
-          "brightness": 400
-        }
-      },
+      "state": { "atmosphere": { "presetId": "titan-haze" }, "rays": { "brightness": 400 } },
       "highlight": "ctl-brightness"
     }
   ]

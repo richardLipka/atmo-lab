@@ -109,6 +109,7 @@ async function start() {
       sunElevationDeg: sim.star.elevationDeg,
       observerZ: observer.z,
       well: observer.well,
+      countShaftAir: observer.countShaftAir,
       count: state.rays.showScattering ? state.rays.count : 0,
       starAngularRadiusDeg:
         config.stars.get(sim.star.presetId)?.angularRadius_deg ?? 0.2665,

@@ -150,7 +150,7 @@ export function createControls(root, { store, i18n, config }) {
       controls: [
         {
           id: 'ctl-star-preset', type: 'select', labelKey: 'controls.star.preset',
-          path: 'star.presetId',
+          helpKey: 'controls.star.presetHelp', path: 'star.presetId',
           options: () => Array.from(config.stars.values()).map((s) => ({
             value: s.id, label: i18n.localized(s.name),
           })),
@@ -185,7 +185,7 @@ export function createControls(root, { store, i18n, config }) {
       controls: [
         {
           id: 'ctl-atmosphere-preset', type: 'select', labelKey: 'controls.atmosphere.preset',
-          path: 'atmosphere.presetId',
+          helpKey: 'controls.atmosphere.presetHelp', path: 'atmosphere.presetId',
           options: () => Array.from(config.atmospheres.values()).map((a) => ({
             value: a.id, label: i18n.localized(a.name),
           })),
@@ -287,7 +287,7 @@ export function createControls(root, { store, i18n, config }) {
         },
         {
           id: 'ctl-well', type: 'checkbox', labelKey: 'controls.observer.wellEnabled',
-          path: 'observer.well.enabled',
+          helpKey: 'controls.observer.wellEnabledHelp', path: 'observer.well.enabled',
           onChange: (enabled) => {
             const observer = activeObserver(store.state);
             if (enabled) {
@@ -300,6 +300,7 @@ export function createControls(root, { store, i18n, config }) {
         },
         {
           id: 'ctl-well-radius', type: 'range', labelKey: 'controls.observer.wellRadius',
+          helpKey: 'controls.observer.wellRadiusHelp',
           path: 'observer.well.radius_m', min: 0.2, max: 20, step: 0.1,
           scale: 'log', dependsOn: 'observer.well.enabled',
           format: (v) => `${v.toFixed(1)} m`,
@@ -340,7 +341,7 @@ export function createControls(root, { store, i18n, config }) {
         },
         {
           id: 'ctl-ray-count', type: 'range', labelKey: 'controls.rays.count',
-          path: 'rays.count', min: 100, max: 5000, step: 100,
+          helpKey: 'controls.rays.countHelp', path: 'rays.count', min: 100, max: 5000, step: 100,
           format: (v) => String(Math.round(v)),
         },
         {
@@ -349,7 +350,7 @@ export function createControls(root, { store, i18n, config }) {
         },
         {
           id: 'ctl-animate', type: 'checkbox', labelKey: 'controls.rays.animate',
-          path: 'rays.animate',
+          helpKey: 'controls.rays.animateHelp', path: 'rays.animate',
         },
         {
           id: 'ctl-brightness', type: 'range', labelKey: 'controls.rays.brightness',
@@ -363,22 +364,8 @@ export function createControls(root, { store, i18n, config }) {
           helpKey: 'controls.rays.physicalMixHelp', path: 'rays.mix.physical',
         },
         {
-          id: 'ctl-mix-scatter', type: 'range', advanced: true,
-          labelKey: 'controls.rays.scatterShare',
-          helpKey: 'controls.rays.scatterShareHelp', path: 'rays.mix.scatterShare',
-          min: 0, max: 1, step: 0.01,
-          format: (v) => `${Math.round(v * 100)} %`,
-        },
-        {
-          id: 'ctl-mix-arriving', type: 'range', advanced: true,
-          labelKey: 'controls.rays.arrivingShare',
-          helpKey: 'controls.rays.arrivingShareHelp', path: 'rays.mix.arrivingShare',
-          min: 0, max: 1, step: 0.01,
-          format: (v) => `${Math.round(v * 100)} %`,
-        },
-        {
           id: 'ctl-quality', type: 'select', labelKey: 'controls.rays.quality',
-          path: 'rays.quality', advanced: true,
+          helpKey: 'controls.rays.qualityHelp', path: 'rays.quality', advanced: true,
           options: () => [
             { value: 'preview', label: i18n.t('controls.rays.qualityPreview') },
             { value: 'normal', label: i18n.t('controls.rays.qualityNormal') },

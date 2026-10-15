@@ -28,7 +28,7 @@
 import { SPECTRUM_BINS, specNew } from './spectrum.js';
 import { rayleighPhase, henyeyGreensteinPhase } from './scattering.js';
 import { v3addScaled, v3length, v3dot, directionFromAngles } from './geometry.js';
-import { wellIsBlocked, wellApertureHalfAngle, wellShaftColumn } from './well.js';
+import { wellIsBlocked, wellApertureHalfAngle, shaftAirColumns } from './well.js';
 
 /**
  * Sampling density presets. `viewSteps` divides the viewing ray, `sunSteps`
@@ -91,10 +91,8 @@ function shaftPrefix(scene, zenithRad) {
   const sec = 1 / Math.max(0.05, Math.cos(Math.min(zenithRad, Math.PI / 2 - 1e-3)));
   // No ozone: the shaft is the bottom of the air, and ozone lives twenty
   // kilometres up.
-  return {
-    r: wellShaftColumn(scene.wellDepth, atm.scaleHeightRayleigh) * sec,
-    a: wellShaftColumn(scene.wellDepth, atm.scaleHeightAerosol) * sec,
-  };
+  const column = shaftAirColumns(scene.wellDepth, atm.scaleHeightRayleigh);
+  return { r: column.r * sec, a: column.a * sec };
 }
 
 /**
@@ -342,7 +340,7 @@ export function computeIllumination(scene, colorimetry, options = {}) {
    * otherwise a deep shaft would fall between samples and report exactly zero
    * light, which is a sampling artefact and not physics.
    */
-  function integrateCone(thetaMin, thetaMax, nTheta, nPhi) {
+  function integrateCone(thetaMin, thetaMax, nTheta, nPhi, through = openScene) {
     let sum = 0, omega = 0;
     if (thetaMax <= thetaMin) return { sum, omega };
     const dTheta = (thetaMax - thetaMin) / nTheta;
@@ -353,9 +351,12 @@ export function computeIllumination(scene, colorimetry, options = {}) {
       const cosT = Math.cos(theta);
       for (let j = 0; j < nPhi; j++) {
         const dir = directionFromAngles(theta, (j + 0.5) * dPhi);
-        // The radiance of a sky patch never depends on the shaft; the shaft
-        // only decides whether the observer can see that patch at all.
-        const r = computeViewRadiance(openScene, dir, quality);
+        // The radiance of a sky patch does not depend on the shaft; the shaft
+        // only decides whether the observer can see that patch at all. The
+        // one exception is air standing in the shaft, which the light must
+        // also cross - so the cone inside the aperture is evaluated in the
+        // real scene, where every direction is open and that air is counted.
+        const r = computeViewRadiance(through, dir, quality);
         sum += colorimetry.luminance(r.scattered) * cosT * dOmega;
         omega += dOmega;
       }
@@ -366,7 +367,7 @@ export function computeIllumination(scene, colorimetry, options = {}) {
   const openIntegral = integrateCone(0, Math.PI / 2,
     options.zenithSamples ?? 9, options.azimuthSamples ?? 8);
   const coneIntegral = scene.wellActive
-    ? integrateCone(0, scene.apertureHalfAngle, 5, 6)
+    ? integrateCone(0, scene.apertureHalfAngle, 5, 6, scene)
     : openIntegral;
 
   const open = openIntegral.sum;

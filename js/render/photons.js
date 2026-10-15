@@ -40,6 +40,7 @@ import {
   rayleighPhase, henyeyGreensteinPhase, sampleRayleighCosine, sampleHenyeyGreensteinCosine,
 } from '../physics/scattering.js';
 import { expSegment } from '../physics/atmosphere.js';
+import { shaftAirColumns } from '../physics/well.js';
 
 /**
  * Half-angle of the cone of sky the observer is looking down.
@@ -150,6 +151,10 @@ export function tracePhotons(options) {
     // Scales the sun-leg cache cell. 1 is the working value; the test suite
     // drives it towards zero to compare against an effectively uncached trace.
     sunCacheScale = 1,
+    // Whether the shaft is filled with air. Off, the shaft is a clean hole and
+    // descending is geometry only; on, every ray reaching the observer also
+    // crosses the air standing in the shaft, as the integrator's does.
+    countShaftAir = false,
   } = options;
 
   const paths = [];
@@ -193,6 +198,14 @@ export function tracePhotons(options) {
   const shaft = well && well.enabled && observerZ < 0
     ? { radius: well.radius_m, depth: -observerZ }
     : null;
+  // The air in the shaft between the observer and the mouth, per unit secant.
+  const shaftAir = shaft && countShaftAir ? shaftAirColumns(shaft.depth, HR) : null;
+  /** A column with the shaft's own air added for a ray at this cosine from the vertical. */
+  const withShaftAir = (path, cosZenith) => {
+    if (!shaftAir) return path;
+    const sec = 1 / Math.max(0.05, Math.abs(cosZenith));
+    return { colR: path.colR + shaftAir.r * sec, colA: path.colA + shaftAir.a * sec, colO: path.colO };
+  };
 
   /* ---- world helpers, all in true Cartesian ---- */
 
@@ -548,7 +561,8 @@ export function tracePhotons(options) {
     // air and must not be integrated as if they were.
     const mouth = shaft ? raySphere(observer, d, R, true) : null;
     const airStart = mouth != null && mouth > 0 ? mouth : 0;
-    const back = columns(P, { x: -d.x, y: -d.y }, Math.max(0, dist - airStart));
+    const back = withShaftAir(
+      columns(P, { x: -d.x, y: -d.y }, Math.max(0, dist - airStart)), d.y);
 
     let total = 0;
     for (let i = 0; i < SPECTRUM_BINS; i++) {
@@ -803,7 +817,8 @@ export function tracePhotons(options) {
       x: observer.x + toStar.x * airStart,
       y: observer.y + toStar.y * airStart,
     };
-    const path = length > 0 ? columns(from, toStar, length) : { colR: 0, colA: 0, colO: 0 };
+    const path = withShaftAir(
+      length > 0 ? columns(from, toStar, length) : { colR: 0, colA: 0, colO: 0 }, toStar.y);
 
     const visible = !belowHorizon && !blockedByWall;
     for (let i = 0; i < SPECTRUM_BINS; i++) {

@@ -92,6 +92,22 @@ export function wellShaftColumn(depth, scaleHeight) {
 }
 
 /**
+ * The air in a shaft, gas and haze, as surface-equivalent columns.
+ *
+ * The gas is hydrostatic, so it keeps getting denser on the way down and the
+ * exponential profile continues below datum (wellShaftColumn). The haze does
+ * not: its 1.2 km scale height describes how the boundary layer mixes dust
+ * upwards, not a weight it would pile up under, and continuing that profile
+ * ten kilometres down made the haze four thousand times denser than at the
+ * surface and the shaft opaque. It is held at its surface concentration
+ * instead, so its column is simply the depth.
+ */
+export function shaftAirColumns(depth, gasScaleHeight) {
+  if (!(depth > 0)) return { r: 0, a: 0 };
+  return { r: wellShaftColumn(depth, gasScaleHeight), a: depth };
+}
+
+/**
  * What share of an observer's field of view still has sky in it.
  *
  * An eye does not measure one direction; it collects a cone. A shaft leaves a
