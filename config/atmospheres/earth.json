@@ -11,16 +11,41 @@
   "insolationRelative": 1,
   "groundAlbedo": 0.15,
   "rayleigh": {
-    "beta550_perM": 0.0000135,
+    "beta550_perM": 1.142e-5,
     "scaleHeight_m": 8500,
-    "wavelengthExponent": 4
+    "wavelengthExponent": 4,
+    "dispersion": "bodhaine-air",
+    "depolarization": 0.0279,
+    "source": "Bodhaine, Wood, Dutton & Slusser (1999), J. Atmos. Oceanic Technol. 16, 1854: tau(550 nm) = 0.0971 at 1013.25 hPa (Eq. 30), wavelength shape from Eq. 29; depolarisation ratio of air 0.0279 (Young 1980)."
   },
   "aerosol": {
-    "beta550_perM": 0.000021,
+    "beta550_perM": 5.333e-5,
     "scaleHeight_m": 1200,
-    "angstromExponent": 1,
-    "asymmetry_g": 0.76,
-    "singleScatteringAlbedo": 0.9
+    "angstromExponent": {
+      "short": 1.1,
+      "long": 1.42
+    },
+    "asymmetry_g": 0.709,
+    "singleScatteringAlbedo": 0.972,
+    "source": "OPAC continental clean (Hess, Koepke & Schult 1998, Bull. Amer. Meteor. Soc. 79, 831, Table 3): tau(550 nm) = 0.064, omega = 0.972, g = 0.709, Angstrom alpha 1.10 (350-500 nm) and 1.42 (500-800 nm)."
+  },
+  "ozone": {
+    "source": "Cross-sections: Serdyuchenko et al. (2014), Atmos. Meas. Tech. 7, 625, at 233 K, as binned to 10 nm by Bruneton (2017) and centred on this grid. Triangular profile and 300 DU column as in Bruneton (2017), Precomputed Atmospheric Scattering: a New Implementation (github.com/ebruneton/precomputed_atmospheric_scattering).",
+    "column_DU": 300,
+    "profile": {
+      "floor_m": 10000,
+      "peak_m": 25000,
+      "ceiling_m": 40000
+    },
+    "crossSection_m2": [
+      2.5e-28, 4.727e-28, 1.095e-27, 2.145e-27, 4.142e-27, 6.986e-27,
+      1.214e-26, 1.949e-26, 2.993e-26, 4.297e-26, 6.338e-26, 8.384e-26,
+      1.191e-25, 1.541e-25, 1.87e-25, 2.447e-25, 2.923e-25, 3.296e-25,
+      3.883e-25, 4.469e-25, 4.535e-25, 4.549e-25, 4.86e-25, 4.662e-25,
+      4.023e-25, 3.477e-25, 2.938e-25, 2.45e-25, 2.045e-25, 1.662e-25,
+      1.341e-25, 1.076e-25, 8.439e-26, 7.01e-26, 5.835e-26, 4.627e-26,
+      4.189e-26, 3.732e-26
+    ]
   },
   "composition": [
     {

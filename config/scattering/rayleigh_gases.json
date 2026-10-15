@@ -5,7 +5,7 @@
     "en": "Relative Rayleigh cross-sections of common atmospheric gases, referenced to dry air at 550 nm. They fold in refractive index and the King depolarisation factor."
   },
   "referenceGas": "air",
-  "referenceCrossSection_m2": 4.56e-31,
+  "referenceCrossSection_m2": 4.5105e-31,
   "gases": {
     "air":  { "name": { "cs": "vzduch", "en": "air" },      "relativeCrossSection": 1.00, "depolarization": 0.0279, "molarMass_gpmol": 28.96 },
     "n2":   { "name": { "cs": "dusík", "en": "nitrogen" },   "relativeCrossSection": 1.02, "depolarization": 0.0305, "molarMass_gpmol": 28.01 },

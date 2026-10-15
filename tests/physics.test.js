@@ -17,8 +17,9 @@ import {
 import {
   rayleighBetaSpectrum, aerosolBetaSpectrum, resolveAlbedoSpectrum,
   rayleighPhase, henyeyGreensteinPhase, sampleRayleighCosine,
+  AIR_DISPERSION_FACTOR, ANGSTROM_SPLIT_NM,
 } from '../js/physics/scattering.js';
-import { createAtmosphere } from '../js/physics/atmosphere.js';
+import { createAtmosphere, DOBSON_UNIT_PER_M2 } from '../js/physics/atmosphere.js';
 import { createColorimetry } from '../js/physics/color.js';
 import {
   wellApertureHalfAngle, wellIsBlocked, wellSolidAngle,
@@ -42,6 +43,18 @@ import {
 } from '../js/render/photons.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
+
+/**
+ * Rayleigh optical depth of a standard sea-level atmosphere, 1013.25 hPa,
+ * Bodhaine, Wood, Dutton & Slusser (1999), J. Atmos. Oceanic Technol. 16,
+ * 1854, Eq. (30). Written out here independently of the engine, so the test
+ * compares the engine against the paper and not against itself.
+ */
+function bodhaineTau(nm) {
+  const l = nm / 1000, l2 = l * l;
+  return 0.0021520 * (1.0455996 - 341.29061 / l2 - 0.90230850 * l2)
+    / (1 + 0.0027059889 / l2 - 85.968563 * l2);
+}
 
 /** Numerically integrate a phase function over the whole solid angle. */
 function integratePhase(fn, samples = 40000) {
@@ -121,10 +134,22 @@ export function registerTests({ group, test, assert }, config) {
       }
     });
 
-    test('reproduces the published sea-level coefficients for Earth air', () => {
-      const beta = rayleighBetaSpectrum(1.35e-5, 4);
-      assert.close(beta[INDEX(440)], 3.31e-5, 0.02);
-      assert.close(beta[INDEX(680)], 5.8e-6, 0.02);
+    test('Earth air reproduces the measured Rayleigh optical depth, Bodhaine et al. 1999', () => {
+      // tau(550) = 0.0971 for 1013.25 hPa; the world is configured at 1013 hPa.
+      const scale = 1013 / 1013.25;
+      const tau = earth.opticalDepth(earth.verticalColumnRayleigh(0), 0);
+      for (const nm of [400, 450, 500, 550, 600, 650, 700, 750]) {
+        assert.close(tau[INDEX(nm)], bodhaineTau(nm) * scale, 0.005,
+          `tau(${nm} nm) against Eq. (30)`);
+      }
+    });
+
+    test('real air is steeper than an ideal 1/lambda^4, as dispersion and the King factor make it', () => {
+      // The exponent between 450 and 650 nm is about 4.09 for real air.
+      const beta = earth.rayleighBeta0;
+      const exponent = Math.log(beta[INDEX(450)] / beta[INDEX(650)]) / Math.log(650 / 450);
+      assert.between(exponent, 4.05, 4.12);
+      assert.close(AIR_DISPERSION_FACTOR[INDEX(550)], 1, 1e-12, 'normalised at 550 nm');
     });
 
     test('the exponent is honoured, so n = 0 gives a colourless cross-section', () => {
@@ -139,6 +164,18 @@ export function registerTests({ group, test, assert }, config) {
     test('phase function is symmetric and twice as strong forwards as sideways', () => {
       assert.close(rayleighPhase(1), rayleighPhase(-1), 1e-12);
       assert.close(rayleighPhase(1) / rayleighPhase(0), 2, 1e-12);
+    });
+
+    test('depolarisation fills in the sideways dip and keeps the phase function normalised', () => {
+      // Chandrasekhar / Hansen & Travis (1974) Eq. (2.15): with gamma = rho/(2 - rho)
+      // the forward-to-sideways ratio is (2 + 2 gamma) / (1 + 3 gamma).
+      const rho = 0.0279;
+      const gamma = rho / (2 - rho);
+      assert.close(integratePhase((mu) => rayleighPhase(mu, rho)), 1, 1e-5);
+      assert.close(rayleighPhase(1, rho) / rayleighPhase(0, rho),
+        (2 + 2 * gamma) / (1 + 3 * gamma), 1e-12);
+      assert.close(rayleighPhase(1, rho), rayleighPhase(-1, rho), 1e-12);
+      assert.equal(earth.rayleighDepolarization, rho, 'Earth uses the depolarisation of air');
     });
 
     test('sampled scattering cosines reproduce the phase function mean', () => {
@@ -160,6 +197,13 @@ export function registerTests({ group, test, assert }, config) {
       // Rayleigh is symmetric: <mu> = 0 and <mu^2> = 2/5.
       assert.between(Math.abs(sum / n), 0, 0.01, 'the mean cosine of a symmetric phase function must vanish');
       assert.close(sumSq / n, 0.4, 0.02);
+
+      // And with depolarisation, <mu^2> = (a/3 + b/5) / (a + b/3) for a + b mu^2.
+      const rho = 0.0279, gamma = rho / (2 - rho);
+      const a = 1 + 3 * gamma, b = 1 - gamma;
+      let sq = 0;
+      for (let i = 0; i < n; i++) { const mu = sampleRayleighCosine(rng, rho); sq += mu * mu; }
+      assert.close(sq / n, (a / 3 + b / 5) / (a + b / 3), 0.01);
     });
   });
 
@@ -235,9 +279,9 @@ export function registerTests({ group, test, assert }, config) {
       for (let i = 0; i < SPECTRUM_BINS; i++) assert.between(heavy[i], 0, 1);
     });
 
-    test('optical depth at 550 nm sits near the measured Rayleigh value', () => {
+    test('optical depth at 550 nm is the measured Rayleigh value', () => {
       const tau = earth.opticalDepth(earth.verticalColumnRayleigh(0), 0);
-      assert.between(tau[INDEX(550)], 0.08, 0.13);
+      assert.close(tau[INDEX(550)], 0.0971 * 1013 / 1013.25, 0.005);
     });
 
     test('short wavelengths are always attenuated more than long ones', () => {
@@ -448,13 +492,145 @@ export function registerTests({ group, test, assert }, config) {
 
     test('optical depth is far larger for blue than for red along a low path', () => {
       const beam = computeDirectBeam(sceneAt({ elevation: 5 }), QUALITY_PRESETS.high);
-      assert.greater(beam.opticalDepth[INDEX(450)], beam.opticalDepth[INDEX(650)] * 3);
+      // The molecular part alone goes as lambda^-4.09: more than four times.
+      const rayleigh = earth.opticalDepth(beam.columnR, 0);
+      assert.greater(rayleigh[INDEX(450)], rayleigh[INDEX(650)] * 4);
+      // The total less so, and rightly: the haze is greyer than the gas, and
+      // ozone takes some of the red-orange. Still well over twice.
+      assert.greater(beam.opticalDepth[INDEX(450)], beam.opticalDepth[INDEX(650)] * 2);
     });
 
     test('a star below the horizon delivers no direct light', () => {
       const beam = computeDirectBeam(sceneAt({ elevation: -5 }), QUALITY_PRESETS.high);
       assert.equal(beam.visible, false);
       assert.close(colorimetry.luminance(beam.spectrum), 0, 1e-12);
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+
+  group('measured air, ozone and haze', () => {
+    test('every world scatters as its gas column says it must', () => {
+      // tau_R(550) = sigma_air(550) * (relative cross-section) * P / (m g), the
+      // number of molecules over a square metre times what each one scatters.
+      // Earth is air itself; the others are mixed from config/scattering/rayleigh_gases.
+      const table = config.scattering.rayleigh_gases;
+      const sigmaAir = table.referenceCrossSection_m2;
+      assert.close(sigmaAir, 4.5105e-31, 1e-4, 'Bodhaine et al. 1999, Table 3, 550 nm');
+      const AMU = 1.66053907e-27;
+      for (const [id, cfg] of Object.entries(config.atmospheres)) {
+        if (!(cfg.surfacePressure_kPa > 0) || !cfg.composition?.length) continue;
+        let relative = 0, mass = 0, total = 0;
+        for (const { gas, fraction } of cfg.composition) {
+          const g = table.gases[gas];
+          relative += fraction * g.relativeCrossSection;
+          mass += fraction * g.molarMass_gpmol;
+          total += fraction;
+        }
+        if (id === 'earth') { relative = 1; mass = table.gases.air.molarMass_gpmol; total = 1; }
+        const molecules = cfg.surfacePressure_kPa * 1000
+          / ((mass / total) * AMU * cfg.surfaceGravity_mps2);
+        const expected = sigmaAir * (relative / total) * molecules;
+        const configured = cfg.rayleigh.beta550_perM * cfg.rayleigh.scaleHeight_m;
+        assert.close(configured, expected, 0.02, `${id}: tau_R(550)`);
+      }
+    });
+
+    test('the ozone layer holds the column it is configured with', () => {
+      const cfg = config.atmospheres.earth.ozone;
+      const column = earth.verticalColumnOzone(0);
+      // The relative column times the peak density is the Dobson column.
+      const peak = earth.ozoneAbsorption0[INDEX(600)] / cfg.crossSection_m2[INDEX(600)];
+      assert.close(column * peak, cfg.column_DU * DOBSON_UNIT_PER_M2, 1e-9);
+      // The closed form agrees with marching straight up.
+      const marched = earth.pathColumns(earth.observerPosition(0), { x: 0, y: 1, z: 0 },
+        earth.topAltitude, 64).columnO;
+      assert.close(marched, column, 0.005);
+      assert.equal(earth.verticalColumnOzone(cfg.profile.ceiling_m), 0);
+    });
+
+    test('ozone absorbs in the Chappuis band and scatters nothing', () => {
+      const o = earth.opticalDepth(0, 0, earth.verticalColumnOzone(0));
+      // Straight down through 300 DU: about 4 % at 600 nm, almost nothing in the blue.
+      assert.between(o[INDEX(600)], 0.035, 0.045);
+      assert.less(o[INDEX(450)], 0.003);
+      // It is absorption: no scattering coefficient knows about it.
+      const bare = createAtmosphere({ ...config.atmospheres.earth, ozone: undefined });
+      for (let i = 0; i < SPECTRUM_BINS; i++) {
+        assert.equal(earth.rayleighBeta0[i], bare.rayleighBeta0[i]);
+        assert.equal(earth.aerosolSca0[i], bare.aerosolSca0[i]);
+      }
+    });
+
+    test('ozone, not Rayleigh scattering, keeps the twilight zenith blue (Hulburt 1953)', () => {
+      const bare = createAtmosphere({ ...config.atmospheres.earth, ozone: undefined });
+      const zenithAt = (atmosphere, elevation) => colorimetry.xyzToChromaticity(
+        colorimetry.spectrumToXYZ(computeViewRadiance(
+          sceneAt({ atmosphere, elevation }), ZENITH, QUALITY_PRESETS.high).scattered));
+      // Hue angle about the white point: blue sits near -135 degrees, yellow near +50.
+      const hue = ([x, y]) => Math.atan2(y - 0.3290, x - 0.3127) * 180 / Math.PI;
+      for (const elevation of [0, -3, -6]) {
+        assert.greater(hue(zenithAt(bare, elevation)), 0,
+          `without ozone the zenith at ${elevation} degrees turns yellowish`);
+        assert.less(hue(zenithAt(earth, elevation)), -100,
+          `with ozone the zenith at ${elevation} degrees stays blue`);
+      }
+      // At noon ozone hardly matters.
+      const [a, b] = [zenithAt(bare, 60), zenithAt(earth, 60)];
+      assert.less(Math.hypot(a[0] - b[0], a[1] - b[1]), 0.006);
+    });
+
+    test('the default haze is OPAC continental clean, and the presets are OPAC types', () => {
+      // Hess, Koepke & Schult (1998), Bull. Amer. Meteor. Soc. 79, 831, Table 3.
+      const opac = {
+        earth: [0.064, 0.972, 0.709], clean: [0.064, 0.972, 0.709],
+        rural: [0.151, 0.925, 0.703], 'urban-haze': [0.643, 0.817, 0.689],
+        'desert-dust': [0.286, 0.888, 0.729],
+      };
+      const presets = config.scattering.aerosols.presets;
+      for (const [id, [tau, omega, g]] of Object.entries(opac)) {
+        const a = id === 'earth' ? config.atmospheres.earth.aerosol : presets[id];
+        assert.close(a.beta550_perM * a.scaleHeight_m, tau, 0.002, `${id}: tau(550)`);
+        const albedo = resolveAlbedoSpectrum(a.singleScatteringAlbedo);
+        assert.close(albedo[INDEX(550)], omega, 0.002, `${id}: omega(550)`);
+        assert.equal(a.asymmetry_g, g, `${id}: g`);
+      }
+    });
+
+    test('a split Angstrom law uses each exponent on its own side and is continuous', () => {
+      const beta = aerosolBetaSpectrum(1e-4, { short: 1.1, long: 1.42 });
+      const slope = (a, b) => Math.log(beta[INDEX(a)] / beta[INDEX(b)]) / Math.log(b / a);
+      assert.close(slope(400, 480), 1.1, 1e-9);
+      assert.close(slope(550, 700), 1.42, 1e-9);
+      assert.close(beta[INDEX(550)], 1e-4, 1e-12);
+      assert.equal(ANGSTROM_SPLIT_NM, 500);
+      // One number still means one law.
+      const single = aerosolBetaSpectrum(1e-4, 1.3);
+      assert.close(Math.log(single[INDEX(400)] / single[INDEX(700)]) / Math.log(700 / 400), 1.3, 1e-9);
+    });
+
+    test('a thin haze layer is integrated exactly, however coarse the steps', () => {
+      // The midpoint rule stepped over the 1.2 km aerosol layer and lost up to a
+      // third of it; the exponential is now integrated exactly between nodes.
+      const up = { x: 0, y: 1, z: 0 };
+      const start = earth.observerPosition(0);
+      for (const steps of [4, 8, 24]) {
+        const c = earth.pathColumns(start, up, earth.topAltitude, steps);
+        assert.close(c.columnA, earth.verticalColumnAerosol(0), 0.001, `${steps} steps: aerosol`);
+        assert.close(c.columnR, earth.verticalColumnRayleigh(0), 0.001, `${steps} steps: gas`);
+      }
+    });
+
+    test('the sky the integrator computes does not depend on how finely it is sampled', () => {
+      const fine = { viewSteps: 2000, sunSteps: 120 };
+      for (const elevation of [60, 10]) {
+        for (const quality of [QUALITY_PRESETS.normal, QUALITY_PRESETS.preview]) {
+          const scene = sceneAt({ elevation });
+          const coarse = colorimetry.luminance(computeViewRadiance(scene, ZENITH, quality).scattered);
+          const exact = colorimetry.luminance(computeViewRadiance(scene, ZENITH, fine).scattered);
+          assert.close(coarse, exact, 0.02, `zenith at ${elevation} degrees, ${quality.viewSteps} steps`);
+        }
+      }
     });
   });
 

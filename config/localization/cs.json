@@ -203,7 +203,7 @@
       },
       "twilight": {
         "see": "Hvězda je pod obzorem. Přímé světlo už k tobě nedorazí, a přesto obloha není černá: osvětluje ji jen vzduch vysoko nad tebou, který ještě na slunci je.",
-        "why": "Stín planety pohltil spodní atmosféru, takže rozptylový integrál sbírá světlo pouze z osvětlených vrstev výše. Jednonásobný rozptyl efekt ukáže, ale skutečný soumrak je temnější a fialovější, protože fotony se před příchodem několikrát odrazí."
+        "why": "Stín planety pohltil spodní atmosféru, takže rozptylový integrál sbírá světlo pouze z osvětlených vrstev výše. To světlo prošlo ozonovou vrstvou napříč a ozon pohlcuje oranžovou a žlutou (Chappuisův pás): právě to, víc než samotný Rayleighův rozptyl, drží soumrakový zenit modrý (Hulburt 1953). Skutečný soumrak je navíc jasnější, než dokáže jediný rozptyl, protože se světlo cestou několikrát rozptýlí, a fialový nádech některých večerů dává červené sluneční světlo rozptýlené dopředu na oparu ve stratosféře."
       },
       "highAltitude": {
         "see": "Obloha nad tebou výrazně ztmavla a prohloubila barvu. Hvězda se nezměnila a atmosféru jsi neopustil, jenom je nad tebou mnohem méně vzduchu.",
@@ -290,7 +290,7 @@
   },
   "footer": {
     "model": "Model s jednonásobným rozptylem",
-    "modelNote": "Světlo se sleduje od hvězdy k jedné rozptylové události a odtud do oka. Vícenásobný rozptyl, lom světla ani pohlcování ozonem nejsou zahrnuty.",
+    "modelNote": "Světlo se sleduje od hvězdy k jedné rozptylové události a odtud do oka. Vícenásobný rozptyl ani lom světla nejsou zahrnuty.",
     "sourceData": "Všechna fyzikální data jsou v editovatelných souborech JSON ve složce /config."
   },
   "histogram": {

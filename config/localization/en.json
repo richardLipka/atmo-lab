@@ -203,7 +203,7 @@
       },
       "twilight": {
         "see": "The star is below the horizon. Direct light no longer reaches you, yet the sky is not black: it is lit only by air high above you that is still in sunlight.",
-        "why": "The shadow of the planet has swallowed the lower atmosphere, so the scattering integral collects light only from the illuminated layers higher up. Single scattering already shows the effect; real twilight is deeper and more purple because photons bounce several times before arriving."
+        "why": "The shadow of the planet has swallowed the lower atmosphere, so the scattering integral collects light only from the illuminated layers higher up. That light has crossed the ozone layer edgeways, and ozone absorbs orange and yellow (the Chappuis band): this, more than Rayleigh scattering alone, is what keeps the twilight zenith blue (Hulburt 1953). Real twilight is also brighter than a single scattering can make it, because light is scattered several times on the way, and the purple glow of some evenings is red sunlight scattered forward by haze in the stratosphere."
       },
       "highAltitude": {
         "see": "The sky above you has gone much darker and deeper in colour. The star has not changed and you have not left the atmosphere, but far less air remains overhead.",
@@ -290,7 +290,7 @@
   },
   "footer": {
     "model": "Single-scattering model",
-    "modelNote": "Light is followed from the star to one scattering event and then to the eye. Multiple scattering, refraction and ozone absorption are not modelled.",
+    "modelNote": "Light is followed from the star to one scattering event and then to the eye. Multiple scattering and refraction are not modelled.",
     "sourceData": "All physical data live in editable JSON files under /config."
   },
   "histogram": {

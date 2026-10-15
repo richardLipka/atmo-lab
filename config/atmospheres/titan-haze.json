@@ -11,12 +11,13 @@
   "insolationRelative": 0.011,
   "groundAlbedo": 0.1,
   "rayleigh": {
-    "beta550_perM": 0.000022,
+    "beta550_perM": 2.918e-5,
     "scaleHeight_m": 40000,
-    "wavelengthExponent": 4
+    "wavelengthExponent": 4,
+    "depolarization": 0.029
   },
   "aerosol": {
-    "beta550_perM": 0.00009,
+    "beta550_perM": 9e-5,
     "scaleHeight_m": 60000,
     "angstromExponent": 0.5,
     "asymmetry_g": 0.55,

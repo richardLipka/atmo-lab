@@ -39,6 +39,7 @@ import {
 import {
   rayleighPhase, henyeyGreensteinPhase, sampleRayleighCosine, sampleHenyeyGreensteinCosine,
 } from '../physics/scattering.js';
+import { expSegment } from '../physics/atmosphere.js';
 
 /**
  * Half-angle of the cone of sky the observer is looking down.
@@ -172,7 +173,16 @@ export function tracePhotons(options) {
   const g = atmosphere.asymmetryG;
   const HR = atmosphere.scaleHeightRayleigh;
   const invHR = 1 / HR;
-  const invHA = 1 / atmosphere.scaleHeightAerosol;
+  const HA = atmosphere.scaleHeightAerosol;
+  const invHA = 1 / HA;
+  const depol = atmosphere.rayleighDepolarization ?? 0;
+  // Ozone absorbs and never scatters, so it only ever appears inside a
+  // transmission. Its layer is a triangle in altitude, written out below for
+  // the same reason the exponentials are.
+  const kO = atmosphere.ozoneAbsorption0;
+  const oz = atmosphere.ozone;
+  const ozFloor = oz ? oz.floor : 0, ozPeak = oz ? oz.peak : 0, ozCeiling = oz ? oz.ceiling : 0;
+  const ozRise = oz ? 1 / (ozPeak - ozFloor) : 0, ozFall = oz ? 1 / (ozCeiling - ozPeak) : 0;
 
   // Altitude of the lowest air: inside a shaft the observer is below the
   // surface, but the air still begins at the surface, because the shaft is a
@@ -227,27 +237,47 @@ export function tracePhotons(options) {
    * resolution it needs.
    */
   function columns(from, dir, length) {
-    // 56 steps is the knee of the curve: a grazing chord of several hundred
-    // kilometres is still integrated to well under a percent, and this runs a
-    // few hundred times per retrace, so the constant matters. Written without
-    // allocating a point per step, and with sqrt rather than hypot, because
-    // profiling put nearly all of a 73 ms retrace right here.
-    const steps = Math.max(6, Math.min(48, Math.round(length / (0.6 * HR))));
-    const ds = length / steps;
-    let colR = 0, colA = 0;
-    for (let i = 0; i < steps; i++) {
-      const t = (i + 0.5) * ds;
+    // Each piece is integrated exactly for a linear run of altitude (see
+    // expSegment in physics/atmosphere.js), so a few dozen pieces carry even a
+    // grazing chord of several hundred kilometres to well under a percent - and,
+    // unlike the midpoint rule this replaced, they do not step over the aerosol,
+    // which is packed into the first kilometre. This runs a few hundred times
+    // per retrace, so the constant matters: it is written without allocating a
+    // point per node, and with sqrt rather than hypot, because profiling put
+    // nearly all of a 73 ms retrace right here.
+    const pieces = 2 * Math.max(4, Math.min(24, Math.round(length / (1.2 * HR))));
+    const dt = length / pieces;
+    const ozoneAt = (h) => (!oz || h <= ozFloor || h >= ozCeiling ? 0
+      : h < ozPeak ? (h - ozFloor) * ozRise : (ozCeiling - h) * ozFall);
+    let h0 = Math.sqrt(from.x * from.x + from.y * from.y) - R;
+    // The exponentials are written out rather than called through the
+    // atmosphere object: this loop runs tens of thousands of times per
+    // retrace, and the closure call was not being inlined.
+    let r0 = h0 < 0 ? 1 : Math.exp(-h0 * invHR);
+    let a0 = h0 < 0 ? 1 : Math.exp(-h0 * invHA);
+    let o0 = ozoneAt(h0);
+    let colR = 0, colA = 0, colO = 0;
+    for (let k = 1; k <= pieces; k++) {
+      const t = k * dt;
       const x = from.x + dir.x * t;
       const y = from.y + dir.y * t;
-      const h = Math.sqrt(x * x + y * y) - R;
-      // The exponentials are written out rather than called through the
-      // atmosphere object: this loop runs tens of thousands of times per
-      // retrace, and the closure call was not being inlined.
-      colR += h < 0 ? 1 : Math.exp(-h * invHR);
-      colA += h < 0 ? 1 : Math.exp(-h * invHA);
+      const h1 = Math.sqrt(x * x + y * y) - R;
+      const r1 = h1 < 0 ? 1 : Math.exp(-h1 * invHR);
+      const a1 = h1 < 0 ? 1 : Math.exp(-h1 * invHA);
+      colR += expSegment(r0, r1, h0, h1, HR, dt);
+      colA += expSegment(a0, a1, h0, h1, HA, dt);
+      if (oz) {
+        const o1 = ozoneAt(h1);
+        colO += 0.5 * dt * (o0 + o1);
+        o0 = o1;
+      }
+      h0 = h1; r0 = r1; a0 = a1;
     }
-    return { colR: colR * ds, colA: colA * ds };
+    return { colR, colA, colO };
   }
+
+  /** Optical depth of a set of columns at one wavelength bin. */
+  const tauOf = (i, path) => betaR[i] * path.colR + betaAext[i] * path.colA + kO[i] * path.colO;
 
   /**
    * Transmission of the path from P out to the star, or false if the planet is
@@ -290,7 +320,7 @@ export function tracePhotons(options) {
     const path = marchSunColumns(P, cosZenith);
     const transmission = new Float64Array(SPECTRUM_BINS);
     for (let i = 0; i < SPECTRUM_BINS; i++) {
-      transmission[i] = Math.exp(-(betaR[i] * path.colR + betaAext[i] * path.colA));
+      transmission[i] = Math.exp(-tauOf(i, path));
     }
     sunCache.set(key, transmission);
     return transmission;
@@ -306,7 +336,7 @@ export function tracePhotons(options) {
       // its full length, which is exactly the case that matters.
       if (cosZenith > 0.02) exit = Math.min(exit, 12 * HR / cosZenith);
     }
-    return exit == null ? { colR: 0, colA: 0 } : columns(P, toStar, exit);
+    return exit == null ? { colR: 0, colA: 0, colO: 0 } : columns(P, toStar, exit);
   }
 
 
@@ -511,7 +541,7 @@ export function tracePhotons(options) {
     const h = altitudeOf(P);
     const rhoR = atmosphere.densityRayleigh(h);
     const rhoA = atmosphere.densityAerosol(h);
-    const phaseR = rayleighPhase(cosTheta);
+    const phaseR = rayleighPhase(cosTheta, depol);
     const phaseA = henyeyGreensteinPhase(cosTheta, g);
     // The column back to the observer stops at the surface: with the shaft
     // treated as empty, the metres between the mouth and the observer are not
@@ -523,7 +553,7 @@ export function tracePhotons(options) {
     let total = 0;
     for (let i = 0; i < SPECTRUM_BINS; i++) {
       const scatter = betaR[i] * rhoR * phaseR + betaAsca[i] * rhoA * phaseA;
-      const tView = Math.exp(-(betaR[i] * back.colR + betaAext[i] * back.colA));
+      const tView = Math.exp(-tauOf(i, back));
       const w = source[i] * scatter * sunT[i] * tView;
       weights[i] = w;
       total += w;
@@ -623,7 +653,7 @@ export function tracePhotons(options) {
     const toObs = { x: observer.x - P.x, y: observer.y - P.y };
     const obsLen = Math.hypot(toObs.x, toObs.y) || 1;
     for (let attempt = 0; attempt < 8; attempt++) {
-      const cosT = isRayleigh ? sampleRayleighCosine(rng) : sampleHenyeyGreensteinCosine(g, rng);
+      const cosT = isRayleigh ? sampleRayleighCosine(rng, depol) : sampleHenyeyGreensteinCosine(g, rng);
       const theta = Math.acos(Math.max(-1, Math.min(1, cosT)));
       const turn = rng() < 0.5 ? theta : -theta;
       const c = Math.cos(turn), s = Math.sin(turn);
@@ -637,7 +667,7 @@ export function tracePhotons(options) {
     // Wavelength weighted by how strongly each colour scatters here, with no aim
     // taken at the observer. Mostly blue, which is the point: the blue is being
     // taken out of the beam and thrown in every direction at once.
-    const phase = isRayleigh ? rayleighPhase(out.cosTheta) : henyeyGreensteinPhase(out.cosTheta, g);
+    const phase = isRayleigh ? rayleighPhase(out.cosTheta, depol) : henyeyGreensteinPhase(out.cosTheta, g);
     let total = 0;
     for (let i = 0; i < SPECTRUM_BINS; i++) {
       const scatter = isRayleigh ? betaR[i] * rhoR * phase : betaAsca[i] * rhoA * phase;
@@ -703,7 +733,7 @@ export function tracePhotons(options) {
     const path = columns(entry, toStar, travel);
     let total = 0;
     for (let i = 0; i < SPECTRUM_BINS; i++) {
-      const w = source[i] * Math.exp(-(betaR[i] * path.colR + betaAext[i] * path.colA));
+      const w = source[i] * Math.exp(-tauOf(i, path));
       weights[i] = w;
       total += w;
     }
@@ -773,11 +803,11 @@ export function tracePhotons(options) {
       x: observer.x + toStar.x * airStart,
       y: observer.y + toStar.y * airStart,
     };
-    const path = length > 0 ? columns(from, toStar, length) : { colR: 0, colA: 0 };
+    const path = length > 0 ? columns(from, toStar, length) : { colR: 0, colA: 0, colO: 0 };
 
     const visible = !belowHorizon && !blockedByWall;
     for (let i = 0; i < SPECTRUM_BINS; i++) {
-      transmittance[i] = Math.exp(-(betaR[i] * path.colR + betaAext[i] * path.colA));
+      transmittance[i] = Math.exp(-tauOf(i, path));
       spectrum[i] = visible ? source[i] * transmittance[i] : 0;
     }
     // The disc's radiance: irradiance spread over the solid angle it covers.

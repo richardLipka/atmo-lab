@@ -131,15 +131,39 @@ multiplies by each world's true insolation (Earth 1.00, Mars 0.431, Titan 0.011,
 ρ(h) = ρ₀ exp(−h/H), which integrates in closed form to C(z) = ρ₀H exp(−z/H) — the entire
 "flight into space" experiment in one line.
 
-- Rayleigh: β(λ) = β(550)·(550/λ)ⁿ, n = 4 by default and adjustable from 0 to 6.
-  Earth uses β(550) = 1.35 × 10⁻⁵ m⁻¹, H = 8.5 km, which reproduces the published
-  sea-level coefficients (3.31 × 10⁻⁵ m⁻¹ at 440 nm, 5.8 × 10⁻⁶ m⁻¹ at 680 nm) and a
-  vertical optical depth of 0.115 at 550 nm.
-- Aerosol: an Ångström power law with a Henyey-Greenstein lobe (g ≈ 0.7), plus an optional
-  wavelength-dependent single-scattering albedo. Martian dust absorbs blue about twice as
-  strongly as red, and that — not the CO₂ — is what makes the Martian sky ochre.
-- Phase functions: P_R(θ) = (3/16π)(1 + cos²θ) and the Henyey-Greenstein lobe. Both are
-  verified by numerical integration to normalise to 1 over the sphere.
+- Rayleigh: β(λ) = β(550)·(550/λ)ⁿ·D(λ), n = 4 by default and adjustable from 0 to 6.
+  D(λ) is how far real air departs from an ideal dipole — its refractive index and its
+  King factor both rise towards the blue — taken from the fit of **Bodhaine et al. (1999)**,
+  Eq. (29); it steepens the law to λ^−4.09 between 450 and 650 nm. Earth's strength is
+  Bodhaine's measured **τ(550) = 0.0971** (Eq. (30)), β(550) = 1.142 × 10⁻⁵ m⁻¹ over
+  H = 8.5 km, and a test holds every wavelength from 400 to 750 nm to that paper within
+  0.5 %. Every other world's β follows from first principles, σ_air · (relative
+  cross-section of its gases) · P/(m̄g) — the number of molecules over a square metre times
+  what each one scatters — and a test holds the configs to it within 2 %.
+- Aerosol: an Ångström power law with a Henyey-Greenstein lobe, plus an optional
+  wavelength-dependent single-scattering albedo. Earth's default haze and the named presets
+  are **OPAC** types (Hess, Koepke & Schult 1998, Table 3) — continental clean (τ = 0.064,
+  ω = 0.972, g = 0.709), continental average, urban and desert — each with OPAC's two
+  Ångström exponents, one for 350–500 nm and one for 500–800 nm. Martian dust absorbs blue
+  about twice as strongly as red, and that — not the CO₂ — is what makes the Martian sky ochre.
+- Ozone (Earth): a 300 DU layer, triangular between 10 and 40 km with its peak at 25 km,
+  absorbing with the Chappuis-band cross-sections of **Serdyuchenko et al. (2014)** at 233 K.
+  Vertically it takes only 4 % at 600 nm, so at noon it barely shows. At sunset the light
+  reaching the zenith crosses the layer edgeways, and that is what keeps the twilight zenith
+  blue — **Hulburt (1953)**'s result, which the simulator now reproduces: without ozone its
+  single-scattering zenith turns yellowish at sunset, with it the zenith stays blue and
+  deepens as the Sun sinks. Ozone appears in every transmission and in no scattering source.
+- Phase functions: the Rayleigh function with the depolarisation of air, ρ = 0.0279
+  (Chandrasekhar 1950; Hansen & Travis 1974, Eq. 2.15),
+  P_R(θ) = 3/(16π(1+2γ))·[(1+3γ) + (1−γ)cos²θ] with γ = ρ/(2−ρ) — 1.4 % more light at
+  90° from the Sun than the ideal (3/16π)(1 + cos²θ) — and the Henyey-Greenstein lobe. Both
+  are verified by numerical integration to normalise to 1 over the sphere, and the sampler
+  inverts the depolarised distribution exactly (Cardano).
+- Columns are integrated **exactly** for an exponential between nodes — L·(ρ₀−ρ₁)/((h₁−h₀)/H)
+  — rather than by the midpoint rule. Steps sized to the 8.5 km gas scale height used to
+  stride over the 1.2 km haze layer and lose 9–37 % of it on every path from the ground;
+  the integrator's view rays are also graded, short at the dense end, and a test requires
+  the sky at "preview" and "normal" quality to match a 2000-step reference to 2 %.
 
 ### Geometry
 
@@ -388,9 +412,11 @@ higher — 6 % higher, which is what it does.
 
 | | size | effect |
 |---|---|---|
-| Rayleigh scattering is **~18 % too strong** — β(550) = 1.35×10⁻⁵ m⁻¹, the value used throughout real-time graphics, against a measured 1.14×10⁻⁵ giving τ = 0.0973 | uniform +17–19 % across 400–700 nm | the sky is a fifth brighter than reality. Being uniform, it barely touches the *colour* |
-| **Single scattering only** | second order is roughly τ/2 of the first: **+14 % blue at the zenith, +28 % at 60°**, and far more near the horizon | the sky is too dark and too saturated; the horizon suffers most. Partly cancels the error above, for unrelated reasons |
-| **No ozone at all** | the Chappuis band costs τ = 0.041 vertically at 600 nm — **4 % of the orange at the zenith, 39 % at 12 air masses** | the main reason a real twilight zenith is blue. This model has no such mechanism |
+| ~~Rayleigh scattering ~18 % too strong~~ — **fixed**: Earth is now Bodhaine et al. (1999), τ(550) = 0.0971, with the measured λ^−4.09 shape | within 0.5 % of Eq. (30) at every wavelength 400–750 nm | was the real-time-graphics value 1.35×10⁻⁵ m⁻¹. Mars was **3.4× too strong**, Venus 12 % too strong and Titan 25 % too weak; all four now follow σ·P/(m̄g) |
+| ~~Haze under-integrated~~ — **fixed** | the midpoint rule stepped over the 1.2 km aerosol layer: **−9 to −37 %** of its column on every path from the ground; the sky at "normal" quality was **16 % dim at the zenith** under a high Sun, "preview" (the strip) up to 45 % off | now exact between nodes: ≤ 1.8 % at "normal", ≤ 6 % at "preview", against a 2000-step reference |
+| ~~Haze not any measured type~~ — **fixed** | the default was τ = 0.025, a quarter of OPAC's cleanest continental type | now OPAC continental clean, τ = 0.064; the presets are OPAC types too |
+| ~~No ozone at all~~ — **fixed** | the Chappuis band costs τ = 0.039 vertically at 600 nm | without it the single-scattering zenith turned **yellowish** at sunset and through twilight. With it, the zenith stays blue — Hulburt (1953) — and a test holds it to that |
+| **Single scattering only** | second order is roughly τ/2 of the first: **+14 % blue at the zenith, +28 % at 60°**, and far more near the horizon | the sky is too dark and too saturated; the horizon and deep twilight suffer most. With Rayleigh now at its true strength this error is no longer partly cancelled, so the sky is darker than reality by roughly that much |
 | ~~The cross-section is a plane slice~~ — **fixed** by weighting each ray by the ring it stands for | a 50 m shaft now measures **1.5 %** against a round-shaft **2.1 %**; 100 m, 0.83 % against 0.5 % | was 6× too bright, a trench rather than a round shaft. What remains is Monte Carlo scatter on the four or five rays that get through, which straddles the theory rather than sitting above it |
 | **No refraction** | air mass at 0.5° elevation is **8.6 % below** Kasten–Young, and does not improve with quality | a very low Sun sits slightly wrong; the Sun should also set about two minutes later than drawn |
 | **Nothing is sampled within 5° of the horizon** | looking at 89°, only 29 of a nominal 51 directions are cast | the brightest part of a twilight sky is outside what the rays can see. The measurement divides by what it cast, so it is not biased — it simply cannot look there. On the strip those last five degrees at each end carry the nearest measurement outwards |
@@ -398,11 +424,17 @@ higher — 6 % higher, which is what it does.
 
 **So: is the simulation correct as it is?** For what it sets out to teach — why
 the sky is blue, why a low Sun is red, why climbing empties the sky, why a well
-is dark — yes, and the mechanism is right rather than painted on. As a
-radiometric instrument, expect the sky brightness to be right to a factor of
-order 1.2 and twilight colour to be missing its most important ingredient. The
-error worth fixing next is **ozone**, without which no twilight zenith here can
-turn blue for the reason a real one does.
+is dark, and why a twilight zenith stays blue — yes, and the mechanism is right
+rather than painted on. Every input that has a measured value now has that value,
+with the source named beside it. As a radiometric instrument, expect the sky to
+be **too dark by the share multiple scattering would add** — 15–30 % in daylight,
+more near the horizon and in deep twilight — and its colour to be a little too
+saturated for the same reason. That is the error worth fixing next. Two smaller
+ones are left on purpose: the Sun is a 5800 K black body (the IAU value is
+5772 K, and the measured ASTM G-173 spectrum moves the sky's chromaticity by
+Δxy ≈ 0.003, below what an eye can tell), and the per-gas cross-section ratios
+for the non-Earth worlds come from this repository's own table, good to a few
+percent.
 
 ### What the observer sees: one function, two places
 
@@ -615,7 +647,8 @@ Single scattering. For each viewing ray the engine integrates
 L(λ) = ∫ T_view(λ, 0→s) · [β_R(λ)ρ_R(s)P_R(θ) + β_M(λ)ρ_M(s)P_M(θ)] · T_sun(λ, s→space) · I₀(λ) ds
 ```
 
-with a shadow ray at every sample, so the planet's own shadow darkens the sky from the
+where both transmissions count molecular and aerosol extinction **and ozone absorption**,
+and the bracket counts only what scatters, with a shadow ray at every sample, so the planet's own shadow darkens the sky from the
 bottom up after sunset without any special-case code.
 
 ### Colour
@@ -722,12 +755,17 @@ atmospheric effect too. That contrast is the last step of the well experiment.
 Stated plainly, because a simulation that hides its approximations teaches the wrong
 lesson:
 
-- **Single scattering only.** Accurate while τ ≲ 1. It under-predicts deep twilight (real
-  twilight is darker and more purple) and the surface brightness of very dense atmospheres
-  like Venus, where photons bounce many times before arriving. The explanation panel says
-  so on screen whenever the state is one where it matters.
+- **Single scattering only.** Accurate while τ ≲ 1. It under-predicts the brightness of
+  the daylight sky by the 15–30 % second-order scattering would add, more near the horizon,
+  deep twilight, and the surface of very dense atmospheres like Venus, where photons bounce
+  many times before arriving. It also cannot make twilight's purple light, which is red
+  sunlight scattered forward by stratospheric haze. The explanation panel says so on screen
+  whenever the state is one where it matters.
 - **No atmospheric refraction**, so no flattened solar disc and no geometric horizon lift.
-- **No ozone Chappuis band**, which contributes to the real zenith blue.
+- **No absorption by water vapour or O₂** (the 687 nm B band, the 720 nm water band). They
+  are narrow and barely touch a colour.
+- The **Sun is a black body**, not the measured spectrum with its Fraunhofer lines; the
+  difference in sky colour is below an eye's threshold (see above).
 - **No ground-reflected light** feeding back into the sky.
 - **Mie scattering is approximated**, not solved. Real Mie theory needs Maxwell's equations
   on a sphere; here it is a power law plus an asymmetry parameter, which reproduces the two
@@ -755,11 +793,20 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **98 tests** covering:
+`node tests/run-tests.js` runs **135 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
-- σ ∝ λ⁻⁴ compliance to machine precision, plus agreement with published sea-level values;
-- phase-function normalisation over the sphere, and the sampled cosines matching ⟨μ²⟩ = 2/5;
+- σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine
+  et al. (1999) Eq. (30) to 0.5 % at every wavelength, and its effective exponent of 4.09;
+- every world's Rayleigh strength against σ·P/(m̄g), the ozone layer's column against its
+  Dobson units, ozone absorbing but never scattering, the default haze and the presets
+  against OPAC Table 3, and the split Ångström law;
+- **Hulburt's twilight**: without ozone the zenith at 0°, −3° and −6° turns yellowish;
+  with it, it stays blue;
+- exact column integration at four steps, and the sky at "preview" and "normal" quality
+  matching a 2000-step reference;
+- phase-function normalisation over the sphere, with and without depolarisation, and the
+  sampled cosines matching ⟨μ²⟩ = 2/5 and its depolarised value;
 - Beer-Lambert behaviour: T = exp(−τ), T ∈ [0,1], doubling the column squaring the transmission;
 - the closed-form column integral and the mass column against p/g;
 - air mass against sec z, and a finite horizon air mass;

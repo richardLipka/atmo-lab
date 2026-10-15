@@ -154,8 +154,9 @@ export function createSimulation({ config, colorimetry }) {
     const atmosphericZ = Math.max(0, scene.observerZ);
     const columnR = atmosphere.verticalColumnRayleigh(atmosphericZ);
     const columnA = atmosphere.verticalColumnAerosol(atmosphericZ);
+    const columnO = atmosphere.verticalColumnOzone(atmosphericZ);
     const surfaceColumn = atmosphere.verticalColumnRayleigh(0);
-    const verticalTau = atmosphere.opticalDepth(columnR, columnA);
+    const verticalTau = atmosphere.opticalDepth(columnR, columnA, columnO);
 
     const depth = scene.observerZ < 0 ? -scene.observerZ : 0;
     const half = scene.wellActive ? wellApertureHalfAngle(depth, scene.wellRadius) : Math.PI / 2;
