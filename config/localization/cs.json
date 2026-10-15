@@ -207,11 +207,15 @@
     "states": {
       "daySky": {
         "see": "Obloha svítí modře ve všech směrech mimo hvězdu, zatímco hvězda sama vypadá stále skoro bílá. Nic tu není namalované modře: díváš se na sluneční světlo, které molekuly vzduchu vyrazily bokem ze svazku.",
-        "why": "Rayleighův rozptyl má účinný průřez úměrný 1/λ⁴. Při 450 nm je {ratio}krát silnější než při 650 nm, takže modré světlo je do tvého oka odkláněno mnohem častěji než červené. Zbylý svazek si téměř všechnu červenou ponechá, a proto hvězda zůstává teple bílá."
+        "why": "Molekuly vzduchu rozptylují světlo tím silněji, čím kratší je jeho vlnová délka, zhruba podle 1/λ⁴: při 450 nm asi {ratio}krát silněji než při 650 nm. Do tvého oka proto přichází z oblohy hlavně modré světlo. Přímému svazku zůstane skoro všechna červená, a proto Slunce vypadá teple bílé."
+      },
+      "greySky": {
+        "see": "Obloha je šedobílá, ne modrá, ačkoli z ní přichází přibližně stejně světla.",
+        "why": "Exponent n je {exponent}, takže molekuly rozptylují všechny vlnové délky skoro stejně: poměr rozptylu při 450 nm a při 650 nm je jen {ratio}. Rozptýlené světlo má pak stejné složení barev jako sluneční, a je tedy bílé. Modrou barvu dává obloze jen to, že se krátké vlnové délky rozptylují silněji."
       },
       "sunset": {
         "see": "Hvězda klesla nízko, zbarvila se do oranžova až červena a výrazně zeslábla. Změna barvy není ve hvězdě, ale v dráze, kterou její světlo urazí vzduchem: je {airmass}krát delší než kolmo vzhůru.",
-        "why": "Beerův-Lambertův zákon dává T(λ) = exp(−τ(λ)). Podél této dráhy je τ rovno {tau450} při 450 nm, ale jen {tau650} při 650 nm, takže modrá se odfiltruje téměř úplně, kdežto červená projde. Vidíš zbytek svazku, ne nově vzniklé červené světlo."
+        "why": "Podíl světla, který projde vzduchem, je T = e^(−τ), kde optická tloušťka τ roste s množstvím vzduchu na cestě. Podél této dráhy je τ = {tau450} při 450 nm, ale jen {tau650} při 650 nm, takže modrá se odfiltruje skoro úplně a červená projde. Vidíš zbytek svazku, ne nově vzniklé červené světlo."
       },
       "greySunset": {
         "see": "Hvězda klesla nízko a výrazně zeslábla, ale nezčervenala. Její světlo urazí vzduchem {airmass}krát delší dráhu než kolmo vzhůru, jenže vzduch teď ubírá všechny barvy skoro stejně.",

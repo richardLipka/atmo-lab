@@ -58,6 +58,13 @@ export function createExplanation(root, { i18n, store }) {
     }
     if (tau550 > DENSE_TAU) return 'denseAtmosphere';
 
+    // Molecules that scatter every colour alike make a grey sky, and the
+    // day-sky text - "the shorter the wavelength, the stronger" - would then
+    // quote a ratio of one against itself.
+    const beta = result.atmosphere.rayleighBeta0;
+    const i450 = Math.round((450 - 380) / 10), i650 = Math.round((650 - 380) / 10);
+    if (beta[i650] > 0 && beta[i450] / beta[i650] < 1.5) return 'greySky';
+
     // Is the aerosol doing more of the scattering than the gas?
     const atmosphere = result.atmosphere;
     const index550 = Math.round((550 - 380) / 10);
@@ -84,6 +91,7 @@ export function createExplanation(root, { i18n, store }) {
 
     return {
       ratio: scatterRatio.toFixed(1),
+      exponent: Number(activeSimulation(state).atmosphere.rayleighExponent ?? 4).toFixed(1),
       airmass: m.airMass >= 10 ? Math.round(m.airMass) : m.airMass.toFixed(1),
       tau450: formatTau(m.beamTau[450]),
       tau650: formatTau(m.beamTau[650]),
@@ -111,6 +119,13 @@ export function createExplanation(root, { i18n, store }) {
     const state = store.state;
     const key = classify(result, state);
     const params = parameters(result, state);
+    // Czech writes a decimal comma. These numbers sit inside Czech sentences,
+    // where "4.5krát" reads as a typo; the data table keeps its own format.
+    if (i18n.getLanguage() === 'cs') {
+      for (const [k, v] of Object.entries(params)) {
+        if (typeof v === 'string') params[k] = v.replace(/(\d)\.(\d)/g, '$1,$2');
+      }
+    }
     // The well texts quote the illuminance ratio under the name `ratio`.
     if (key === 'wellDeep') params.ratio = params.illuminanceRatio;
 

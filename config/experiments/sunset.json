@@ -4,26 +4,25 @@
   "icon": "sunset",
   "title": { "cs": "Proč je zapadající Slunce červené?", "en": "Why is the setting Sun red?" },
   "summary": {
-    "cs": "Snižujeme Slunce k obzoru a sledujeme, kolik světla každé barvy projde vzduchem. Hvězda se nemění; mění se délka cesty.",
-    "en": "We lower the Sun to the horizon and follow how much light of each colour gets through the air. The star does not change; the length of the path does."
+    "cs": "Snižujeme Slunce k obzoru a sledujeme, jaká část světla každé barvy projde vzduchem. Slunce samo se nemění, mění se množství vzduchu, kterým jeho světlo prochází.",
+    "en": "We lower the Sun to the horizon and follow what share of the light of each colour gets through the air. The Sun itself does not change; the amount of air its light crosses does."
   },
   "goal": {
-    "cs": "Pochopit, že červené Slunce u obzoru je zbytek bílého světla po průchodu dlouhou vrstvou vzduchu: propustnost klesá podle Beerova-Lambertova zákona T = e^(−τ) a modrá ztrácí mnohem rychleji než červená.",
-    "en": "Understand that the red Sun at the horizon is what is left of white light after a long path through the air: the transmission falls by the Beer-Lambert law T = e^(−τ), and blue is lost much faster than red."
+    "cs": "Vysvětlit, že zapadající Slunce je červené, protože jeho bílé světlo prochází velkým množstvím vzduchu a vzduch cestou ubere mnohem víc modré než červené. Podíl prošlého světla klesá s množstvím vzduchu exponenciálně (Beerův–Lambertův zákon).",
+    "en": "Explain that the setting Sun is red because its white light crosses a great deal of air, and the air takes away far more blue than red on the way. The share of light that gets through falls exponentially with the amount of air (the Beer–Lambert law)."
   },
   "steps": [
     {
       "title": { "cs": "Poledne", "en": "Noon" },
       "text": {
-        "cs": "Slunce je 60° nad obzorem. Jeho světlo prochází vzduchem jen o málo delší cestou, než kdyby svítilo kolmo shora. Zapnuli jsme pokročilou úroveň, aby tabulka Fyzikální veličiny ukazovala všechny řádky.",
-        "en": "The Sun is 60° above the horizon. Its light crosses only slightly more air than if it shone straight down. We have switched on the advanced level so that the Physical quantities table shows every row."
+        "cs": "Slunce je 60° nad obzorem. V tabulce Fyzikální veličiny sleduj tři řádky. Vzdušná hmota říká, kolikrát víc vzduchu světlo projde než při Slunci přímo nad hlavou. Propustnost přímého svazku při 450 nm (modrá) a při 650 nm (červená) říká, jaká část světla té barvy projde až k tobě.",
+        "en": "The Sun is 60° above the horizon. In the Physical quantities table, follow three rows. The air mass says how many times more air the light crosses than with the Sun straight overhead. The direct-beam transmission at 450 nm (blue) and at 650 nm (red) says what share of the light of that colour gets through to you."
       },
       "observe": {
-        "cs": "V tabulce: vzdušná hmota podél svazku je 1,15. Propustnost přímého svazku je asi 70 % při 450 nm a 87 % při 650 nm. Pole „Hvězda, jak ji vidíš“ je téměř bílé.",
-        "en": "In the table: the air mass along the beam is 1.15. The transmission of the direct beam is about 70 % at 450 nm and 87 % at 650 nm. The “Star as seen” box is nearly white."
+        "cs": "Vzdušná hmota je 1,15. Projde asi 70 % modré a 87 % červené. Pole „Hvězda, jak ji vidíš“ je téměř bílé.",
+        "en": "The air mass is 1.15. About 70 % of the blue gets through and 87 % of the red. The “Star as seen” box is nearly white."
       },
       "state": {
-        "level": "advanced",
         "star": { "presetId": "sun-5800k", "temperatureK": 5800, "elevationDeg": 60 },
         "atmosphere": { "presetId": "earth" },
         "observer": { "z": 0, "viewZenithDeg": 30 }
@@ -32,12 +31,12 @@
     {
       "title": { "cs": "Odpoledne", "en": "Afternoon" },
       "text": {
-        "cs": "Slunce jsme snížili na 20°. Světlo teď prochází asi trojnásobkem vzduchu oproti kolmému směru.",
-        "en": "We have lowered the Sun to 20°. Its light now crosses about three times as much air as straight down."
+        "cs": "Slunce jsme snížili na 20°. Jeho světlo teď prochází asi třikrát více vzduchu než při Slunci přímo nad hlavou.",
+        "en": "We have lowered the Sun to 20°. Its light now crosses about three times as much air as with the Sun straight overhead."
       },
       "observe": {
-        "cs": "Vzdušná hmota je 2,9. Propustnost při 450 nm klesla na 41 %, při 650 nm jen na 71 %. Obě klesají, modrá rychleji.",
-        "en": "The air mass is 2.9. The transmission has fallen to 41 % at 450 nm but only to 71 % at 650 nm. Both fall; blue falls faster."
+        "cs": "Vzdušná hmota je 2,9. Projde 41 % modré a 71 % červené: ubývá obou, modré rychleji.",
+        "en": "The air mass is 2.9. 41 % of the blue gets through and 71 % of the red: both fall, blue faster."
       },
       "state": { "star": { "elevationDeg": 20 } },
       "highlight": "ctl-elevation"
@@ -45,12 +44,12 @@
     {
       "title": { "cs": "Nízko nad obzorem", "en": "Low over the horizon" },
       "text": {
-        "cs": "Slunce jsme snížili na 5°. Vzdušná hmota je asi 10: světlo urazí ve vzduchu desetkrát delší cestu než při pohledu kolmo vzhůru.",
-        "en": "We have lowered the Sun to 5°. The air mass is about 10: the light travels ten times as far through the air as straight up."
+        "cs": "Slunce jsme snížili na 5°. Jeho světlo prochází asi desetkrát více vzduchu než při Slunci přímo nad hlavou.",
+        "en": "We have lowered the Sun to 5°. Its light crosses about ten times as much air as with the Sun straight overhead."
       },
       "observe": {
-        "cs": "Při 450 nm projdou jen 4 % světla, při 650 nm 30 %. Svazek je oranžový. V grafu je křivka přímého svazku na levé, modré straně skoro u nuly, kdežto vpravo drží.",
-        "en": "Only 4 % of the light gets through at 450 nm, 30 % at 650 nm. The beam is orange. In the chart the direct beam curve is close to zero on its left, blue side, while on the right it holds up."
+        "cs": "Projdou jen 4 % modré, ale ještě 30 % červené. Slunce je oranžové. V grafu Spektrum je křivka přímého svazku vlevo, u modré, skoro u nuly.",
+        "en": "Only 4 % of the blue gets through, but still 30 % of the red. The Sun is orange. In the Spectrum chart the direct beam curve is close to zero on its left, blue side."
       },
       "state": { "star": { "elevationDeg": 5 } },
       "highlight": "ctl-elevation"
@@ -58,35 +57,36 @@
     {
       "title": { "cs": "Na obzoru", "en": "On the horizon" },
       "text": {
-        "cs": "Slunce jsme snížili na 0° a výřez obrázku jsme oddálili na 400 km, abys viděl celou cestu světla vzduchem. Protože je planeta kulatá, cesta je dlouhá, ale konečná: vzdušná hmota je asi 34, ne nekonečno.",
-        "en": "We have lowered the Sun to 0° and widened the picture to 400 km so you can see the whole path of the light through the air. Because the planet is round, the path is long but finite: the air mass is about 34, not infinite."
+        "cs": "Slunce jsme snížili na 0° a obrázek jsme oddálili na 400 km, abys viděl celou cestu světla vzduchem. Vzdušná hmota je asi 34. Na ploché Zemi by byla nekonečná; na kulaté Zemi světlo projde jen tětivou atmosféry.",
+        "en": "We have lowered the Sun to 0° and zoomed the picture out to 400 km so you can see the whole path of the light through the air. The air mass is about 34. On a flat Earth it would be infinite; on a round Earth the light crosses only a chord of the atmosphere."
       },
       "observe": {
-        "cs": "Při 450 nm projde jen asi 3 desetimiliontiny světla, při 650 nm asi 0,15 %. Zbyde slabý tmavě červený svazek. V obrázku vidíš paprsky, které vzduch proletí celou tětivou dlouhou stovky kilometrů.",
-        "en": "Only about 3 parts in ten million get through at 450 nm, about 0.15 % at 650 nm. A faint deep red beam is all that is left. In the picture you can see the rays crossing the whole chord of air, hundreds of kilometres long."
+        "cs": "Z modré projdou asi tři desetimiliontiny, z červené 0,15 %. Zbyde slabé tmavě červené světlo.",
+        "en": "About three ten-millionths of the blue get through, and 0.15 % of the red. What is left is faint, deep red light."
       },
       "question": {
-        "cs": "Změnila se hvězda? Porovnej v grafu křivku zdroje a křivku přímého svazku. Která z nich se za celý pokus nepohnula?",
-        "en": "Did the star change? In the chart, compare the source curve with the direct beam curve. Which of them has not moved during the whole experiment?"
+        "cs": "Změnilo se Slunce? Porovnej v grafu křivku zdroje s křivkou přímého svazku.",
+        "en": "Has the Sun changed? In the chart, compare the source curve with the direct beam curve."
       },
       "state": { "star": { "elevationDeg": 0 }, "observer": { "span_m": 400000 } },
       "highlight": "ctl-zoom"
     },
     {
-      "title": { "cs": "Kontrola: bez závislosti na barvě", "en": "Control: no dependence on colour" },
+      "title": { "cs": "Kontrola: vzduch bez závislosti na barvě", "en": "Control: air that ignores colour" },
       "text": {
-        "cs": "Slunce jsme vrátili na 5° a výřez na automatický. Pak jsme nastavili exponent n = 0 a aerosol na 0 ×, takže vzduch zeslabuje všechny barvy stejně. Zbylá malá rozdílnost pochází z ozonu, který pohlcuje hlavně oranžovou.",
-        "en": "We have returned the Sun to 5° and the picture to automatic framing. Then we set the exponent n = 0 and the aerosol to 0 ×, so the air weakens every colour equally. The small difference that remains comes from ozone, which absorbs mostly orange."
+        "cs": "Slunce jsme vrátili na 5° a obrázek na automatické přiblížení. Exponent n jsme nastavili na 0 a aerosol na 0 ×: molekuly teď zeslabují všechny barvy stejně a prach, který modrou také zeslabuje víc, je pryč.",
+        "en": "We have returned the Sun to 5° and the picture to automatic zoom. We have set the exponent n to 0 and the aerosol to 0 ×: the molecules now weaken every colour equally, and the dust, which also weakens blue more, is gone."
       },
       "observe": {
-        "cs": "Propustnost je teď asi 36 % při 450 nm i 32 % při 650 nm. Svazek zeslábl, ale nezčervenal: zůstal šedobílý.",
-        "en": "The transmission is now about 36 % at 450 nm and 32 % at 650 nm. The beam has dimmed but not reddened: it stays greyish white."
+        "cs": "Projde asi 36 % modré a 32 % červené. Slunce zesláblo, ale zůstalo bílé. (Malý zbývající rozdíl způsobuje ozon, který pohlcuje hlavně oranžové světlo.)",
+        "en": "About 36 % of the blue gets through and 32 % of the red. The Sun has dimmed but stayed white. (The small remaining difference comes from ozone, which absorbs mostly orange light.)"
       },
       "question": {
-        "cs": "Co tedy potřebuje západ Slunce, aby byl červený: dlouhou cestu, nebo rozptyl závislý na barvě?",
-        "en": "So what does a sunset need in order to be red: a long path, or scattering that depends on colour?"
+        "cs": "Stačí k červenému západu Slunce dlouhá cesta vzduchem?",
+        "en": "Is a long path through the air enough to make a red sunset?"
       },
       "state": {
+        "level": "advanced",
         "star": { "elevationDeg": 5 },
         "atmosphere": { "rayleighExponent": 0, "aerosolScale": 0 },
         "observer": { "span_m": null }

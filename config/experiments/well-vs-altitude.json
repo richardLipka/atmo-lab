@@ -8,22 +8,21 @@
     "en": "Ten kilometres up, and ten kilometres down a shaft. Both leave less light around you, for completely different reasons. And can you see stars by day from the bottom of a well?"
   },
   "goal": {
-    "cs": "Rozlišit dvě veličiny: zář (jak jasný je jeden kousek oblohy) a osvětlenost (kolik světla na tebe dopadá ze všech směrů). Stoupání mění vzduch, a proto i zář. Sestup do šachty vzduch nemění vůbec; mění jen to, jak velkou část oblohy vidíš.",
-    "en": "Tell apart two quantities: radiance (how bright one patch of sky is) and illuminance (how much light reaches you from every direction). Climbing changes the air, and with it the radiance. Descending a shaft does not change the air at all; it only changes how much of the sky you can see."
+    "cs": "Rozlišit zář (jak jasný je jeden kousek oblohy) a osvětlenost (kolik světla na tebe dopadá ze všech směrů dohromady). Stoupání ubírá vzduch, a tím snižuje zář celé oblohy. Sestup do šachty vzduch nad tebou nemění; zář oblohy zůstává stejná a klesá jen osvětlenost, protože vidíš menší část oblohy.",
+    "en": "Tell apart radiance (how bright one patch of sky is) and illuminance (how much light reaches you from all directions together). Climbing removes air and so lowers the radiance of the whole sky. Descending a shaft does not change the air above you; the radiance of the sky stays the same and only the illuminance falls, because you see a smaller part of the sky."
   },
   "steps": [
     {
       "title": { "cs": "Na povrchu", "en": "At the surface" },
       "text": {
-        "cs": "Stojíš na povrchu pod otevřenou oblohou, Slunce je 70° nad obzorem a díváš se kolmo vzhůru. Zapnuli jsme pokročilou úroveň, aby tabulka ukazovala všechny řádky.",
-        "en": "You are standing on the surface under an open sky, the Sun is 70° above the horizon and you are looking straight up. We have switched on the advanced level so the table shows every row."
+        "cs": "Stojíš na povrchu pod otevřenou oblohou, Slunce je 70° nad obzorem a díváš se kolmo vzhůru. V tabulce Fyzikální veličiny sleduj zář oblohy ve směru pohledu a osvětlenost u pozorovatele. Obě jsou v relativních jednotkách simulace, takže porovnávej jen jejich změny.",
+        "en": "You are standing on the surface under an open sky, the Sun is 70° above the horizon and you are looking straight up. In the Physical quantities table, follow the sky radiance in the view direction and the illuminance at the observer. Both are in the simulation's relative units, so compare only how they change."
       },
       "observe": {
-        "cs": "V tabulce Fyzikální veličiny si zapamatuj zář oblohy ve směru pohledu (asi 0,037) a osvětlenost u pozorovatele (asi 0,85). Zář popisuje jeden kousek oblohy, osvětlenost všechno světlo, které na tebe dopadá.",
-        "en": "In the Physical quantities table, note the sky radiance in the view direction (about 0.037) and the illuminance at the observer (about 0.85). Radiance describes one patch of sky; illuminance all the light reaching you."
+        "cs": "Zář oblohy je asi 0,037, osvětlenost asi 0,85.",
+        "en": "The sky radiance is about 0.037, the illuminance about 0.85."
       },
       "state": {
-        "level": "advanced",
         "star": { "presetId": "sun-5800k", "temperatureK": 5800, "elevationDeg": 70 },
         "atmosphere": { "presetId": "earth" },
         "observer": { "z": 0, "viewZenithDeg": 0, "well": { "enabled": false, "radius_m": 2, "depth_m": 10000 } }
@@ -36,8 +35,8 @@
         "en": "We have raised the observer to 10 km. About 31 % of the air is left above them."
       },
       "observe": {
-        "cs": "Zář oblohy klesla asi na 8 % a obloha ztmavla do tmavomodré: tenčí vrstva vzduchu rozptyluje méně světla. Osvětlenost se skoro nezměnila (dokonce mírně vzrostla), protože přímé sluneční světlo cestou ztratí méně.",
-        "en": "The sky radiance has fallen to about 8 % and the sky has darkened to deep blue: a thinner layer of air scatters less light. The illuminance has barely changed (it has even risen slightly), because the direct sunlight loses less on the way."
+        "cs": "Zář oblohy klesla asi na 8 % a obloha ztmavla: méně vzduchu rozptyluje méně světla. Osvětlenost se skoro nezměnila, protože přímé sluneční světlo cestou ztratí méně.",
+        "en": "The sky radiance has fallen to about 8 % and the sky has darkened: less air scatters less light. The illuminance has barely changed, because the direct sunlight loses less on the way."
       },
       "state": { "observer": { "z": 10000 } },
       "highlight": "ctl-position"
@@ -45,12 +44,12 @@
     {
       "title": { "cs": "10 km dolů", "en": "10 km down" },
       "text": {
-        "cs": "Zapnuli jsme šachtu o poloměru 2 m a hloubce 10 km a pozorovatele jsme posadili na její dno. Šachta je zatím prázdná, bez vzduchu, takže vzduch nad pozorovatelem je přesně stejný jako na povrchu.",
-        "en": "We have switched on a shaft 2 m in radius and 10 km deep and put the observer at its bottom. The shaft is empty for now, with no air in it, so the air above the observer is exactly the same as at the surface."
+        "cs": "Zapnuli jsme šachtu o poloměru 2 m a hloubce 10 km a pozorovatele jsme posadili na její dno. Vzduch uvnitř šachty zatím nepočítáme, takže vzduch nad pozorovatelem je stejný jako na povrchu.",
+        "en": "We have switched on a shaft 2 m in radius and 10 km deep and put the observer at its bottom. We do not count the air inside the shaft yet, so the air above the observer is the same as at the surface."
       },
       "observe": {
-        "cs": "Zář oblohy ve směru pohledu je stejná jako na povrchu, do posledního čísla. Osvětlenost klesla o osm řádů, protože z celé oblohy je vidět jen kotouček o poloměru 0,01°. Kolem tebe je tma, a přece je kousek oblohy nad tebou stejně jasný a stejně modrý.",
-        "en": "The sky radiance in the view direction is the same as at the surface, to the last digit. The illuminance has fallen by eight orders of magnitude, because all that is visible of the sky is a disc 0.01° in radius. It is dark around you, and yet the patch of sky above you is just as bright and just as blue."
+        "cs": "Zář oblohy je stejná jako na povrchu. Osvětlenost klesla asi stomilionkrát, protože z celé oblohy vidíš jen kotouček o úhlovém poloměru 0,01°. Kolem tebe je tma, ale kousek oblohy nad tebou je stejně jasný a stejně modrý.",
+        "en": "The sky radiance is the same as at the surface. The illuminance has fallen about a hundred million times, because all you can see of the sky is a disc 0.01° in angular radius. It is dark around you, but the patch of sky above you is just as bright and just as blue."
       },
       "question": {
         "cs": "Při stoupání i při sestupu kolem tebe ubylo světla. Je to v obou případech ze stejného důvodu?",
@@ -62,12 +61,12 @@
     {
       "title": { "cs": "Vedle sebe", "en": "Side by side" },
       "text": {
-        "cs": "Zapnuli jsme porovnání dvou simulací. Simulace A (vlevo) má pozorovatele 10 km nad povrchem, simulace B (vpravo) 10 km pod povrchem na dně šachty. Pravý panel ukazuje hodnoty vybrané simulace; přepneš ji kliknutím do jejího obrázku nebo volbou „Ovládání patří“.",
-        "en": "We have switched on the comparison of two simulations. Simulation A (left) has its observer 10 km above the surface, simulation B (right) 10 km below it at the bottom of the shaft. The right-hand panel shows the values of the selected simulation; switch between them by clicking a picture or with “Controls belong to”."
+        "cs": "Zapnuli jsme porovnání dvou simulací: A (vlevo) je 10 km nad povrchem, B (vpravo) 10 km pod povrchem na dně šachty. Pravý panel ukazuje hodnoty vybrané simulace; vybereš ji kliknutím do jejího obrázku.",
+        "en": "We have switched on the comparison of two simulations: A (left) is 10 km above the surface, B (right) 10 km below it at the bottom of the shaft. The right-hand panel shows the values of the selected simulation; select one by clicking its picture."
       },
       "observe": {
-        "cs": "Vlevo je obloha slabší a tmavší po celé polokouli, protože ubyl vzduch. Vpravo má obloha plnou zář i barvu, jen z ní zbyl nepatrný kotouček. Pás „Co pozorovatel vidí“ pod každým obrázkem to ukazuje pro celou oblohu.",
-        "en": "On the left the sky is weaker and darker across the whole hemisphere, because the air has thinned. On the right the sky keeps its full radiance and colour; only a tiny disc of it is left. The “What the observer sees” strip under each picture shows this for the whole sky."
+        "cs": "Pás „Co pozorovatel vidí“ pod obrázky ukazuje celou oblohu. Vlevo je tmavší celá obloha, protože ubyl vzduch. Vpravo má obloha stejný jas i barvu jako na povrchu, jen z ní zbyl malý kotouček. Stoupání tedy snižuje zář oblohy, sestup do šachty jen osvětlenost.",
+        "en": "The “What the observer sees” strip under the pictures shows the whole sky. On the left the whole sky is darker, because the air has thinned. On the right the sky has the same brightness and colour as at the surface; only a small disc of it is left. So climbing lowers the radiance of the sky, while descending a shaft lowers only the illuminance."
       },
       "state": {
         "observer": { "z": 10000, "well": { "enabled": false } },
@@ -84,16 +83,16 @@
     {
       "title": { "cs": "Hvězdy ze dna studny", "en": "Stars from the bottom of a well" },
       "text": {
-        "cs": "Staré tvrzení říká, že ze dna hluboké studny jsou ve dne vidět hvězdy. Simulaci A jsme postavili na povrch pod otevřenou oblohu, simulaci B na dno skutečné studny: hloubka 50 m, poloměr 1,5 m. Obě se dívají kolmo vzhůru. Nahoře v obrázcích jsou malé hvězdy; každá posílá jeden paprsek kolmo dolů a prostřední míří přímo na pozorovatele.",
-        "en": "An old claim says that stars can be seen by day from the bottom of a deep well. We have put simulation A on the surface under an open sky and simulation B at the bottom of a real well: 50 m deep, 1.5 m in radius. Both look straight up. At the top of the pictures are small stars; each sends one ray straight down, and the middle one is aimed right at the observer."
+        "cs": "Říká se, že ze dna hluboké studny jsou ve dne vidět hvězdy. Simulace A stojí na povrchu, simulace B na dně studny hluboké 50 m o poloměru 1,5 m; obě se dívají kolmo vzhůru. Malé hvězdy nahoře v obrázcích posílají každá jeden paprsek kolmo dolů; prostřední míří na pozorovatele.",
+        "en": "It is said that stars can be seen by day from the bottom of a deep well. Simulation A stands on the surface, simulation B at the bottom of a well 50 m deep and 1.5 m in radius; both look straight up. The small stars at the top of the pictures each send one ray straight down; the middle one is aimed at the observer."
       },
       "observe": {
-        "cs": "Vlevo se paprsek hvězdy ztratí mezi stovkami modrých paprsků rozptýleného světla. Vpravo stěny šachty zastavily skoro všechny a paprsek hvězdy zůstal téměř sám. Řádek „Hvězda přímo nad tebou“ pod barvami vpravo udává, jakou část světla v zorném poli hvězda tvoří: vlevo řádově jeden díl ze sta milionů, vpravo řádově jeden z milionu.",
-        "en": "On the left the star's ray is lost among hundreds of blue rays of scattered light. On the right the shaft walls have stopped nearly all of them and the star's ray is almost alone. The line “A star straight overhead” under the colours on the right gives the share of the light in your field of view that comes from the star: of the order of one part in a hundred million on the left, one in a million on the right."
+        "cs": "Vlevo se paprsek hvězdy ztratí mezi stovkami modrých paprsků rozptýleného světla. Vpravo stěny zastavily skoro všechny a paprsek hvězdy zůstal téměř sám. Řádek „Hvězda přímo nad tebou“ v pravém panelu pod barvami udává, jakou část světla v zorném poli tvoří hvězda: pro B (vybraná) řádově jeden díl z milionu. Klikni na obrázek A: tam je to řádově jeden díl ze sta milionů.",
+        "en": "On the left the star's ray is lost among hundreds of blue rays of scattered light. On the right the walls have stopped nearly all of them and the star's ray is almost alone. The line “A star straight overhead” in the right-hand panel, under the colours, gives the share of the light in the field of view that comes from the star: for B (selected) of the order of one part in a million. Click picture A: there it is of the order of one part in a hundred million."
       },
       "question": {
-        "cs": "Šachta zvýšila podíl hvězdy zhruba o dva řády, protože skála zakryla zbytek oblohy. Kousek oblohy hned vedle hvězdy je ale stejně jasný jako nahoře. Uvidíš tedy hvězdu ve dne?",
-        "en": "The shaft raised the star's share by roughly two orders of magnitude, because the rock hid the rest of the sky. But the patch of sky right next to the star is as bright as it is up top. So will you see the star by day?"
+        "cs": "Studna zvýšila podíl hvězdy řádově stokrát, protože skála zakryla zbytek oblohy. Kousek oblohy hned vedle hvězdy je ale stejně jasný jako nahoře. Uvidíš tedy hvězdu ve dne?",
+        "en": "The well raised the star's share by the order of a hundred times, because the rock hid the rest of the sky. But the patch of sky right next to the star is as bright as it is up top. So will you see the star by day?"
       },
       "state": {
         "observer": { "z": 0, "well": { "enabled": false } },
@@ -106,14 +105,15 @@
     {
       "title": { "cs": "Šachta plná vzduchu", "en": "A shaft full of air" },
       "text": {
-        "cs": "Dosud byla šachta prázdná, aby sestup měnil jen geometrii. Obě simulace jsme teď postavili na dno 10 km hluboké šachty. V simulaci B jsme zapnuli „Počítat vzduch uvnitř šachty“: šachta se naplní vzduchem, který je hlouběji pod povrchem hustší.",
-        "en": "Until now the shaft was empty, so that descending changed geometry only. We have now put both simulations at the bottom of a 10 km deep shaft. In simulation B we have switched on “Count air inside the shaft”: the shaft fills with air, which grows denser the further below the surface it is."
+        "cs": "Obě simulace jsme postavili na dno 10 km hluboké šachty. V simulaci B jsme zapnuli „Počítat vzduch uvnitř šachty“: šachtu vyplní vzduch, který je hlouběji pod povrchem hustší. Tento přepínač je jen na pokročilé úrovni, proto jsme na ni přepnuli.",
+        "en": "We have put both simulations at the bottom of a 10 km deep shaft. In simulation B we have switched on “Count air inside the shaft”: the shaft fills with air, which is denser the deeper below the surface it is. That switch exists only at the advanced level, so we switched to it."
       },
       "observe": {
-        "cs": "Vlevo (prázdná šachta) je kousek oblohy stejně modrý jako na povrchu. Vpravo světlo z něj prošlo ještě 10 km hustého vzduchu: zář klesla asi na polovinu a barva se posunula k teplé bílé, stejně jako u Slunce nízko nad obzorem. Teprve teď změnil sestup i vzduch nad pozorovatelem.",
-        "en": "On the left (empty shaft) the patch of sky is as blue as at the surface. On the right its light has also crossed 10 km of dense air: the radiance has fallen to about half and the colour has shifted to a warm white, just as with a low Sun. Only now has descending changed the air above the observer too."
+        "cs": "Vlevo, bez vzduchu v šachtě, je kousek oblohy stejně modrý jako na povrchu. Vpravo jeho světlo prošlo ještě 10 km hustého vzduchu: zář klesla asi na polovinu a barva se posunula k teplé bílé, ze stejného důvodu jako u zapadajícího Slunce. Teprve vzduch v šachtě mění i zář oblohy.",
+        "en": "On the left, with no air in the shaft, the patch of sky is as blue as at the surface. On the right its light has also crossed 10 km of dense air: the radiance has fallen to about half and the colour has shifted to a warm white, for the same reason as with the setting Sun. Only air in the shaft changes the radiance of the sky as well."
       },
       "state": {
+        "level": "advanced",
         "observer": { "z": -10000, "well": { "enabled": true, "radius_m": 2, "depth_m": 10000 } },
         "compare": {
           "active": "b",

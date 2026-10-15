@@ -207,11 +207,15 @@
     "states": {
       "daySky": {
         "see": "The sky glows blue in every direction away from the star, while the star itself still looks close to white. Nothing here is painted blue: you are looking at sunlight that has been knocked sideways out of the beam by air molecules.",
-        "why": "Rayleigh scattering has a cross-section proportional to 1/λ⁴. At 450 nm it is {ratio} times stronger than at 650 nm, so blue light is redirected into your eye far more often than red. The remaining beam keeps almost all of its red, which is why the star stays warm-white."
+        "why": "Air molecules scatter light more strongly the shorter its wavelength, roughly as 1/λ⁴: about {ratio} times more strongly at 450 nm than at 650 nm. So the light reaching your eye from the sky is mostly blue. The direct beam keeps almost all of its red, which is why the Sun looks warm white."
+      },
+      "greySky": {
+        "see": "The sky is greyish white, not blue, although roughly as much light comes from it.",
+        "why": "The exponent n is {exponent}, so the molecules scatter every wavelength almost equally: the ratio of scattering at 450 nm to that at 650 nm is only {ratio}. The scattered light then has the same mix of colours as sunlight, so it is white. What makes the sky blue is only that short wavelengths are scattered more strongly."
       },
       "sunset": {
         "see": "The star has dropped low, turned orange to red, and dimmed sharply. The colour change is not in the star but in the path its light takes through the air: {airmass} times longer than straight up.",
-        "why": "Beer-Lambert extinction gives T(λ) = exp(−τ(λ)). Along this path τ is {tau450} at 450 nm but only {tau650} at 650 nm, so blue is stripped out almost completely while red survives. What you see is the leftover of the beam, not new red light."
+        "why": "The share of light that gets through the air is T = e^(−τ), where the optical depth τ grows with the amount of air on the way. Along this path τ = {tau450} at 450 nm but only {tau650} at 650 nm, so blue is filtered out almost completely while red gets through. What you see is the leftover of the beam, not new red light."
       },
       "greySunset": {
         "see": "The star has dropped low and dimmed sharply, but it has not turned red. Its light crosses {airmass} times more air than straight up, but the air now takes away every colour almost equally.",

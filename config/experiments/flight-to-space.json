@@ -4,23 +4,23 @@
   "icon": "rocket",
   "title": { "cs": "Let do vesmíru", "en": "Flight into space" },
   "summary": {
-    "cs": "Stoupáme od povrchu do 100 km. Nad námi ubývá vzduchu, obloha tmavne až k černé, ale Slunce svítí dál.",
+    "cs": "Stoupáme od povrchu do 100 km. Vzduchu nad námi ubývá, obloha tmavne až do černa, ale Slunce svítí dál.",
     "en": "We climb from the surface to 100 km. The air above us dwindles, the sky darkens to black, yet the Sun keeps shining."
   },
   "goal": {
-    "cs": "Pochopit, že jas oblohy pochází ze vzduchu nad pozorovatelem: čím méně vzduchu zbývá, tím méně světla se k němu rozptýlí. Černá obloha neznamená nedostatek světla, ale nedostatek látky, která by ho rozptylovala.",
-    "en": "Understand that the brightness of the sky comes from the air above the observer: the less air is left, the less light is scattered towards them. A black sky does not mean a lack of light but a lack of anything to scatter it."
+    "cs": "Vysvětlit, že obloha svítí, protože vzduch nad pozorovatelem rozptyluje sluneční světlo k němu. Čím méně vzduchu je nad ním, tím je obloha tmavší. Černá obloha tedy neznamená, že chybí světlo, ale že chybí vzduch, který by ho rozptyloval.",
+    "en": "Explain that the sky glows because the air above the observer scatters sunlight towards them. The less air there is above them, the darker the sky. A black sky therefore does not mean that light is missing, but that the air to scatter it is missing."
   },
   "steps": [
     {
       "title": { "cs": "Na povrchu", "en": "At the surface" },
       "text": {
-        "cs": "Stojíš na povrchu Země, Slunce je 60° nad obzorem a díváš se kolmo vzhůru. Celý sloupec vzduchu je nad tebou.",
-        "en": "You are standing on the surface of Earth, the Sun is 60° above the horizon and you are looking straight up. The whole column of air is above you."
+        "cs": "Stojíš na povrchu Země, Slunce je 60° nad obzorem a díváš se kolmo vzhůru. V tabulce Fyzikální veličiny budeme sledovat dva řádky. Podíl přízemního sloupce říká, jaká část vzduchu z celé atmosféry je nad tebou. Zář oblohy říká, jak jasný je kousek oblohy, na který se díváš.",
+        "en": "You are standing on the surface of Earth, the Sun is 60° above the horizon and you are looking straight up. In the Physical quantities table we will follow two rows. The fraction of the surface column says what share of all the air in the atmosphere is above you. The sky radiance says how bright the patch of sky you are looking at is."
       },
       "observe": {
-        "cs": "V tabulce Fyzikální veličiny si zapamatuj dva řádky: podíl přízemního sloupce (100 %) a zář oblohy ve směru pohledu. K oběma se budeme vracet.",
-        "en": "In the Physical quantities table, note two rows: the fraction of the surface column (100 %) and the sky radiance in the view direction. We will keep coming back to both."
+        "cs": "Nad tebou je 100 % vzduchu. Obloha je světle modrá.",
+        "en": "100 % of the air is above you. The sky is light blue."
       },
       "state": {
         "star": { "presetId": "sun-5800k", "temperatureK": 5800, "elevationDeg": 60 },
@@ -31,12 +31,12 @@
     {
       "title": { "cs": "5 km", "en": "5 km" },
       "text": {
-        "cs": "Pozorovatele jsme zvedli do výšky 5 km, nad vrchol Mont Blancu. Hustota vzduchu klesá s výškou exponenciálně, takže nad tebou zbývá 56 % sloupce.",
-        "en": "We have raised the observer to 5 km, above the summit of Mont Blanc. Air density falls exponentially with height, so 56 % of the column is left above you."
+        "cs": "Pozorovatele jsme zvedli do výšky 5 km, nad vrchol Mont Blancu. Hustota vzduchu s výškou klesá, takže nad tebou zbývá už jen 56 % vzduchu.",
+        "en": "We have raised the observer to 5 km, above the summit of Mont Blanc. Air density falls with height, so only 56 % of the air is left above you."
       },
       "observe": {
-        "cs": "Zář oblohy klesla asi na čtvrtinu, víc než sloupec, protože pod tebou zůstal i skoro všechen prach a kapičky, které se drží v nejnižších kilometrech. Obloha je tmavší a sytěji modrá.",
-        "en": "The sky radiance has fallen to about a quarter, more than the column, because nearly all the dust and droplets, which stay in the lowest kilometres, are now below you too. The sky is darker and a deeper blue."
+        "cs": "Zář oblohy klesla asi na čtvrtinu, tedy víc než množství vzduchu nad tebou. Prach a kapičky se drží v nejnižších kilometrech a ty jsou už pod tebou. Obloha je tmavší a sytěji modrá.",
+        "en": "The sky radiance has fallen to about a quarter, more than the amount of air above you. Dust and droplets stay in the lowest kilometres, and those are now below you. The sky is darker and a deeper blue."
       },
       "state": { "observer": { "z": 5000 } },
       "highlight": "ctl-position"
@@ -44,12 +44,12 @@
     {
       "title": { "cs": "20 km", "en": "20 km" },
       "text": {
-        "cs": "Pozorovatele jsme zvedli do 20 km, kam se dostanou stratosférické balony. Nad tebou zbývá necelých 10 % sloupce.",
-        "en": "We have raised the observer to 20 km, the height reached by stratospheric balloons. Less than 10 % of the column is left above you."
+        "cs": "Pozorovatele jsme zvedli do 20 km, kam vystoupají stratosférické balony. Nad tebou zbývá necelých 10 % vzduchu.",
+        "en": "We have raised the observer to 20 km, where stratospheric balloons fly. Less than 10 % of the air is left above you."
       },
       "observe": {
-        "cs": "Zář oblohy je asi 4 % té přízemní a obloha je tmavomodrá. Osvětlenost u pozorovatele naopak vzrostla, protože přímé sluneční světlo cestou ztratí méně.",
-        "en": "The sky radiance is about 4 % of its surface value and the sky is dark blue. The illuminance at the observer has gone up instead, because the direct sunlight loses less on the way."
+        "cs": "Zář oblohy je asi 4 % té na povrchu a obloha je tmavomodrá. Osvětlenost (kolik světla celkem dopadá na vodorovnou plochu) přitom vzrostla, protože přímé sluneční světlo cestou ztratí méně.",
+        "en": "The sky radiance is about 4 % of its value at the surface and the sky is dark blue. The illuminance (how much light in total falls on a horizontal surface) has gone up, because the direct sunlight loses less on the way."
       },
       "state": { "observer": { "z": 20000 } },
       "highlight": "ctl-position"
@@ -57,12 +57,12 @@
     {
       "title": { "cs": "100 km", "en": "100 km" },
       "text": {
-        "cs": "Pozorovatele jsme zvedli do 100 km, na Kármánovu hranici, kde se obvykle začíná počítat vesmír. Nad tebou zbývá asi osm miliontin sloupce.",
-        "en": "We have raised the observer to 100 km, the Kármán line, where space is usually said to begin. About eight millionths of the column are left above you."
+        "cs": "Pozorovatele jsme zvedli do 100 km, na Kármánovu hranici, kde se obvykle začíná počítat vesmír. Nad tebou zbývá asi osm miliontin vzduchu.",
+        "en": "We have raised the observer to 100 km, the Kármán line, where space is usually said to begin. About eight millionths of the air are left above you."
       },
       "observe": {
-        "cs": "Obloha je černá a kolem Slunce není žádná záře. Osvětlenost u pozorovatele je přitom největší za celý let.",
-        "en": "The sky is black and there is no glow around the Sun. Yet the illuminance at the observer is the highest of the whole flight."
+        "cs": "Obloha je černá a kolem Slunce není žádná záře. Osvětlenost je přitom největší za celý let.",
+        "en": "The sky is black and there is no glow around the Sun. Yet the illuminance is the highest of the whole flight."
       },
       "question": {
         "cs": "Je obloha černá proto, že tu chybí světlo?",
@@ -74,12 +74,12 @@
     {
       "title": { "cs": "Kontrola: svět bez vzduchu", "en": "Control: a world without air" },
       "text": {
-        "cs": "Pozorovatele jsme vrátili na povrch a místo Země jsme nastavili Měsíc. Stojíš na zemi za plného dne, Slunce je 60° nad obzorem, a nad tebou není žádný vzduch.",
-        "en": "We have returned the observer to the surface and switched from Earth to the Moon. You are standing on the ground in full daylight with the Sun 60° up, and there is no air above you."
+        "cs": "Pozorovatele jsme vrátili na povrch a místo Země jsme nastavili Měsíc. Slunce je opět 60° nad obzorem, ale nad tebou není žádný vzduch.",
+        "en": "We have returned the observer to the surface and switched from Earth to the Moon. The Sun is again 60° above the horizon, but there is no air above you."
       },
       "observe": {
-        "cs": "Obloha je černá i v poledne a osvětlenost je stejná jako ve 100 km nad Zemí. Na černou oblohu nestačí výška; stačí, když chybí vzduch.",
-        "en": "The sky is black even at noon, and the illuminance is the same as 100 km above Earth. A black sky does not need height; it only needs the air to be missing."
+        "cs": "Obloha je černá i ve dne na povrchu a osvětlenost je stejná jako ve 100 km nad Zemí. Černá obloha nezávisí na výšce, ale na tom, zda je nad tebou vzduch.",
+        "en": "The sky is black even in daytime at the surface, and the illuminance is the same as 100 km above Earth. A black sky depends not on height but on whether there is air above you."
       },
       "state": { "atmosphere": { "presetId": "airless-moon" }, "observer": { "z": 0 } },
       "highlight": "ctl-atmosphere-preset"

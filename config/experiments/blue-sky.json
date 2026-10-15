@@ -4,23 +4,23 @@
   "icon": "sky",
   "title": { "cs": "Proč je obloha modrá?", "en": "Why is the sky blue?" },
   "summary": {
-    "cs": "Bílé sluneční světlo a bezbarvý vzduch, a přesto modrá obloha. Ukážeme, že za to může jediná vlastnost rozptylu: molekuly vzduchu rozptylují krátké vlnové délky mnohem silněji než dlouhé.",
-    "en": "White sunlight and colourless air, and yet a blue sky. We show that a single property of scattering is responsible: air molecules scatter short wavelengths far more strongly than long ones."
+    "cs": "Sluneční světlo je bílé a vzduch bezbarvý, přesto je obloha modrá. Ukážeme, že za to může jediná vlastnost rozptylu: molekuly vzduchu rozptylují krátké vlnové délky mnohem silněji než dlouhé.",
+    "en": "Sunlight is white and air is colourless, yet the sky is blue. We show that a single property of scattering is responsible: air molecules scatter short wavelengths far more strongly than long ones."
   },
   "goal": {
-    "cs": "Pochopit, že modrá obloha je ta část slunečního světla, kterou molekuly vychýlily ze svazku, a že je modrá jen proto, že rozptyl roste s klesající vlnovou délkou (1/λ⁴).",
-    "en": "Understand that the blue sky is the part of sunlight that molecules turned out of the beam, and that it is blue only because scattering grows as the wavelength falls (1/λ⁴)."
+    "cs": "Vysvětlit, že modrá obloha je sluneční světlo, které molekuly vzduchu rozptýlily do stran, a že je modrá proto, že se krátké vlnové délky rozptylují mnohem silněji (zhruba jako 1/λ⁴).",
+    "en": "Explain that the blue sky is sunlight that air molecules have scattered sideways, and that it is blue because short wavelengths are scattered much more strongly (roughly as 1/λ⁴)."
   },
   "steps": [
     {
       "title": { "cs": "Výchozí stav", "en": "The starting point" },
       "text": {
-        "cs": "Stojíš na Zemi, Slunce je 60° nad obzorem a díváš se kolmo vzhůru. Vpravo nahoře je graf Spektrum. Klikni v jeho legendě na „Zdroj (nad atmosférou)“ a „Přímý svazek (po průchodu vzduchem)“, aby se skryly; graf se pak přeškáluje na zbylé dvě křivky.",
-        "en": "You are standing on Earth, the Sun is 60° above the horizon and you are looking straight up. At the top right is the Spectrum chart. Click “Source (above the atmosphere)” and “Direct beam (after the air)” in its legend to hide them; the chart then rescales to the two curves left."
+        "cs": "Stojíš na Zemi, Slunce je 60° nad obzorem a díváš se kolmo vzhůru. V grafu Spektrum vpravo nahoře porovnej dvě křivky: „Zdroj (nad atmosférou)“ je sluneční světlo, „Rozptýlené světlo (obloha)“ je světlo, které k tobě přichází z oblohy.",
+        "en": "You are standing on Earth, the Sun is 60° above the horizon and you are looking straight up. In the Spectrum chart at the top right, compare two curves: “Source (above the atmosphere)” is sunlight, “Scattered light (the sky)” is the light reaching you from the sky."
       },
       "observe": {
-        "cs": "Křivka „Rozptýlené světlo (obloha)“ je nejvyšší u krátkých vlnových délek a směrem k červené rychle klesá. Sluneční světlo, ze kterého vzniklo, takový sklon nemá. Barva v poli „Co vidíš“ je modrá.",
-        "en": "The “Scattered light (the sky)” curve is highest at short wavelengths and falls quickly towards the red. The sunlight it came from has no such slope. The colour in the “What you see” box is blue."
+        "cs": "Sluneční světlo obsahuje všechny barvy v podobném množství. Světlo oblohy je proti němu posunuté ke krátkým vlnovým délkám. Křivka oblohy leží nízko; klikni v legendě na „Zdroj (nad atmosférou)“ a „Přímý svazek (po průchodu vzduchem)“, aby se skryly, a graf ji zvětší.",
+        "en": "Sunlight contains all colours in similar amounts. Compared with it, the sky light is shifted towards short wavelengths. The sky curve lies low; click “Source (above the atmosphere)” and “Direct beam (after the air)” in the legend to hide them and the chart enlarges it."
       },
       "state": {
         "star": { "presetId": "sun-5800k", "temperatureK": 5800, "elevationDeg": 60 },
@@ -31,29 +31,29 @@
     {
       "title": { "cs": "Jen molekuly", "en": "Molecules only" },
       "text": {
-        "cs": "Ve vzduchu jsou dva druhy rozptylujících částic: molekuly plynu a mnohem větší částice prachu a kapiček (aerosol). Aerosol jsme vypnuli, takže teď rozptylují jen molekuly.",
-        "en": "Air holds two kinds of scatterer: gas molecules, and much larger particles of dust and droplets (aerosol). We have switched the aerosol off, so only the molecules scatter now."
+        "cs": "Ve vzduchu rozptylují světlo molekuly plynu a mnohem větší částice prachu a kapiček (aerosol). Aerosol jsme vypnuli, aby zbyly jen molekuly.",
+        "en": "In air, light is scattered by gas molecules and by much larger particles of dust and droplets (aerosol). We have switched the aerosol off so that only the molecules remain."
       },
       "observe": {
-        "cs": "Obloha ztmavne (zář v tabulce Fyzikální veličiny klesne asi na 40 %) a modrá je sytější. Aerosol přidával bělavou složku; na pásu pod obrázkem zmizí i bledá záře kolem Slunce.",
-        "en": "The sky darkens (the radiance in the Physical quantities table falls to about 40 %) and the blue is deeper. The aerosol was adding a whitish component; on the strip under the picture the pale glow around the Sun disappears as well."
+        "cs": "Obloha je tmavší a sytěji modrá. Zář oblohy (jak jasný je kousek oblohy, kam se díváš) klesla v tabulce Fyzikální veličiny asi na 40 %. Aerosol přidával bělavé světlo.",
+        "en": "The sky is darker and a deeper blue. The sky radiance (how bright the patch of sky you look at is) has fallen to about 40 % in the Physical quantities table. The aerosol was adding whitish light."
       },
       "state": { "atmosphere": { "aerosolScale": 0 } },
       "highlight": "ctl-aerosol"
     },
     {
-      "title": { "cs": "Rozptyl stejný pro všechny barvy", "en": "Scattering the same for every colour" },
+      "title": { "cs": "Všechny barvy stejně", "en": "Every colour alike" },
       "text": {
-        "cs": "Exponent n říká, jak silně rozptyl závisí na vlnové délce: účinný průřez je úměrný 1/λⁿ. Skutečný vzduch má n = 4. Nastavili jsme n = 0, takže molekuly teď rozptylují všechny barvy stejně. Ovladač je jen na pokročilé úrovni, proto jsme ji zapnuli.",
-        "en": "The exponent n says how strongly scattering depends on wavelength: the cross-section is proportional to 1/λⁿ. Real air has n = 4. We have set n = 0, so the molecules now scatter every colour equally. The control exists only at the advanced level, so we switched that on."
+        "cs": "Exponent n určuje, jak silně rozptyl závisí na vlnové délce: rozptyl je úměrný 1/λⁿ. Pro vzduch je n = 4. Nastavili jsme n = 0: molekuly teď rozptylují všechny barvy stejně a jejich množství se nezměnilo.",
+        "en": "The exponent n sets how strongly scattering depends on wavelength: scattering is proportional to 1/λⁿ. For air n = 4. We have set n = 0: the molecules now scatter every colour equally, and there are just as many of them."
       },
       "observe": {
-        "cs": "Obloha zešedne. Zář oblohy v tabulce se skoro nezmění: světla je stejně, chybí jen barva.",
-        "en": "The sky turns grey. The sky radiance in the table hardly changes: there is as much light as before, only the colour is gone."
+        "cs": "Obloha zešedla, ale zář oblohy se téměř nezměnila. Světla z oblohy přichází stejně, jen nemá barvu.",
+        "en": "The sky has turned grey, but its radiance has hardly changed. As much light comes from the sky as before; it just has no colour."
       },
       "question": {
-        "cs": "Vzduch se nezměnil, jen přestal rozlišovat barvy. Co je tedy příčinou modré barvy oblohy?",
-        "en": "The air has not changed; it has only stopped telling colours apart. So what causes the blue of the sky?"
+        "cs": "Co tedy dělá oblohu modrou?",
+        "en": "So what makes the sky blue?"
       },
       "state": { "level": "advanced", "atmosphere": { "rayleighExponent": 0 } },
       "highlight": "ctl-exponent"
@@ -61,12 +61,12 @@
     {
       "title": { "cs": "Zpět na n = 4", "en": "Back to n = 4" },
       "text": {
-        "cs": "Vrátili jsme n = 4. Molekuly teď rozptylují světlo o vlnové délce 450 nm asi 4,5× silněji než světlo o 650 nm. Zapni v legendě grafu znovu „Přímý svazek (po průchodu vzduchem)“.",
-        "en": "We have put n back to 4. Molecules now scatter 450 nm light about 4.5 times more strongly than 650 nm light. Switch “Direct beam (after the air)” back on in the chart legend."
+        "cs": "Vrátili jsme n = 4. Podle 1/λ⁴ se světlo 450 nm rozptyluje (650/450)⁴ ≈ 4,4× silněji než světlo 650 nm; skutečný vzduch to dělá ještě o trochu víc, asi 4,5×. Zapni v legendě grafu znovu „Přímý svazek (po průchodu vzduchem)“.",
+        "en": "We have put n back to 4. By 1/λ⁴, 450 nm light is scattered (650/450)⁴ ≈ 4.4 times more strongly than 650 nm light; real air does a little more, about 4.5 times. Switch “Direct beam (after the air)” back on in the chart legend."
       },
       "observe": {
-        "cs": "Přímý svazek přišel o větší díl modré než červené (při 450 nm prošlo asi 77 % světla, při 650 nm asi 92 %). Chybějící modrá se rozptýlila do všech směrů; ta její část, která míří k tobě, je modrá obloha.",
-        "en": "The direct beam has lost a larger share of its blue than of its red (about 77 % of the light gets through at 450 nm, about 92 % at 650 nm). The missing blue was scattered in every direction; the part of it heading towards you is the blue sky."
+        "cs": "Přímý svazek ztratil víc modré než červené: propustnost (jaká část světla projde) je asi 77 % při 450 nm a 92 % při 650 nm. Chybějící modrá se rozptýlila do stran. Totéž se děje ve všech slunečních paprscích nad tebou a část jejich rozptýleného světla míří k tobě: to je modrá obloha.",
+        "en": "The direct beam has lost more blue than red: the transmission (the share of light that gets through) is about 77 % at 450 nm and 92 % at 650 nm. The missing blue was scattered sideways. The same happens in every sunbeam above you, and part of their scattered light heads towards you: that is the blue sky."
       },
       "state": { "atmosphere": { "rayleighExponent": 4 } },
       "highlight": "ctl-exponent"
@@ -74,12 +74,12 @@
     {
       "title": { "cs": "Pohled k obzoru", "en": "Looking towards the horizon" },
       "text": {
-        "cs": "Pohled jsme sklonili z 0° na 85°, tedy skoro k obzoru. Paprsek pohledu teď prochází mnohonásobně delší vrstvou vzduchu než při pohledu vzhůru.",
-        "en": "We have tilted the view from 0° to 85°, almost to the horizon. The line of sight now runs through many times more air than when looking up."
+        "cs": "Pohled jsme sklonili z 0° na 85°, téměř k obzoru. V tomto směru je před tebou mnohem více vzduchu než nad tebou.",
+        "en": "We have tilted the view from 0° to 85°, almost to the horizon. In this direction there is much more air in front of you than above you."
       },
       "observe": {
-        "cs": "Obloha u obzoru je světlejší a bledší. Na dlouhé dráze se modré světlo rozptýlené daleko od tebe cestou k tobě znovu rozptýlí pryč, kdežto červené většinou projde. Barvy se tím vyrovnají a modrá vybledne k bílé.",
-        "en": "The sky near the horizon is brighter and paler. Over the long path, blue light scattered far away is scattered out again on its way to you, while most of the red gets through. The colours even out and the blue fades towards white."
+        "cs": "Obloha u obzoru je jasnější a bledší. Jasnější, protože v delší vrstvě vzduchu se k tobě rozptýlí víc světla. Bledší, protože modré světlo z velké dálky se cestou k tobě znovu rozptýlí pryč, kdežto červené většinou projde; barvy se vyrovnají.",
+        "en": "The sky near the horizon is brighter and paler. Brighter, because the longer layer of air scatters more light towards you. Paler, because blue light from far away is scattered out again on its way to you, while most of the red gets through; the colours even out."
       },
       "state": { "observer": { "viewZenithDeg": 85 } },
       "highlight": "ctl-view"
@@ -87,12 +87,12 @@
     {
       "title": { "cs": "Proč ne fialová?", "en": "Why not violet?" },
       "text": {
-        "cs": "Vrátili jsme pohled do zenitu a aerosol na 1 ×. Křivka oblohy v grafu je nejvyšší u nejkratších vlnových délek, kolem 400 nm, tedy ve fialové. Barva oblohy je přesto modrá.",
-        "en": "We have returned the view to the zenith and the aerosol to 1 ×. The sky curve in the chart is highest at the shortest wavelengths, around 400 nm, which is violet. Yet the sky is blue."
+        "cs": "Pohled jsme vrátili do zenitu a aerosol na 1 ×, aby obloha byla zase jako skutečná. Křivka oblohy je nejvyšší u nejkratších vlnových délek, kolem 400 nm (fialová), a přesto je obloha modrá.",
+        "en": "We have returned the view to the zenith and the aerosol to 1 ×, so the sky is realistic again. The sky curve is highest at the shortest wavelengths, around 400 nm (violet), and yet the sky is blue."
       },
       "observe": {
-        "cs": "Slunce vyzařuje fialové světlo slaběji než modré (podívej se na křivku zdroje) a oko je na fialovou málo citlivé. Barva v poli „Co vidíš“ se počítá přes standardního pozorovatele CIE 1931, tedy podle citlivosti lidského oka.",
-        "en": "The Sun emits less violet than blue (look at the source curve), and the eye is not very sensitive to violet. The colour in the “What you see” box is computed through the CIE 1931 standard observer, that is, by the sensitivity of the human eye."
+        "cs": "Světlo oblohy není jedna barva, ale směs všech vlnových délek s převahou krátkých. Slunce vyzařuje fialové světlo slaběji než modré a oko je na fialovou málo citlivé, proto tu směs vidíme jako modrou. Barva v poli „Co vidíš“ je spočtená podle citlivosti lidského oka.",
+        "en": "Sky light is not one colour but a mixture of all wavelengths in which the short ones dominate. The Sun emits less violet than blue, and the eye is not very sensitive to violet, so we see that mixture as blue. The colour in the “What you see” box is computed from the sensitivity of the human eye."
       },
       "state": { "atmosphere": { "aerosolScale": 1 }, "observer": { "viewZenithDeg": 0 } }
     }
