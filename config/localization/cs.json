@@ -137,9 +137,10 @@
     "wavelength": "Vlnová délka",
     "wellWall": "Stěna šachty",
     "legendStarlight": "světlo hvězdy nad tebou, jeden paprsek",
-    "starPatchTitle": "Světlo z oblohy 1′ kolem hvězdy nad tebou",
+    "starPatchTitle": "Co soupeří s hvězdou nad tebou (1′)",
     "starPatchSky": "záře oblohy za hvězdou",
-    "starPatchStar": "hvězda (jako Vega)"
+    "starPatchStar": "hvězda (jako Vega)",
+    "starPatchGround": "osvětlený povrch kolem tebe"
   },
   "spectrum": {
     "title": "Spektrum",
@@ -178,9 +179,10 @@
     "overheadStarPercent": "Hvězda přímo nad tebou, jasná jako Vega, má jen {pct} jasu kousku oblohy kolem ní (o průměru 1′, nejmenší detail, který oko rozliší).",
     "overheadStarTimes": "Hvězda přímo nad tebou, jasná jako Vega, je {n}× jasnější než kousek oblohy kolem ní (o průměru 1′, nejmenší detail, který oko rozliší).",
     "overheadStarBlack": "Hvězda přímo nad tebou, jasná jako Vega: kousek oblohy kolem ní je černý.",
-    "starVisible": "Hvězda je jasnější než obloha za ní, takže ji obloha nezakryje.",
+    "starVisible": "Nepřezáří ji ani obloha za ní, ani osvětlené okolí, takže je vidět.",
     "starBorderline": "Je na hranici viditelnosti: najde ji jen zkušený pozorovatel, který ví, kam se dívat.",
-    "starLost": "Obloha za ní je mnohem jasnější, takže hvězda v ní zanikne."
+    "starLost": "Obloha za ní je mnohem jasnější, takže hvězda v ní zanikne.",
+    "starGlare": "Obloha za ní ji nezakryje, ale osvětlený povrch kolem tebe je jasnější: oko přivyklé jeho jasu a jasu Slunce ji nezachytí. Ze stínu, odkud osvětlený povrch ani Slunce nevidíš, by byla vidět."
   },
   "data": {
     "title": "Fyzikální veličiny",

@@ -631,13 +631,18 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     if (Math.abs(current.observer.viewZenithDeg) > VIEW_CONE_HALF_DEG) return;
     const star = current.evaluation?.metrics?.overheadStar;
     if (!star) return;
-    const skyLight = Math.max(0, star.zenithSkyLuminance) * eyeResolutionSolidAngle();
+    const patch = eyeResolutionSolidAngle();
+    const skyLight = Math.max(0, star.zenithSkyLuminance) * patch;
+    // The sunlit ground, only while it is in view: the eye adapts to it, so
+    // the star has to beat it too. At the bottom of a shaft it is out of view.
+    const groundLight = star.groundInView ? Math.max(0, star.groundLuminance) * patch : null;
     const starLight = Math.max(0, star.illuminance);
-    const scale = Math.max(skyLight, starLight);
+    const scale = Math.max(skyLight, starLight, groundLight ?? 0);
     if (!(scale > 0)) return;
 
-    const w = Math.min(190, plot.w * 0.44);
-    const h = 70;
+    const rows = groundLight == null ? 2 : 3;
+    const w = Math.min(200, plot.w * 0.46);
+    const h = 22 + rows * 24;
     const x = plot.x + plot.w - w - 8;
     const y = plot.y + plot.h - h - 22;
     const barX = x + 8;
@@ -675,8 +680,14 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       ctx.fillRect(barX, barY, len, 7);
     };
     ctx.font = '9.5px system-ui, sans-serif';
-    row(y + 26, i18n.t('canvas.starPatchSky'), skyLight, '#8fb8ff');
-    row(y + 50, i18n.t('canvas.starPatchStar'), starLight, '#f4f7ff');
+    let rowY = y + 26;
+    row(rowY, i18n.t('canvas.starPatchSky'), skyLight, '#8fb8ff');
+    if (groundLight != null) {
+      rowY += 24;
+      row(rowY, i18n.t('canvas.starPatchGround'), groundLight, '#c9a77a');
+    }
+    rowY += 24;
+    row(rowY, i18n.t('canvas.starPatchStar'), starLight, '#f4f7ff');
     ctx.restore();
   }
 

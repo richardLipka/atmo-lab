@@ -331,8 +331,13 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
     let text = !Number.isFinite(c) ? i18n.t('color.overheadStarBlack')
       : c >= 1 ? i18n.t('color.overheadStarTimes', { n: local(formatRatio(c)) })
         : i18n.t('color.overheadStarPercent', { pct: local(`${(c * 100).toPrecision(2)} %`) });
-    text += ` ${i18n.t(c >= 1 ? 'color.starVisible'
-      : c >= 0.1 ? 'color.starBorderline' : 'color.starLost')}`;
+    // Past the sky, the glare: an eye in sunlight is adapted to the sunlit
+    // ground (and the Sun), and a faint star has to beat that level as well.
+    // On the Moon this is the only thing in the way, and a shadow removes it.
+    const glared = c >= 1 && star.groundInView && star.adaptedContrast < 1;
+    text += ` ${i18n.t(glared ? 'color.starGlare'
+      : c >= 1 ? 'color.starVisible'
+        : c >= 0.1 ? 'color.starBorderline' : 'color.starLost')}`;
     const scene = result.primary.scene;
     const skyShare = histogram.skyShare ?? 1;
     if (scene.wellActive && !scene.countShaftAir && skyShare < 0.999) {

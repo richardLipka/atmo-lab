@@ -137,9 +137,10 @@
     "wavelength": "Wavelength",
     "wellWall": "Shaft wall",
     "legendStarlight": "starlight from overhead, one ray each",
-    "starPatchTitle": "Light from the 1′ of sky around the star overhead",
+    "starPatchTitle": "What competes with the star overhead (1′)",
     "starPatchSky": "glow of the sky behind the star",
-    "starPatchStar": "the star (like Vega)"
+    "starPatchStar": "the star (like Vega)",
+    "starPatchGround": "sunlit ground around you"
   },
   "spectrum": {
     "title": "Spectrum",
@@ -178,9 +179,10 @@
     "overheadStarPercent": "A star straight overhead, as bright as Vega, has only {pct} of the brightness of the patch of sky around it (1′ across, the smallest detail the eye resolves).",
     "overheadStarTimes": "A star straight overhead, as bright as Vega, is {n} times brighter than the patch of sky around it (1′ across, the smallest detail the eye resolves).",
     "overheadStarBlack": "A star straight overhead, as bright as Vega: the patch of sky around it is black.",
-    "starVisible": "The star is brighter than the sky behind it, so the sky will not hide it.",
+    "starVisible": "Neither the sky behind it nor the lit surroundings outshine it, so it can be seen.",
     "starBorderline": "It is at the edge of visibility: only an experienced observer who knows where to look will find it.",
-    "starLost": "The sky behind it is far brighter, so the star is lost in it."
+    "starLost": "The sky behind it is far brighter, so the star is lost in it.",
+    "starGlare": "The sky behind it will not hide it, but the sunlit ground around you is brighter: an eye adjusted to it and to the Sun will not catch the star. From a shadow, where you see neither the sunlit ground nor the Sun, it would be visible."
   },
   "data": {
     "title": "Physical quantities",

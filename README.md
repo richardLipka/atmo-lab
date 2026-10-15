@@ -806,6 +806,20 @@ star itself. At noon the star is a sliver of 1.4 % beside the sky's full bar —
 same sliver at the bottom of a well, where the rays above it look so persuasive. At dusk the
 star's bar overtakes; on the Moon the sky's bar is gone.
 
+**On the Moon the sky is not the obstacle; the glare is.** An eye adjusts to the brightest
+thing it can see, and on open sunlit ground that is the ground itself (and the Sun). A
+matte surface of albedo ρ under an illuminance E has a luminance ρE/π; for the Moon's
+albedo of 0.136 that comes out as bright as Earth's blue daytime sky, or brighter, so
+against a 1′ patch of it Vega has about 1 % — the same predicament as on Earth, under a
+black sky. The simulator now counts it: whenever the sunlit ground is in view, the inset
+gains a row for it and the panel says the sky will not hide the star but the glare will. At
+the bottom of a pit, in shadow, neither the ground nor the Sun is in view and the star wins
+by millions — which is what the Apollo astronauts reported: no stars by eye from the sunlit
+surface (Armstrong), the brighter ones from the shadow of the Lunar Module (Universe
+Today), after the 20–30 minutes an eye needs to adapt to the dark. On the Moon a well
+helps; on Earth it cannot, because there the obstacle is the sky behind the star. The guide
+gains the step *In shadow on the Moon*.
+
 **The guide names its sources** under the steps that rely on them: apparent magnitudes and
 visual acuity (Wikipedia), Venus in daylight (Universe Today), Aristotle, Hynek and Winsor
 and Ken Tapping on the Moon (S. Odenwald, Astronomy Café), civil twilight (Geoscience
@@ -880,7 +894,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **149 tests** covering:
+`node tests/run-tests.js` runs **150 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine

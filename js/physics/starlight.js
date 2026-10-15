@@ -71,6 +71,19 @@ export function overheadStarIlluminance(transmittance, colorimetry, star = OVERH
 }
 
 /**
+ * How bright the sunlit ground looks, in luminance per steradian.
+ *
+ * A matte surface lit by an illuminance E has a luminance rho E / pi, rho its
+ * albedo. That is the brightness an eye standing on it adapts to - and on the
+ * Moon, with an albedo near 0.14, it comes out about as bright as Earth's blue
+ * daytime sky. So an eye on the sunlit Moon is in nearly the same position as
+ * an eye on Earth by day, even though the sky above it is black.
+ */
+export function groundLuminance(albedo, illuminance) {
+  return Math.max(0, albedo) * Math.max(0, illuminance) / Math.PI;
+}
+
+/**
  * How bright the star is against the sky right around it: the star's light
  * divided by the light of the patch of sky the eye cannot separate from it.
  * Above 1 the star outshines that patch; far below 1 it is lost in it.

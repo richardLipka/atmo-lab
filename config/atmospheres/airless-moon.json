@@ -9,7 +9,7 @@
   "surfacePressure_kPa": 0,
   "surfaceGravity_mps2": 1.62,
   "insolationRelative": 1,
-  "groundAlbedo": 0.12,
+  "groundAlbedo": 0.136,
   "rayleigh": {
     "beta550_perM": 1e-13,
     "scaleHeight_m": 8500,
