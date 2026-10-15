@@ -20,6 +20,10 @@ import {
   AIR_DISPERSION_FACTOR, ANGSTROM_SPLIT_NM,
 } from '../js/physics/scattering.js';
 import { createAtmosphere, DOBSON_UNIT_PER_M2 } from '../js/physics/atmosphere.js';
+import {
+  OVERHEAD_STAR, starIlluminanceRelativeToSun, coneSolidAngle,
+  overheadStarIlluminance, starShareOfView,
+} from '../js/physics/starlight.js';
 import { createColorimetry } from '../js/physics/color.js';
 import {
   wellApertureHalfAngle, wellIsBlocked, wellSolidAngle,
@@ -2076,6 +2080,57 @@ export function registerTests({ group, test, assert }, config) {
       // not move the other.
       store.patch({ compare: { b: { observer: { z: 900 } } } });
       assert.equal(store.state.observer.z, 10, 'the two must not share objects');
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+
+  group('a star overhead, by day and by night', () => {
+    test('a magnitude 0 star delivers 2e-11 of the Sun at 1 AU', () => {
+      // 10^(-0.4 * 26.74): the Sun's apparent visual magnitude is -26.74.
+      assert.close(starIlluminanceRelativeToSun(0), 2.0137e-11, 1e-3);
+      assert.close(starIlluminanceRelativeToSun(5) / starIlluminanceRelativeToSun(0), 0.01, 1e-9,
+        'five magnitudes are a factor of one hundred');
+      assert.close(coneSolidAngle(90), 2 * Math.PI, 1e-12);
+    });
+
+    test('the air above takes its share of the starlight, and none above the air', () => {
+      const bare = starIlluminanceRelativeToSun(OVERHEAD_STAR.magnitude);
+      // At the modelled top a trace of air remains: e^(-100/8.5) of the column.
+      assert.close(overheadStarIlluminance(earth, colorimetry, earth.topAltitude), bare, 1e-5);
+      const ground = overheadStarIlluminance(earth, colorimetry, 0) / bare;
+      // Straight down through tau ~ 0.1 of gas and 0.06 of haze, plus ozone.
+      assert.between(ground, 0.8, 0.9);
+    });
+
+    test('by day a real star is lost in the sky, and a shaft only removes the rest of the sky', () => {
+      const star = overheadStarIlluminance(earth, colorimetry, 0);
+      const field = coneSolidAngle(VIEW_CONE_HALF_DEG);
+      const zenith = colorimetry.luminance(computeViewRadiance(
+        sceneAt({ elevation: 55 }), ZENITH, QUALITY_PRESETS.high).scattered);
+      const open = starShareOfView({ starIlluminance: star, meanLuminance: zenith, fieldSolidAngle: field });
+      assert.less(open, 1e-7, 'in the open the star is under one part in ten million');
+      // Down a shaft the field of view keeps only skyShare of its sky, at the
+      // same radiance. The star gains by exactly that factor - and no more.
+      for (const skyShare of [0.13, 0.02, 1e-4]) {
+        const down = starShareOfView({
+          starIlluminance: star, meanLuminance: zenith * skyShare, fieldSolidAngle: field,
+        });
+        assert.close(down / open, 1 / skyShare, 1e-3, `sky share ${skyShare}`);
+        assert.less(down, 1e-3, `by day the star still loses with ${skyShare} of the sky left`);
+      }
+    });
+
+    test('once the sky goes dark the same star outshines it', () => {
+      const star = overheadStarIlluminance(earth, colorimetry, 0);
+      const field = coneSolidAngle(VIEW_CONE_HALF_DEG);
+      const zenithAt = (elevation) => colorimetry.luminance(computeViewRadiance(
+        sceneAt({ elevation }), ZENITH, QUALITY_PRESETS.high).scattered);
+      const share = (elevation) => starShareOfView({
+        starIlluminance: star, meanLuminance: zenithAt(elevation), fieldSolidAngle: field,
+      });
+      assert.less(share(-3), share(-8), 'the star gains as the twilight deepens');
+      assert.greater(share(-8), share(55) * 1e3);
     });
   });
 

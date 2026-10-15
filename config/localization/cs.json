@@ -131,7 +131,8 @@
     "verticalExaggerated": "Svislé měřítko je stlačené, aby se do jednoho obrázku vešla šachta i celá atmosféra.",
     "viewCone": "tvůj zorný kužel",
     "wavelength": "Vlnová délka",
-    "wellWall": "Stěna šachty"
+    "wellWall": "Stěna šachty",
+    "legendStarlight": "světlo hvězdy nad tebou, jeden paprsek"
   },
   "spectrum": {
     "title": "Spektrum",
@@ -164,7 +165,13 @@
     "agreement": "Integrátor se liší o dxy = {dxy}; poměr jasu {ratio} z {rays} paprsků.",
     "belowOneRay": "Na {cast} směrů v zorném poli připadá méně světla, než zastupuje jeden paprsek.",
     "starInCone": "Hvězda je v zorném poli: její kotouč je asi {ratio}krát jasnější než obloha kolem ní, takže svazek na obrázku není v měřítku a ani být nemůže.",
-    "skyFills": "obloha vyplňuje {share} zorného pole"
+    "skyFills": "obloha vyplňuje {share} zorného pole",
+    "overheadStar": "Hvězda přímo nad tebou, jasná jako Vega: {share} světla ve tvém zorném poli.",
+    "overheadStarWins": "Přezáří všechno ostatní, co vidíš.",
+    "overheadStarShaft": "Tady dole je to asi {gain}× víc než venku, protože skála ti vzala {lost} výhledu na oblohu. Obloha hned vedle hvězdy je ale přesně tak jasná jako nahoře.",
+    "overheadStarStillLoses": "Za dne proto hvězda prohrává i tady.",
+    "overheadStarOut": "Hvězda přímo nad tebou, jasná jako Vega, je mimo zorné pole. Podívej se kolmo vzhůru a její paprsek bude v něm.",
+    "onePartIn": "1 díl z {n}"
   },
   "data": {
     "title": "Fyzikální veličiny",

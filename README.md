@@ -743,6 +743,25 @@ column per sample. That handed a third of the strip to an aperture worth two per
 sky. Sampling density is a numerical concern and must not decide how wide anything looks;
 the aperture is now marked, not widened.
 
+### Stars by day, from the bottom of a well
+
+The oldest version of the question this simulator exists for: *can you see the stars
+by day from the bottom of a well?* A row of small stars sits along the top of the
+cross-section, each sending **one ray straight down**. The one in the middle stands over
+the observer, so its ray is the one that ends in their eye — or runs down the shaft to its
+floor. The rays are drawn *beneath* the scattered light, on purpose: in the open the blue
+rays converging on the observer bury the star's single line, and down a shaft the walls
+have already stopped nearly all of them, so it stands almost alone.
+
+The panel says what that is worth, for a star as bright as Vega (magnitude 0, 2 × 10⁻¹¹ of
+the Sun) carried through the air above: its share of the light in the 12° field of view.
+At noon on open ground that is about **1 part in 10⁸**. Fifty metres down a 1.5 m shaft it
+is about **1 part in 10⁶** — the walls have taken 99 % of the sky out of the view. But
+that is all they have done. The patch of sky right beside the star is exactly as bright as
+it is up top (the well paradox again), so by day the star still loses by a factor of a
+million. As the Sun sets and the scattered light fades, the same star outshines the sky;
+the tests hold both halves of that.
+
 An **advanced toggle, "count air inside the shaft"**, is off by default so that descending
 is purely geometric, as specified. Switching it on adds the denser air that would really
 fill a deep shaft (C = H(e^(d/H) − 1)) — and only then does descending finally become an
@@ -793,7 +812,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **135 tests** covering:
+`node tests/run-tests.js` runs **139 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine
@@ -803,6 +822,9 @@ lesson:
   against OPAC Table 3, and the split Ångström law;
 - **Hulburt's twilight**: without ozone the zenith at 0°, −3° and −6° turns yellowish;
   with it, it stays blue;
+- the star overhead: 2 × 10⁻¹¹ of the Sun at magnitude 0, losing to the daylight sky by
+  more than 10⁷ in the open and still by 10³ with a ten-thousandth of the sky left in view,
+  gaining exactly by the sky the shaft removes, and winning once the sky is dark;
 - exact column integration at four steps, and the sky at "preview" and "normal" quality
   matching a 2000-step reference;
 - phase-function normalisation over the sphere, with and without depolarisation, and the

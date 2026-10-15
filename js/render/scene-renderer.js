@@ -289,10 +289,16 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     drawStarMarker(plot);
     drawApertureCone(plot, camera, z);
     drawViewCone(plot, camera, z);
+    // Starlight goes in BEFORE the scattered light, on purpose: in the open the
+    // scattered rays should be able to bury it, and down a shaft the walls have
+    // already stopped most of them, so it shows.
+    const stars = overheadStars(plot, camera);
+    drawStarRays(stars);
     if (current.photons && data.state.rays.showScattering) {
       drawPhotons(plot, camera, z, timeMs);
     }
     drawObserverAt(camera, z, evaluation);
+    drawStarIcons(stars, timeMs);
     ctx.restore();
 
     // Outside the clip: the labels live in the left margin, which is not part
@@ -521,6 +527,87 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.textAlign = 'right';
     ctx.fillText(i18n.t('canvas.star'), mx, my + 3);
+    ctx.restore();
+  }
+
+  /**
+   * Faint stars along the top of the frame, each sending one ray straight down.
+   *
+   * By day the stars are all still there; what hides them is the scattered
+   * sunlight arriving from every other direction at once. Each one is drawn
+   * with exactly one ray - a thin white line to the ground - and the one in the
+   * middle stands directly over the observer, so its ray is the one that ends
+   * in their eye, or runs down the shaft to the bottom.
+   *
+   * They are evenly spread across the middle of the frame and kept clear of the
+   * star marker at the right. The middle one is placed first and exactly on the
+   * observer's line, because it is the only one whose light is anybody's.
+   */
+  const OVERHEAD_STAR_SPREAD = [0, -1, 1, -2, 2, -3, 3];
+
+  function overheadStars(plot, camera) {
+    const step = plot.w * 0.11;
+    const top = plot.y + current.topInset + 7;
+    const well = current.observer.well;
+    const shaft = well.enabled && well.depth_m > 0;
+    // Nothing may sit under the legend box, which is drawn over the top left
+    // whenever the rays are. The star over the observer is never dropped.
+    const legendShown = current.photons && data.state.rays.showScattering;
+    const clearOf = legendShown ? plot.x + 8 + legendBoxWidth() + 8 : plot.x;
+    return OVERHEAD_STAR_SPREAD.filter((k) => k === 0 || camera.cx + k * step - 6 > clearOf)
+      .map((k, index) => {
+      const sx = camera.cx + k * step;
+      const x = (sx - camera.cx) / camera.scale;
+      const fromY = camera.unproject(sx, top).y;
+      // Straight down until it meets rock: the floor of the shaft if the star
+      // stands over the opening, the curved ground anywhere else.
+      const inShaft = shaft && Math.abs(x) < well.radius_m;
+      const ground = Math.sqrt(Math.max(0, camera.R * camera.R - x * x));
+      const toY = inShaft ? camera.R - well.depth_m : ground;
+      return {
+        index, sx, top, overObserver: k === 0,
+        from: camera.project({ x, y: Math.max(fromY, toY) }),
+        to: camera.project({ x, y: toY }),
+      };
+      });
+  }
+
+  function drawStarRays(stars) {
+    ctx.save();
+    ctx.lineCap = 'round';
+    for (const star of stars) {
+      ctx.strokeStyle = 'rgba(244, 247, 255, 1)';
+      ctx.globalAlpha = star.overObserver ? 0.85 : 0.5;
+      ctx.lineWidth = star.overObserver ? 1.3 : 1;
+      ctx.beginPath();
+      ctx.moveTo(star.sx, star.top + 4);
+      ctx.lineTo(star.to.x, star.to.y);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  /** The stars themselves: small four-pointed sparks, on top of everything. */
+  function drawStarIcons(stars, timeMs) {
+    const animate = data.state.rays.animate;
+    ctx.save();
+    for (const star of stars) {
+      const twinkle = animate ? 0.8 + 0.2 * Math.sin(timeMs / 520 + star.index * 1.9) : 1;
+      const r = star.overObserver ? 4.2 : 3.4;
+      ctx.globalAlpha = 0.95 * twinkle;
+      ctx.fillStyle = '#f4f7ff';
+      ctx.beginPath();
+      ctx.moveTo(star.sx, star.top - r);
+      ctx.quadraticCurveTo(star.sx, star.top, star.sx + r, star.top);
+      ctx.quadraticCurveTo(star.sx, star.top, star.sx, star.top + r);
+      ctx.quadraticCurveTo(star.sx, star.top, star.sx - r, star.top);
+      ctx.quadraticCurveTo(star.sx, star.top, star.sx, star.top - r);
+      ctx.fill();
+      ctx.globalAlpha = 0.35 * twinkle;
+      ctx.beginPath();
+      ctx.arc(star.sx, star.top, r * 0.9, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -1019,24 +1106,36 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
    * the spectrum off the picture. The swatch shows them as eight blocks rather
    * than a smooth ramp for exactly that reason: a ramp cannot be counted.
    */
+  const LEGEND_ROWS = [
+    { key: 'canvas.legendArriving', style: 'bands', width: 2.4 },
+    { key: 'canvas.legendDirect', style: 'bands', width: 1.4 },
+    { key: 'canvas.legendInCone', style: 'ring', width: 1 },
+    { key: 'canvas.legendOffView', style: 'grey', width: 1 },
+    { key: 'canvas.legendMissed', style: 'grey', width: 1 },
+    { key: 'canvas.legendThrough', style: 'grey', width: 1 },
+    { key: 'canvas.legendStarlight', style: 'starlight', width: 1.3 },
+  ];
+  const LEGEND_SWATCH_W = 34;
+
+  /** How wide the legend box is, so other things can keep out of it. */
+  function legendBoxWidth() {
+    ctx.save();
+    ctx.font = '10px system-ui, sans-serif';
+    let width = 0;
+    for (const row of LEGEND_ROWS) width = Math.max(width, ctx.measureText(i18n.t(row.key)).width);
+    ctx.restore();
+    return width + LEGEND_SWATCH_W + 20;
+  }
+
   function drawPathLegend(plot) {
-    const rows = [
-      { key: 'canvas.legendArriving', style: 'bands', width: 2.4 },
-      { key: 'canvas.legendDirect', style: 'bands', width: 1.4 },
-      { key: 'canvas.legendInCone', style: 'ring', width: 1 },
-      { key: 'canvas.legendOffView', style: 'grey', width: 1 },
-      { key: 'canvas.legendMissed', style: 'grey', width: 1 },
-      { key: 'canvas.legendThrough', style: 'grey', width: 1 },
-    ];
-    const swatchW = 34;
+    const rows = LEGEND_ROWS;
+    const swatchW = LEGEND_SWATCH_W;
     ctx.save();
     ctx.font = '10px system-ui, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     const labels = rows.map((row) => i18n.t(row.key));
-    let width = 0;
-    for (const label of labels) width = Math.max(width, ctx.measureText(label).width);
-    const boxW = width + swatchW + 20;
+    const boxW = legendBoxWidth();
     const boxH = rows.length * 15 + 8;
     const x = plot.x + 8;
     const y = plot.y + 8 + current.topInset + (current.observer.well.enabled ? 14 : 0);
@@ -1059,6 +1158,13 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
           ctx.lineTo(left + (b + 1) * step + 0.5, cy);
           ctx.stroke();
         }
+      } else if (rows[i].style === 'starlight') {
+        ctx.globalAlpha = 0.85;
+        ctx.strokeStyle = '#f4f7ff';
+        ctx.beginPath();
+        ctx.moveTo(left, cy);
+        ctx.lineTo(right, cy);
+        ctx.stroke();
       } else if (rows[i].style === 'ring') {
         ctx.globalAlpha = 0.55;
         ctx.strokeStyle = '#8a93a6';
@@ -1080,7 +1186,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
         ctx.lineTo(right, cy);
         ctx.stroke();
       }
-      ctx.globalAlpha = rows[i].style === 'bands' ? 0.92 : 0.55;
+      ctx.globalAlpha = rows[i].style === 'bands' || rows[i].style === 'starlight' ? 0.92 : 0.55;
       ctx.fillStyle = '#ffffff';
       ctx.fillText(labels[i], x + swatchW, cy);
     }

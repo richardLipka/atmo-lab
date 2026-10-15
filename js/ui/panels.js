@@ -16,6 +16,9 @@ import {
   formatAltitude, formatAngle, stationColour, formatPlace,
 } from '../render/scene-renderer.js';
 import { RAY_BANDS } from '../physics/spectrum.js';
+import { overheadStarIlluminance, starShareOfView, coneSolidAngle } from '../physics/starlight.js';
+import { VIEW_CONE_HALF_DEG } from '../render/photons.js';
+import { activeObserver } from '../state.js';
 
 export function createPanels(root, { i18n, store, spectrumChart, chromaticity, colorimetry }) {
   const legend = root.querySelector('#spectrum-legend');
@@ -26,6 +29,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
   const swatchTheoryStar = root.querySelector('#swatch-theory-star');
   const swatchNote = root.querySelector('#swatch-note');
   const measuredNote = root.querySelector('#measured-note');
+  const overheadStarNote = root.querySelector('#overhead-star-note');
   const bandTally = root.querySelector('#band-tally');
   const theoryAgreement = root.querySelector('#theory-agreement');
   const colorTabs = root.querySelector('#color-tabs');
@@ -266,6 +270,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
 
     renderMeasuredStar(result, histogram);
     renderBandTally(histogram);
+    renderOverheadStar(result, histogram);
 
     // The one sentence that says where the number came from. It matters that it
     // is not the same sentence as the one on the theory tab.
@@ -287,6 +292,53 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
         })}`;
       }
     }
+  }
+
+  /**
+   * The faint star drawn over the observer, as a number.
+   *
+   * The picture shows its one ray reaching the eye - buried among the scattered
+   * rays in the open, nearly alone at the bottom of a shaft. This says how much
+   * of the light in the field of view it really is, so the picture cannot be
+   * read as more than it shows: the shaft raises the star's share only by the
+   * sky it takes away, and the patch of sky beside the star is as bright as ever.
+   */
+  function renderOverheadStar(result, histogram) {
+    const state = store.state;
+    const observer = activeObserver(state);
+    const inView = Math.abs(observer.viewZenithDeg) <= VIEW_CONE_HALF_DEG;
+    if (!histogram) {
+      overheadStarNote.textContent = '';
+      return;
+    }
+    if (!inView) {
+      overheadStarNote.textContent = i18n.t('color.overheadStarOut');
+      return;
+    }
+    const metrics = result.primary.metrics;
+    const star = overheadStarIlluminance(
+      result.atmosphere, colorimetry, metrics.atmosphericAltitude);
+    const share = starShareOfView({
+      starIlluminance: star,
+      meanLuminance: colorimetry.luminance(histogram.coneSpectrum),
+      fieldSolidAngle: coneSolidAngle(VIEW_CONE_HALF_DEG),
+    });
+    const formatted = share >= 0.01
+      ? `${Math.round(share * 100)} %`
+      : i18n.t('color.onePartIn', { n: formatRatio(1 / Math.max(share, 1e-300)) });
+    let text = i18n.t('color.overheadStar', { share: formatted });
+    if (share >= 0.5) text += ` ${i18n.t('color.overheadStarWins')}`;
+    const skyShare = histogram.skyShare ?? 1;
+    if (result.primary.scene.wellActive && skyShare > 0 && skyShare < 0.999) {
+      text += ` ${i18n.t('color.overheadStarShaft', {
+        gain: formatRatio(1 / skyShare),
+        lost: formatShare(1 - skyShare),
+      })}`;
+      if (share < 0.5 && result.primary.scene.sunElevationDeg > 0) {
+        text += ` ${i18n.t('color.overheadStarStillLoses')}`;
+      }
+    }
+    overheadStarNote.textContent = text;
   }
 
   /** A large ratio, rounded to something a person would actually say. */
