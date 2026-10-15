@@ -136,7 +136,10 @@
     "viewCone": "your field of view",
     "wavelength": "Wavelength",
     "wellWall": "Shaft wall",
-    "legendStarlight": "starlight from overhead, one ray each"
+    "legendStarlight": "starlight from overhead, one ray each",
+    "starPatchTitle": "Light from the 1′ of sky around the star overhead",
+    "starPatchSky": "glow of the sky behind the star",
+    "starPatchStar": "the star (like Vega)"
   },
   "spectrum": {
     "title": "Spectrum",
@@ -170,12 +173,14 @@
     "belowOneRay": "Less light than one ray stands for, across {cast} directions in view.",
     "starInCone": "The star is in your field of view: its disc is about {ratio} times brighter than the sky around it, so the bundle on the picture is not to scale and cannot be.",
     "skyFills": "sky fills {share} of your view",
-    "overheadStar": "A star straight overhead, as bright as Vega: {share} of the light in your field of view.",
-    "overheadStarWins": "It outshines everything else you can see.",
-    "overheadStarShaft": "Down here that is more than in the open, because the rock has hidden {lost} of your view of the sky while leaving the star uncovered. The sky right beside the star is exactly as bright as it is up top.",
-    "overheadStarStillLoses": "So by day the star still loses, even here.",
-    "overheadStarOut": "A star straight overhead, as bright as Vega, is outside your field of view. Look straight up to have its ray in it.",
-    "onePartIn": "1 part in {n}"
+    "overheadStarShaft": "The shaft has hidden {lost} of your view of the sky, but the patch of sky behind the star is as bright as up top, so it has changed nothing in this ratio.",
+    "overheadStarOut": "A star straight overhead, as bright as Vega, is outside your field of view. Look straight up.",
+    "overheadStarPercent": "A star straight overhead, as bright as Vega, has only {pct} of the brightness of the patch of sky around it (1′ across, the smallest detail the eye resolves).",
+    "overheadStarTimes": "A star straight overhead, as bright as Vega, is {n} times brighter than the patch of sky around it (1′ across, the smallest detail the eye resolves).",
+    "overheadStarBlack": "A star straight overhead, as bright as Vega: the patch of sky around it is black.",
+    "starVisible": "The star is brighter than the sky behind it, so the sky will not hide it.",
+    "starBorderline": "It is at the edge of visibility: only an experienced observer who knows where to look will find it.",
+    "starLost": "The sky behind it is far brighter, so the star is lost in it."
   },
   "data": {
     "title": "Physical quantities",
@@ -281,7 +286,8 @@
     "changed": "Changed",
     "on": "on",
     "off": "off",
-    "auto": "automatic"
+    "auto": "automatic",
+    "sources": "Sources"
   },
   "units": {
     "km": "km",

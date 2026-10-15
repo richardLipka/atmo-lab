@@ -28,7 +28,7 @@ exponent to 0 and the sky turns grey, because the physics says it must.
 
 ## The guided experiments
 
-Five guides walk a student through one question each. Every guide states its **goal** at
+Six guides walk a student through one question each. Every guide states its **goal** at
 its first step, and every step after that lists under its text exactly which controls it
 moved and to what — "Aerosol amount → 0.00 ×" — computed from the state before and after
 the step, so the list cannot drift from what the step really does.
@@ -38,7 +38,8 @@ the step, so the list cannot drift from what the step really does.
 | **Why is the sky blue?** | white sunlight and colourless air give a blue sky | the sky spectrum against the source → molecules only (haze off) → n = 0, the sky turns grey with the same amount of light → n = 4 again, the blue missing from the direct beam is the sky → towards the horizon, paler → why not violet: the Sun's spectrum and the eye |
 | **Why is the setting Sun red?** | the same white star turns red near the horizon | 60° → 20° → 5° → 0° with the 400 km chord in view, reading the air mass and the direct-beam transmission at 450 and 650 nm → control: n = 0 and no haze at 5°, the beam only dims |
 | **Flight into space** | the sky darkens to black while the Sun keeps shining | surface → 5 km → 20 km → 100 km, reading the share of the air column left and the sky radiance → control: the airless Moon at noon |
-| **The well paradox** | climbing and descending both darken your surroundings, for different reasons | surface → 10 km up (the sky itself dims) → 10 km down a shaft (the patch of sky is unchanged, the illuminance falls eight orders of magnitude) → both side by side → stars by day from a 50 m well → a shaft full of air |
+| **The well paradox** | climbing and descending both darken your surroundings, for different reasons | surface → 10 km up (the sky itself dims) → 10 km down a shaft (the patch of sky is unchanged, the illuminance falls eight orders of magnitude) → both side by side → a shaft full of air |
+| **Stars by day: from a well and on the Moon** | Aristotle's claim that stars can be seen by day from a deep well | Vega against the 1′ of sky around it at noon: 1.4 % → the same at the bottom of a 50 m well → and of a 10 km shaft (Hynek and Winsor's chimney) → dusk, where the sky darkens and the star wins → the Moon: a black sky, and only glare from the ground in the way → summary |
 | **Alien skies** | the colour of a sky depends on the star and on what scatters | Sun on Earth → a 3000 K star gives a beige sky, still bluer than its star → a 12 000 K star → Mars, where dust scatters → Mars without the dust → Titan under its haze |
 
 **A step is rebuilt, not applied on top.** It is the guide's starting situation plus every
@@ -784,14 +785,43 @@ floor. The rays are drawn *beneath* the scattered light, on purpose: in the open
 rays converging on the observer bury the star's single line, and down a shaft the walls
 have already stopped nearly all of them, so it stands almost alone.
 
-The panel says what that is worth, for a star as bright as Vega (magnitude 0, 2 × 10⁻¹¹ of
-the Sun) carried through the air above: its share of the light in the 12° field of view.
-At noon on open ground that is about **1 part in 10⁸**. Fifty metres down a 1.5 m shaft it
-is about **1 part in 10⁶** — the walls have taken 99 % of the sky out of the view. But
-that is all they have done. The patch of sky right beside the star is exactly as bright as
-it is up top (the well paradox again), so by day the star still loses by a factor of a
-million. As the Sun sets and the scattered light fades, the same star outshines the sky;
-the tests hold both halves of that.
+**What decides whether the star is seen is not that picture.** A star is a point, and
+what it has to outshine is the patch of sky the eye cannot tell apart from it — one
+resolution element, about one arcminute across. The panel compares exactly that: the
+star's illuminance, carried through the air above (and any air in the shaft), against the
+sky's radiance straight up times the solid angle of 1′. For a star as bright as Vega
+(magnitude 0, 2 × 10⁻¹¹ of the Sun) at noon the star has **1.4 %** of that patch. At the
+bottom of a 50 m well it is still 1.4 %, and at the bottom of a 10 km shaft too: the shaft
+takes away the rest of the sky, not the sky behind the star — the well paradox once more.
+Venus at its brightest, 70 times Vega, comes out at about **1**, and it is indeed the one
+object an experienced observer can find by eye in daylight; that calibrates the measure.
+The sky has to go dark instead: with the Sun 3° down the same star is 1.7 times its patch
+(the single-scattering sky darkens a little too fast — in reality the brightest stars
+appear near the end of civil twilight, at −6°), and on the Moon millions of times.
+
+**The picture shows the same comparison.** Whenever the observer looks within 12° of the
+zenith, an inset in the corner of the cross-section draws the two things that reach the eye
+from that 1′ patch, as bars on one linear scale: the glow of the sky behind the star and the
+star itself. At noon the star is a sliver of 1.4 % beside the sky's full bar — and it is the
+same sliver at the bottom of a well, where the rays above it look so persuasive. At dusk the
+star's bar overtakes; on the Moon the sky's bar is gone.
+
+**The guide names its sources** under the steps that rely on them: apparent magnitudes and
+visual acuity (Wikipedia), Venus in daylight (Universe Today), Aristotle, Hynek and Winsor
+and Ken Tapping on the Moon (S. Odenwald, Astronomy Café), civil twilight (Geoscience
+Australia), and Armstrong's own words in NASA's transcript of the Apollo 11 post-flight
+press conference (EP-73, part VI). A test checks every source is an https link with a label
+in both languages.
+
+An earlier version reported the star's share of the whole 12° field of view instead.
+A shaft does raise that share — about a hundredfold for a 50 m well — and so the number
+hinted that a well helps, which is the very myth Hynek and Winsor's chimney tests
+disproved. It was replaced.
+
+The guide **Stars by day: from a well and on the Moon** walks through all of it: daylight,
+a well, a 10 km shaft, dusk, the Moon — where the black sky would show the stars and only
+the glare of the sunlit ground hides them, which is why Armstrong saw stars only through
+the navigation optics, and why on the Moon, unlike on Earth, a tube *would* help.
 
 An **advanced toggle, "count air inside the shaft"**, is off by default so that descending
 is purely geometric, as specified. Switching it on fills the shaft with air: the gas is
@@ -850,7 +880,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **147 tests** covering:
+`node tests/run-tests.js` runs **149 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine
@@ -860,9 +890,10 @@ lesson:
   against OPAC Table 3, and the split Ångström law;
 - **Hulburt's twilight**: without ozone the zenith at 0°, −3° and −6° turns yellowish;
   with it, it stays blue;
-- the star overhead: 2 × 10⁻¹¹ of the Sun at magnitude 0, losing to the daylight sky by
-  more than 10⁷ in the open and still by 10³ with a ten-thousandth of the sky left in view,
-  gaining exactly by the sky the shaft removes, and winning once the sky is dark;
+- the star overhead: 2 × 10⁻¹¹ of the Sun at magnitude 0; against the 1′ of sky around it
+  Vega has a percent or two at noon and Venus at its brightest about one; the ratio is the
+  same on open ground, at the bottom of a 50 m well and of a 10 km shaft, and the star wins
+  at dusk and on the Moon;
 - exact column integration at four steps, and the sky at "preview" and "normal" quality
   matching a 2000-step reference;
 - phase-function normalisation over the sphere, with and without depolarisation, and the

@@ -23,6 +23,10 @@ import {
   wellApertureHalfAngle, wellSolidAngle, wellIlluminanceFraction,
   fieldOfViewSkyShare,
 } from './physics/well.js';
+import {
+  overheadStarIlluminance, starContrastAgainstSky, starIlluminanceRelativeToSun,
+  OVERHEAD_STAR, VENUS_BRIGHTEST_MAGNITUDE,
+} from './physics/starlight.js';
 
 const REFERENCE_LAMBDAS = [450, 550, 650];
 
@@ -161,6 +165,17 @@ export function createSimulation({ config, colorimetry }) {
     const depth = scene.observerZ < 0 ? -scene.observerZ : 0;
     const half = scene.wellActive ? wellApertureHalfAngle(depth, scene.wellRadius) : Math.PI / 2;
 
+    // A star straight overhead, against the sky right behind it. The zenith is
+    // the one direction a vertical shaft always leaves open, and the ray up it
+    // carries both: the star's light through the air (and any air in the
+    // shaft), and the sky's own glow in that direction.
+    const zenith = computeViewRadiance(scene, { x: 0, y: 1, z: 0 }, quality);
+    const zenithSkyLuminance = colorimetry.luminance(zenith.scattered);
+    const starIlluminance = overheadStarIlluminance(zenith.transmittance, colorimetry);
+    const starContrast = starContrastAgainstSky({ starIlluminance, skyLuminance: zenithSkyLuminance });
+    const venusFactor = starIlluminanceRelativeToSun(VENUS_BRIGHTEST_MAGNITUDE)
+      / starIlluminanceRelativeToSun(OVERHEAD_STAR.magnitude);
+
     return {
       scene, view, beam, dome: domeColors, illumination,
       perceived: perceived.spectrum,
@@ -189,6 +204,12 @@ export function createSimulation({ config, colorimetry }) {
         analyticIlluminanceFraction: scene.wellActive
           ? wellIlluminanceFraction(depth, scene.wellRadius) : 1,
         skyLuminance: colorimetry.luminance(view.scattered),
+        overheadStar: {
+          illuminance: starIlluminance,
+          zenithSkyLuminance,
+          contrast: starContrast,
+          venusContrast: starContrast * venusFactor,
+        },
         peakWavelength: wienPeakNm(sim.star.temperatureK),
         scatteringAngleDeg: Math.acos(Math.max(-1, Math.min(1,
           viewDir.x * scene.sunDir.x + viewDir.y * scene.sunDir.y + viewDir.z * scene.sunDir.z))) / DEG,

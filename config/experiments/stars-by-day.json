@@ -1,0 +1,221 @@
+{
+  "id": "stars-by-day",
+  "order": 5,
+  "icon": "star",
+  "title": {
+    "cs": "Hvězdy ve dne: ze studny a na Měsíci",
+    "en": "Stars by day: from a well and on the Moon"
+  },
+  "summary": {
+    "cs": "Už Aristotelés tvrdil, že ze dna hluboké studny jsou ve dne vidět hvězdy. Ověříme to: porovnáme hvězdu s oblohou těsně kolem ní na povrchu, na dně studny, za soumraku a na Měsíci.",
+    "en": "Aristotle already claimed that stars can be seen by day from the bottom of a deep well. We test it: we compare a star with the sky right around it on the surface, at the bottom of a well, at dusk and on the Moon."
+  },
+  "goal": {
+    "cs": "Vysvětlit, že hvězda je vidět, jen když je jasnější než kousek oblohy těsně kolem ní, který od ní oko nerozliší. Studna ten kousek oblohy neztmaví, a proto ve dne nepomůže. Hvězdy jsou vidět tam, kde je obloha za nimi tmavá: za soumraku, v noci a na Měsíci, kde není vzduch.",
+    "en": "Explain that a star can be seen only when it is brighter than the patch of sky right around it, which the eye cannot tell apart from it. A well does not darken that patch, so by day it does not help. Stars can be seen where the sky behind them is dark: at dusk, at night, and on the Moon, which has no air."
+  },
+  "steps": [
+    {
+      "title": {
+        "cs": "Den na povrchu",
+        "en": "Daytime on the surface"
+      },
+      "text": {
+        "cs": "Je den, Slunce je 55° nad obzorem a díváš se kolmo vzhůru. Nahoře v obrázku je řada malých hvězd; každá posílá jeden paprsek dolů a prostřední míří přímo na tebe. Je jasná jako Vega. V pravém panelu pod barvami ji popisuje řádek „Hvězda přímo nad tebou“: porovnává její světlo se světlem kousku oblohy kolem ní o průměru 1′, což je nejmenší detail, který oko rozliší.",
+        "en": "It is daytime, the Sun is 55° above the horizon and you are looking straight up. At the top of the picture is a row of small stars; each sends one ray down, and the middle one is aimed right at you. It is as bright as Vega. In the right-hand panel, under the colours, the line “A star straight overhead” describes it: it compares its light with the light of the patch of sky around it, 1′ across, the smallest detail the eye resolves."
+      },
+      "observe": {
+        "cs": "Hvězda má jen asi 1,4 % jasu toho kousku oblohy, a proto v něm zanikne. V obrázku se její paprsek ztratí mezi modrými paprsky rozptýleného světla. Pro srovnání: Venuše v největším lesku (asi −4,6 až −4,9 mag) je 70× až 90× jasnější než Vega a dává poměr kolem 1; zkušený pozorovatel ji ve dne najde, Vegu ne.",
+        "en": "The star has only about 1.4 % of the brightness of that patch of sky, so it is lost in it. In the picture its ray disappears among the blue rays of scattered light. For comparison: Venus at its brightest (about −4.6 to −4.9 mag) is 70 to 90 times brighter than Vega and gives a ratio of about 1; an experienced observer can find it by day, but not Vega."
+      },
+      "state": {
+        "star": {
+          "presetId": "sun-5800k",
+          "temperatureK": 5800,
+          "elevationDeg": 55
+        },
+        "atmosphere": {
+          "presetId": "earth"
+        },
+        "observer": {
+          "z": 0,
+          "viewZenithDeg": 0
+        }
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "Hvězdná velikost: Vega +0,03, Venuše až −4,9, Slunce −26,8 (Wikipedie, Apparent magnitude)",
+            "en": "Apparent magnitude: Vega +0.03, Venus up to −4.9, Sun −26.8 (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Apparent_magnitude"
+        },
+        {
+          "label": {
+            "cs": "Zraková ostrost: normální oko rozliší 1′ (Wikipedie, Visual acuity)",
+            "en": "Visual acuity: a normal eye resolves 1′ (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Visual_acuity"
+        },
+        {
+          "label": {
+            "cs": "Venuši lze s cvikem najít i za dne (Universe Today)",
+            "en": "Venus can be found in daylight with practice (Universe Today)"
+          },
+          "url": "https://test.universetoday.com/articles/now-is-a-great-time-to-try-seeing-venus-in-the-daytime-sky"
+        }
+      ]
+    },
+    {
+      "title": {
+        "cs": "Dno studny",
+        "en": "The bottom of a well"
+      },
+      "text": {
+        "cs": "Pozorovatele jsme posadili na dno studny hluboké 50 m o poloměru 1,5 m. Stěny zakryjí skoro celou oblohu; zbude z ní kotouček o úhlovém poloměru 1,7°.",
+        "en": "We have put the observer at the bottom of a well 50 m deep and 1.5 m in radius. The walls hide almost the whole sky; what is left is a disc 1.7° in angular radius."
+      },
+      "observe": {
+        "cs": "V obrázku zůstal paprsek hvězdy skoro sám, protože stěny zastavily většinu rozptýleného světla, a kolem tebe je šero. Poměr hvězdy k obloze kolem ní je ale pořád 1,4 %: kousek oblohy přímo za hvězdou je stejně jasný jako nahoře. Studna ubrala světlo z okolí, ne z oblohy za hvězdou.",
+        "en": "In the picture the star's ray is almost alone, because the walls have stopped most of the scattered light, and it is dim around you. But the ratio of the star to the sky around it is still 1.4 %: the patch of sky right behind the star is as bright as up top. The well has taken light from the surroundings, not from the sky behind the star."
+      },
+      "question": {
+        "cs": "Pomohla by hlubší nebo užší studna?",
+        "en": "Would a deeper or narrower well help?"
+      },
+      "state": {
+        "observer": {
+          "z": -50,
+          "well": {
+            "enabled": true,
+            "radius_m": 1.5,
+            "depth_m": 50
+          }
+        }
+      },
+      "highlight": "ctl-well"
+    },
+    {
+      "title": {
+        "cs": "Šachta hluboká 10 km",
+        "en": "A shaft 10 km deep"
+      },
+      "text": {
+        "cs": "Studnu jsme nahradili šachtou hlubokou 10 km o poloměru 2 m a pozorovatele posadili na její dno. Z oblohy zbude kotouček o úhlovém poloměru 0,01°.",
+        "en": "We have replaced the well with a shaft 10 km deep and 2 m in radius and put the observer at its bottom. What is left of the sky is a disc 0.01° in angular radius."
+      },
+      "observe": {
+        "cs": "Poměr je stále 1,4 %. Hloubka ani šířka na něm nic nemění, protože nemění jas oblohy za hvězdou. Tak to dopadlo i ve skutečnosti: astronomové Hynek a Winsor hledali Vegu ve dne z dna vysokého komína a neviděli ji ani triedrem.",
+        "en": "The ratio is still 1.4 %. Neither depth nor width changes it, because neither changes the brightness of the sky behind the star. That is also how it turned out in reality: the astronomers Hynek and Winsor looked for Vega by day from the bottom of a tall chimney and did not see it even with binoculars."
+      },
+      "state": {
+        "observer": {
+          "z": -10000,
+          "well": {
+            "enabled": true,
+            "radius_m": 2,
+            "depth_m": 10000
+          }
+        }
+      },
+      "highlight": "ctl-well-depth",
+      "sources": [
+        {
+          "label": {
+            "cs": "S. Odenwald: Can you see stars from the bottom of a well? (Aristotelés, pokus Hynka a Winsora, Měsíc)",
+            "en": "S. Odenwald: Can you see stars from the bottom of a well? (Aristotle, Hynek and Winsor, the Moon)"
+          },
+          "url": "https://sten.astronomycafe.net/can-you-see-stars-from-the-bottom-of-a-well/"
+        }
+      ]
+    },
+    {
+      "title": {
+        "cs": "Soumrak",
+        "en": "Dusk"
+      },
+      "text": {
+        "cs": "Pozorovatele jsme vrátili na povrch a Slunce jsme posunuli 3° pod obzor. Nižší vrstvy vzduchu nad tebou jsou už ve stínu Země a na vyšší dopadá zeslabené sluneční světlo, takže obloha ztmavne asi stokrát.",
+        "en": "We have returned the observer to the surface and moved the Sun 3° below the horizon. The lower layers of air above you are already in the Earth's shadow and the higher ones receive weakened sunlight, so the sky darkens about a hundred times."
+      },
+      "observe": {
+        "cs": "Hvězda je teď asi 1,7× jasnější než obloha kolem ní, a je tedy vidět. Změnila se obloha, ne hvězda. Simulace počítá jen jeden rozptyl, a proto soumrakové nebe tmavne rychleji než skutečné; ve skutečnosti se nejjasnější hvězdy objevují zhruba na konci občanského soumraku, kdy je Slunce asi 6° pod obzorem.",
+        "en": "The star is now about 1.7 times brighter than the sky around it, so it can be seen. The sky has changed, not the star. The simulation counts only one scattering, so its twilight sky darkens faster than the real one; in reality the brightest stars appear at about the end of civil twilight, when the Sun is about 6° below the horizon."
+      },
+      "state": {
+        "star": {
+          "elevationDeg": -3
+        },
+        "observer": {
+          "z": 0,
+          "well": {
+            "enabled": false
+          }
+        }
+      },
+      "highlight": "ctl-elevation",
+      "sources": [
+        {
+          "label": {
+            "cs": "Občanský soumrak: Slunce 6° pod obzorem, jsou vidět nejjasnější hvězdy (Geoscience Australia)",
+            "en": "Civil twilight: the Sun 6° below the horizon, the brightest stars visible (Geoscience Australia)"
+          },
+          "url": "https://www.ga.gov.au/scientific-topics/astronomical/astronomical-definitions"
+        }
+      ]
+    },
+    {
+      "title": {
+        "cs": "Den na Měsíci",
+        "en": "Daytime on the Moon"
+      },
+      "text": {
+        "cs": "Přesunuli jsme se na Měsíc a Slunce jsme vrátili 55° nad obzor. Je plný den, ale nad tebou není žádný vzduch, a tak obloha nesvítí (to ukázal už poslední krok průvodce „Let do vesmíru“).",
+        "en": "We have moved to the Moon and returned the Sun to 55° above the horizon. It is full daylight, but there is no air above you, so the sky does not glow (as the last step of the “Flight into space” guide showed)."
+      },
+      "observe": {
+        "cs": "Kousek oblohy za hvězdou je černý a hvězda je jasnější než on mnohomilionkrát. Přesto astronauti Apolla z osvětleného povrchu Měsíce hvězdy pouhým okem neviděli; Neil Armstrong uvedl, že je viděli jen přes navigační optiku lodi. Oslňoval je jasně osvětlený povrch a Slunce: oko přivyklé takovému jasu slabé hvězdy nezachytí.",
+        "en": "The patch of sky behind the star is black, and the star is millions of times brighter than it. Yet the Apollo astronauts did not see stars by eye from the sunlit lunar surface; Neil Armstrong said they saw them only through the spacecraft's navigation optics. They were dazzled by the brightly lit ground and the Sun: an eye adjusted to such brightness does not catch faint stars."
+      },
+      "question": {
+        "cs": "Proč by studna na Měsíci pomohla, kdežto na Zemi ne?",
+        "en": "Why would a well help on the Moon, but not on Earth?"
+      },
+      "state": {
+        "star": {
+          "elevationDeg": 55
+        },
+        "atmosphere": {
+          "presetId": "airless-moon"
+        }
+      },
+      "highlight": "ctl-atmosphere-preset",
+      "sources": [
+        {
+          "label": {
+            "cs": "N. Armstrong, tisková konference po Apollu 11, NASA EP-73, část VI",
+            "en": "N. Armstrong, Apollo 11 post-flight press conference, NASA EP-73, part VI"
+          },
+          "url": "https://www.nasa.gov/wp-content/uploads/static/history/ap11ann/FirstLunarLanding/ch-7.html"
+        },
+        {
+          "label": {
+            "cs": "S. Odenwald: Can you see stars from the bottom of a well? (Aristotelés, pokus Hynka a Winsora, Měsíc)",
+            "en": "S. Odenwald: Can you see stars from the bottom of a well? (Aristotle, Hynek and Winsor, the Moon)"
+          },
+          "url": "https://sten.astronomycafe.net/can-you-see-stars-from-the-bottom-of-a-well/"
+        }
+      ]
+    },
+    {
+      "title": {
+        "cs": "Shrnutí",
+        "en": "Summary"
+      },
+      "text": {
+        "cs": "Hvězdu zakrývá světlo, které přichází ze stejného místa oblohy jako ona. Na Zemi je to ve dne rozptýlené sluneční světlo vzduchu za hvězdou; studna ho nezmenší, protože zakrývá jen oblohu jinde. Za soumraku a v noci obloha ztmavne a hvězdy se objeví. Na Měsíci je obloha černá i ve dne a hvězdy přehlušuje jen oslnění od osvětleného povrchu a Slunce; to by studna nebo stínítko odstranily.",
+        "en": "A star is hidden by the light that comes from the same place in the sky as the star itself. On Earth by day that is sunlight scattered by the air behind the star; a well does not reduce it, because it only hides the sky elsewhere. At dusk and at night the sky darkens and the stars appear. On the Moon the sky is black even by day, and the only thing drowning the stars is glare from the sunlit ground and the Sun, which a well or a shade would remove."
+      }
+    }
+  ]
+}

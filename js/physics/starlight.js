@@ -1,31 +1,39 @@
 /**
- * Starlight from straight overhead, and how much of a field of view it makes.
+ * Starlight from straight overhead, and whether it can be seen against the sky.
  *
- * The old claim is that from the bottom of a deep well you can see stars by
- * day. The cross-section draws the reason anyone believes it: a star sends its
- * light down the shaft as surely as onto open ground, and the shaft walls take
- * away almost all of the scattered sunlight that floods the eye in the open.
+ * The old claim - Aristotle's - is that from the bottom of a deep well you can
+ * see stars by day. It is false, and it was tested: Hynek and Winsor looked
+ * for Vega and Pollux up tall chimneys and saw nothing, even with binoculars.
  *
- * What the walls cannot take away is the sky directly around the star. Its
- * radiance does not depend on the shaft at all - that is the well paradox - so
- * the star gains on the light in the field of view only in proportion to the
- * sky the rock has removed, and by day it starts from a deficit of billions.
- * This module computes the share honestly, so the picture can show the
- * mechanism without the panel overstating what it achieves.
+ * A star is a point. What it has to outshine is not the whole sky but the
+ * patch of sky the eye cannot tell apart from it - one resolution element of
+ * the eye, about one arcminute across. That patch has the radiance of the sky
+ * in the star's direction, and a shaft does not change that radiance at all:
+ * it is the well paradox. So the comparison that decides visibility,
+ *
+ *     star illuminance  /  (sky radiance x solid angle of one arcminute),
+ *
+ * is the same at the bottom of a well as on open ground. What changes it is the
+ * sky going dark: at night, or on a world with no air to scatter sunlight.
  */
 
 import { SPECTRUM_BINS, makeBlackbodySpectrum } from './spectrum.js';
 
 /**
  * The star drawn overhead: as bright as Vega, visual magnitude 0, and about as
- * hot (an A0 star, near 9600 K). Its exact position does not matter; that it is
- * near the zenith does, because that is the one direction a vertical shaft
- * always leaves open.
+ * hot (an A0 star, near 9600 K). Vega is also the star Hynek and Winsor looked
+ * for up a chimney.
  */
 export const OVERHEAD_STAR = { magnitude: 0, temperatureK: 9600 };
 
+/** Venus at its brightest, for comparison: it can be found by eye in daylight. */
+export const VENUS_BRIGHTEST_MAGNITUDE = -4.6;
+
 /** The Sun's apparent visual magnitude at 1 AU. */
 export const SUN_APPARENT_MAGNITUDE = -26.74;
+
+/** The smallest detail a normal eye resolves: about one arcminute. */
+export const EYE_RESOLUTION_ARCMIN = 1;
 
 /**
  * A star's illuminance in units of the Sun's at 1 AU - the unit this simulator
@@ -40,40 +48,36 @@ export function coneSolidAngle(halfAngleDeg) {
   return 2 * Math.PI * (1 - Math.cos(halfAngleDeg * Math.PI / 180));
 }
 
+/** Solid angle of the patch of sky one resolution element of the eye covers. */
+export function eyeResolutionSolidAngle(arcmin = EYE_RESOLUTION_ARCMIN) {
+  return coneSolidAngle(arcmin / 60 / 2);
+}
+
 /**
- * The overhead star's illuminance at an observer, after the air above them.
+ * The overhead star's illuminance at an observer, after the air between them.
  *
- * The star's spectrum is carried through the vertical column - molecules, haze
- * and ozone - and the loss is weighted by the eye's response, so a reddening
- * air mass costs what it should. Returned in the simulator's units: luminance
- * with the Sun at 1 AU equal to one.
+ * `transmittance` is the spectrum the air passes straight up from where the
+ * observer stands - including any air standing in a shaft - and the loss is
+ * weighted by the eye's response, so a reddening path costs what it should.
+ * Returned in the simulator's units: luminance with the Sun at 1 AU equal to one.
  */
-export function overheadStarIlluminance(atmosphere, colorimetry, altitude, star = OVERHEAD_STAR) {
+export function overheadStarIlluminance(transmittance, colorimetry, star = OVERHEAD_STAR) {
   const spectrum = makeBlackbodySpectrum(star.temperatureK);
-  const z = Math.max(0, altitude);
-  const transmitted = atmosphere.transmittance(
-    atmosphere.verticalColumnRayleigh(z),
-    atmosphere.verticalColumnAerosol(z),
-    atmosphere.verticalColumnOzone(z));
   const through = new Float64Array(SPECTRUM_BINS);
-  for (let i = 0; i < SPECTRUM_BINS; i++) through[i] = spectrum[i] * transmitted[i];
+  for (let i = 0; i < SPECTRUM_BINS; i++) through[i] = spectrum[i] * transmittance[i];
   const before = colorimetry.luminance(spectrum);
   const fraction = before > 0 ? colorimetry.luminance(through) / before : 0;
   return starIlluminanceRelativeToSun(star.magnitude) * fraction;
 }
 
 /**
- * What share of the light collected over a field of view comes from the star.
- *
- *     star / (star + L_mean * Omega)
- *
- * L_mean is the mean luminance over the field of view with the rock counted as
- * the nothing it delivers - the "how bright it looks here" reading - so a shaft
- * lowers the sky term by exactly the share of the view it takes away, and does
- * not touch the radiance of the patch beside the star.
+ * How bright the star is against the sky right around it: the star's light
+ * divided by the light of the patch of sky the eye cannot separate from it.
+ * Above 1 the star outshines that patch; far below 1 it is lost in it.
+ * Infinite when the sky behind it is black.
  */
-export function starShareOfView({ starIlluminance, meanLuminance, fieldSolidAngle }) {
-  const sky = Math.max(0, meanLuminance) * fieldSolidAngle;
-  const total = starIlluminance + sky;
-  return total > 0 ? starIlluminance / total : 0;
+export function starContrastAgainstSky({ starIlluminance, skyLuminance, patchSolidAngle = eyeResolutionSolidAngle() }) {
+  const patch = Math.max(0, skyLuminance) * patchSolidAngle;
+  if (!(patch > 0)) return starIlluminance > 0 ? Infinity : 0;
+  return starIlluminance / patch;
 }

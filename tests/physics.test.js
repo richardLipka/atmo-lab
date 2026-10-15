@@ -24,7 +24,8 @@ import { guideSituation, DESCRIBED_PATHS } from '../js/ui/experiments.js';
 import { createSimulation } from '../js/simulation.js';
 import {
   OVERHEAD_STAR, starIlluminanceRelativeToSun, coneSolidAngle,
-  overheadStarIlluminance, starShareOfView,
+  overheadStarIlluminance, starContrastAgainstSky, eyeResolutionSolidAngle,
+  VENUS_BRIGHTEST_MAGNITUDE,
 } from '../js/physics/starlight.js';
 import { createColorimetry } from '../js/physics/color.js';
 import {
@@ -2096,43 +2097,32 @@ export function registerTests({ group, test, assert }, config) {
       assert.close(coneSolidAngle(90), 2 * Math.PI, 1e-12);
     });
 
+    test('one arcminute of sky, the patch the eye cannot tell from a star', () => {
+      // A disc 1' across: pi (0.5')^2 with 1' = 2.909e-4 rad.
+      assert.close(eyeResolutionSolidAngle(), Math.PI * Math.pow(Math.PI / 180 / 60 / 2, 2), 1e-6);
+      assert.equal(starContrastAgainstSky({ starIlluminance: 1, skyLuminance: 0 }), Infinity);
+    });
+
     test('the air above takes its share of the starlight, and none above the air', () => {
       const bare = starIlluminanceRelativeToSun(OVERHEAD_STAR.magnitude);
+      const through = (z) => earth.transmittance(earth.verticalColumnRayleigh(z),
+        earth.verticalColumnAerosol(z), earth.verticalColumnOzone(z));
       // At the modelled top a trace of air remains: e^(-100/8.5) of the column.
-      assert.close(overheadStarIlluminance(earth, colorimetry, earth.topAltitude), bare, 1e-5);
-      const ground = overheadStarIlluminance(earth, colorimetry, 0) / bare;
+      assert.close(overheadStarIlluminance(through(earth.topAltitude), colorimetry), bare, 1e-5);
+      const ground = overheadStarIlluminance(through(0), colorimetry) / bare;
       // Straight down through tau ~ 0.1 of gas and 0.06 of haze, plus ozone.
       assert.between(ground, 0.8, 0.9);
     });
 
-    test('by day a real star is lost in the sky, and a shaft only removes the rest of the sky', () => {
-      const star = overheadStarIlluminance(earth, colorimetry, 0);
-      const field = coneSolidAngle(VIEW_CONE_HALF_DEG);
-      const zenith = colorimetry.luminance(computeViewRadiance(
-        sceneAt({ elevation: 55 }), ZENITH, QUALITY_PRESETS.high).scattered);
-      const open = starShareOfView({ starIlluminance: star, meanLuminance: zenith, fieldSolidAngle: field });
-      assert.less(open, 1e-7, 'in the open the star is under one part in ten million');
-      // Down a shaft the field of view keeps only skyShare of its sky, at the
-      // same radiance. The star gains by exactly that factor - and no more.
-      for (const skyShare of [0.13, 0.02, 1e-4]) {
-        const down = starShareOfView({
-          starIlluminance: star, meanLuminance: zenith * skyShare, fieldSolidAngle: field,
-        });
-        assert.close(down / open, 1 / skyShare, 1e-3, `sky share ${skyShare}`);
-        assert.less(down, 1e-3, `by day the star still loses with ${skyShare} of the sky left`);
-      }
-    });
-
-    test('once the sky goes dark the same star outshines it', () => {
-      const star = overheadStarIlluminance(earth, colorimetry, 0);
-      const field = coneSolidAngle(VIEW_CONE_HALF_DEG);
-      const zenithAt = (elevation) => colorimetry.luminance(computeViewRadiance(
-        sceneAt({ elevation }), ZENITH, QUALITY_PRESETS.high).scattered);
-      const share = (elevation) => starShareOfView({
-        starIlluminance: star, meanLuminance: zenithAt(elevation), fieldSolidAngle: field,
+    test('by day Vega is lost in the sky behind it and Venus is at the edge', () => {
+      const zenith = computeViewRadiance(sceneAt({ elevation: 55 }), ZENITH, QUALITY_PRESETS.high);
+      const sky = colorimetry.luminance(zenith.scattered);
+      const vega = starContrastAgainstSky({
+        starIlluminance: overheadStarIlluminance(zenith.transmittance, colorimetry), skyLuminance: sky,
       });
-      assert.less(share(-3), share(-8), 'the star gains as the twilight deepens');
-      assert.greater(share(-8), share(55) * 1e3);
+      assert.between(vega, 0.005, 0.03, 'Vega has a percent or two of its patch of sky');
+      const venus = vega * Math.pow(10, -0.4 * (VENUS_BRIGHTEST_MAGNITUDE - OVERHEAD_STAR.magnitude));
+      assert.between(venus, 0.4, 2.5, 'Venus at its brightest is about as bright as its patch');
     });
   });
 
@@ -2167,6 +2157,10 @@ export function registerTests({ group, test, assert }, config) {
           for (const field of ['title', 'text', 'observe', 'question']) {
             if (!step[field]) continue;
             assert.ok(step[field].cs && step[field].en, `${id} step ${i + 1}: ${field} in both languages`);
+          }
+          for (const source of step.sources ?? []) {
+            assert.ok(/^https:\/\/[^\s]+$/.test(source.url), `${id} step ${i + 1}: source ${source.url} is an https link`);
+            assert.ok(source.label?.cs && source.label?.en, `${id} step ${i + 1}: source label in both languages`);
           }
         }
       }
@@ -2252,9 +2246,36 @@ export function registerTests({ group, test, assert }, config) {
       assert.equal(side.state.compare.b.observer.viewZenithDeg, 0);
       assert.close(side.b.metrics.skyLuminance, surface.metrics.skyLuminance, 1e-9);
       // The shaft full of air: half the radiance, and warmer.
-      const air = replay('well-vs-altitude', 5);
+      const air = replay('well-vs-altitude', 4);
       assert.close(air.b.metrics.skyLuminance / air.a.metrics.skyLuminance, 0.5, 0.15);
       assert.greater(xy(air.b.view.observed)[0], xy(air.a.view.observed)[0] + 0.03);
+    });
+
+    test('stars by day: every claim from outside the model names its source', () => {
+      const steps = config.experiments['stars-by-day'].steps;
+      const urls = (i) => (steps[i].sources ?? []).map((source) => source.url).join(' ');
+      assert.ok(/Apparent_magnitude/.test(urls(0)) && /Visual_acuity/.test(urls(0)), 'magnitudes and acuity');
+      assert.ok(/astronomycafe/.test(urls(2)), 'Aristotle, Hynek and Winsor');
+      assert.ok(/ga\.gov\.au/.test(urls(3)), 'civil twilight');
+      assert.ok(/nasa\.gov/.test(urls(4)), 'Armstrong');
+    });
+
+    test('stars by day: a well changes nothing behind the star; dusk and the Moon do', () => {
+      const contrast = (i) => replay('stars-by-day', i).a.metrics.overheadStar.contrast;
+      const day = contrast(0), well = contrast(1), shaft = contrast(2);
+      const dusk = contrast(3), moon = contrast(4);
+      assert.close(day, 0.014, 0.1, 'about 1.4 % on open ground at noon');
+      assert.close(well, day, 1e-9, 'the same at the bottom of a 50 m well');
+      assert.close(shaft, day, 1e-9, 'and of a 10 km shaft');
+      assert.close(dusk, 1.7, 0.1, 'about 1.7 times at the Sun 3 degrees down');
+      assert.greater(moon, 1e6, 'millions of times on the Moon');
+      // The aperture radii the texts quote.
+      const radius = (i) => replay('stars-by-day', i).a.metrics.apertureHalfAngleDeg;
+      assert.close(radius(1), 1.72, 0.01);
+      assert.close(radius(2), 0.0115, 0.01);
+      // The sky darkens about a hundred times at dusk.
+      const sky = (i) => replay('stars-by-day', i).a.metrics.overheadStar.zenithSkyLuminance;
+      assert.between(sky(0) / sky(3), 80, 150);
     });
 
     test('alien skies: a cool star gives a beige sky that is still bluer than the star', () => {

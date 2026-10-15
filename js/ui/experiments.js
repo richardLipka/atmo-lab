@@ -90,6 +90,7 @@ export function createExperiments(root, { i18n, store, config, onHighlight }) {
   const goalEl = root.querySelector('#experiment-goal');
   const observeEl = root.querySelector('#experiment-observe');
   const questionEl = root.querySelector('#experiment-question');
+  const sourcesEl = root.querySelector('#experiment-sources');
   const prevBtn = root.querySelector('#experiment-prev');
   const nextBtn = root.querySelector('#experiment-next');
   const exitBtn = root.querySelector('#experiment-exit');
@@ -247,6 +248,23 @@ export function createExperiments(root, { i18n, store, config, onHighlight }) {
     } else {
       questionEl.hidden = true;
     }
+
+    // Where the step's claims come from: plain links, built as elements so a
+    // label can never be read as markup.
+    const sources = Array.isArray(step.sources) ? step.sources : [];
+    sourcesEl.hidden = sources.length === 0;
+    sourcesEl.querySelector('.hint-label').textContent = i18n.t('experiment.sources');
+    const list = sourcesEl.querySelector('.hint-text');
+    list.textContent = '';
+    sources.forEach((source, i) => {
+      if (i > 0) list.append('  ·  ');
+      const link = document.createElement('a');
+      link.href = source.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.textContent = i18n.localized(source.label);
+      list.append(link);
+    });
 
     prevBtn.disabled = index === 0;
     prevBtn.textContent = i18n.t('experiment.previous');

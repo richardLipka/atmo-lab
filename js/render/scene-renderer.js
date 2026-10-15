@@ -28,6 +28,7 @@ import { computeScatteringSource, QUALITY_PRESETS } from '../physics/radiance.js
 import { wellApertureHalfAngle } from '../physics/well.js';
 import { RAY_BANDS } from '../physics/spectrum.js';
 import { VIEW_CONE_HALF_DEG, drawnRayShare, isRayDrawn } from './photons.js';
+import { eyeResolutionSolidAngle } from '../physics/starlight.js';
 import { clampSpan } from '../state.js';
 import { v3 } from '../physics/geometry.js';
 
@@ -299,6 +300,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     }
     drawObserverAt(camera, z, evaluation);
     drawStarIcons(stars, timeMs);
+    drawStarAgainstSky(plot);
     ctx.restore();
 
     // Outside the clip: the labels live in the left margin, which is not part
@@ -608,6 +610,73 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
       ctx.arc(star.sx, star.top, r * 0.9, 0, Math.PI * 2);
       ctx.fill();
     }
+    ctx.restore();
+  }
+
+  /**
+   * What decides whether the star overhead is seen, drawn to scale.
+   *
+   * The rays above are the wrong thing to judge by. Down a shaft the star's
+   * single line stands almost alone, because the walls have stopped the light
+   * from the rest of the sky - and that picture is exactly what makes the
+   * well myth so persuasive. The eye cannot tell a star from the sky within
+   * about one arcminute of it, and that patch of sky glows just as brightly at
+   * the bottom of a well as on open ground. So the inset shows the two things
+   * that arrive from that patch, side by side on one linear scale: the glow of
+   * the sky behind the star, and the star. By day the star is a sliver beside
+   * the sky; down any shaft it is the same sliver; at dusk it overtakes; on the
+   * Moon the sky's bar is gone.
+   */
+  function drawStarAgainstSky(plot) {
+    if (Math.abs(current.observer.viewZenithDeg) > VIEW_CONE_HALF_DEG) return;
+    const star = current.evaluation?.metrics?.overheadStar;
+    if (!star) return;
+    const skyLight = Math.max(0, star.zenithSkyLuminance) * eyeResolutionSolidAngle();
+    const starLight = Math.max(0, star.illuminance);
+    const scale = Math.max(skyLight, starLight);
+    if (!(scale > 0)) return;
+
+    const w = Math.min(190, plot.w * 0.44);
+    const h = 70;
+    const x = plot.x + plot.w - w - 8;
+    const y = plot.y + plot.h - h - 22;
+    const barX = x + 8;
+    const barW = w - 16;
+    const percent = (v) => {
+      const p = 100 * v / scale;
+      const text = p >= 10 ? p.toFixed(0) : p >= 0.1 ? p.toFixed(1) : p > 0 ? p.toExponential(0) : '0';
+      return `${i18n.getLanguage() === 'cs' ? text.replace('.', ',') : text} %`;
+    };
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(5, 7, 13, 0.78)';
+    ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+    ctx.font = '10px system-ui, sans-serif';
+    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.fillText(i18n.t('canvas.starPatchTitle'), barX, y + 10);
+
+    // Each row: its label and value on one line, the bar beneath them.
+    const row = (labelY, label, value, colour) => {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.textAlign = 'left';
+      ctx.fillText(label, barX, labelY);
+      ctx.textAlign = 'right';
+      ctx.fillText(percent(value), barX + barW, labelY);
+      const barY = labelY + 7;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.fillRect(barX, barY, barW, 7);
+      const len = value > 0 ? Math.max(1, barW * value / scale) : 0;
+      ctx.fillStyle = colour;
+      ctx.fillRect(barX, barY, len, 7);
+    };
+    ctx.font = '9.5px system-ui, sans-serif';
+    row(y + 26, i18n.t('canvas.starPatchSky'), skyLight, '#8fb8ff');
+    row(y + 50, i18n.t('canvas.starPatchStar'), starLight, '#f4f7ff');
     ctx.restore();
   }
 

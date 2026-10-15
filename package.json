@@ -1,6 +1,6 @@
 {
   "name": "atmo-lab",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Interactive Atmospheric Light Scattering Simulator - a client-side physics laboratory",
   "type": "module",
   "private": true,
