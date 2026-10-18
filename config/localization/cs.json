@@ -17,6 +17,8 @@
     "levelAdvanced": "Pokročilá",
     "experiment": "Experiment",
     "experimentNone": "Volné zkoumání",
+    "viewBeam": "Jeden paprsek",
+    "viewScattering": "Rozptyl světla",
     "reset": "Výchozí stav",
     "resetTitle": "Vrátit všechny ovládací prvky na počáteční hodnoty"
   },

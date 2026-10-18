@@ -24,6 +24,8 @@ import {
   shaftWallSpectrum, VIEW_CONE_HALF_DEG,
 } from './render/photons.js';
 import { createBeamHistogram } from './render/beam-histogram.js';
+import { createBeamCanvas } from './render/beam-canvas.js';
+import { createBeamUI } from './ui/beam-controls.js';
 import { createControls } from './ui/controls.js';
 import { createPanels } from './ui/panels.js';
 import { createExplanation } from './ui/explanation.js';
@@ -76,6 +78,91 @@ async function start() {
   const experiments = createExperiments(
     document.getElementById('experiment-panel'),
     { i18n, store, config, onHighlight: (id) => id && controls.highlight(id) });
+
+  /* ---- Single Beam Chamber View (Tab 1) ---- */
+  let activeView = 'beam';
+  let beamState = {
+    elevationDeg: 25,
+    mode: 'sunlight',
+    wavelengthNm: 532,
+    densityScale: 1,
+    rayleighExponent: 4,
+    aerosolScale: 1,
+    enableRefraction: true,
+    animate: true,
+  };
+
+  const beamCanvasEl = document.getElementById('beam-canvas');
+  let beamCanvas = null;
+  let beamUI = null;
+
+  function switchView(view) {
+    activeView = view;
+    const isBeam = view === 'beam';
+
+    const tabBeam = document.getElementById('tab-btn-beam');
+    const tabScattering = document.getElementById('tab-btn-scattering');
+    if (tabBeam) tabBeam.classList.toggle('is-active', isBeam);
+    if (tabScattering) tabScattering.classList.toggle('is-active', !isBeam);
+
+    const beamControlsRoot = document.getElementById('beam-controls-root');
+    const controlsRoot = document.getElementById('controls-root');
+    if (beamControlsRoot) beamControlsRoot.hidden = !isBeam;
+    if (controlsRoot) controlsRoot.hidden = isBeam;
+
+    const beamCenterWrap = document.getElementById('beam-center-wrap');
+    const scatteringCenterWrap = document.getElementById('scattering-center-wrap');
+    if (beamCenterWrap) beamCenterWrap.hidden = !isBeam;
+    if (scatteringCenterWrap) scatteringCenterWrap.hidden = isBeam;
+
+    const beamTelemetryRoot = document.getElementById('beam-telemetry-root');
+    const rightPanel = document.getElementById('right-panel');
+    if (beamTelemetryRoot) beamTelemetryRoot.hidden = !isBeam;
+    if (rightPanel) rightPanel.hidden = isBeam;
+
+    if (isBeam && beamCanvas && beamUI) {
+      beamCanvas.update(beamState);
+      beamUI.update(beamState, beamCanvas.getTraceResult());
+    } else {
+      needsPaint = true;
+    }
+  }
+
+  if (beamCanvasEl) {
+    beamCanvas = createBeamCanvas(beamCanvasEl, {
+      i18n,
+      colorimetry,
+      onElevationChange: (elev) => {
+        beamState.elevationDeg = elev;
+        if (beamUI) beamUI.update(beamState, beamCanvas.getTraceResult());
+      },
+    });
+
+    beamUI = createBeamUI({
+      leftContainer: document.getElementById('beam-controls-root'),
+      rightContainer: document.getElementById('beam-telemetry-root'),
+      i18n,
+      colorimetry,
+      onStateChange: (next) => {
+        Object.assign(beamState, next);
+        beamCanvas.update(beamState);
+        beamUI.update(beamState, beamCanvas.getTraceResult());
+      },
+      onSwitchToScattering: () => {
+        switchView('scattering');
+      },
+    });
+  }
+
+  // View toggle tabs listener
+  const viewToggle = document.getElementById('view-toggle');
+  if (viewToggle) {
+    viewToggle.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-view]');
+      if (!btn) return;
+      switchView(btn.dataset.view);
+    });
+  }
 
   /* ---- derived data, recomputed only when its inputs move ---- */
 
@@ -329,13 +416,19 @@ async function start() {
 
   experimentSelect.addEventListener('change', () => {
     const value = experimentSelect.value;
-    if (value) experiments.start(value); else experiments.exit();
+    if (value) {
+      switchView('scattering');
+      experiments.start(value);
+    } else {
+      experiments.exit();
+    }
   });
 
   resetButton.addEventListener('click', () => {
     store.reset({ ...DEFAULT_STATE, language: i18n.getLanguage() });
     experimentSelect.value = '';
     experiments.exit();
+    switchView('beam');
   });
 
   function buildExperimentOptions() {
@@ -376,6 +469,9 @@ async function start() {
     controls.update();
     panels.refreshLegendText();
     experiments.render();
+    if (beamUI && beamCanvas) {
+      beamUI.update(beamState, beamCanvas.getTraceResult());
+    }
     if (result) publish({ photonsChanged: false });
     needsPaint = true;
   });
@@ -526,6 +622,7 @@ async function start() {
   syncHeader();
   i18n.applyTo(document);
   controls.update();
+  switchView('beam');
   recomputePhysics();
   recomputePhotons();
   publish({ photonsChanged: true });
@@ -541,8 +638,11 @@ async function start() {
     store, config, simulation, colorimetry, i18n, experiments,
     renderers: {
       scene: sceneRenderer, sky: skyStrip, spectrum: spectrumChart,
-      chromaticity, histogram: beamHistogram,
+      chromaticity, histogram: beamHistogram, beam: beamCanvas,
     },
+    beamUI,
+    switchView,
+    get activeView() { return activeView; },
     get result() { return result; },
     get stations() { return stationsNow(); },
     copySimulation,
@@ -556,6 +656,7 @@ async function start() {
       skyStrip.draw();
       beamHistogram.draw();
       spectrumChart.draw();
+      if (beamCanvas) beamCanvas.draw();
       return true;
     },
   };

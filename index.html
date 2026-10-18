@@ -31,6 +31,13 @@
 
     <div class="header-controls">
       <div class="control-group">
+        <div class="segmented segmented-views" id="view-toggle" role="tablist">
+          <button type="button" class="is-active" data-view="beam" id="tab-btn-beam" data-i18n="header.viewBeam"></button>
+          <button type="button" data-view="scattering" id="tab-btn-scattering" data-i18n="header.viewScattering"></button>
+        </div>
+      </div>
+
+      <div class="control-group">
         <span class="group-label" data-i18n="header.language"></span>
         <div class="segmented" id="lang-toggle" role="group">
           <button type="button" data-lang="cs">CZ</button>
@@ -59,66 +66,76 @@
   <main class="layout">
 
     <aside class="panel panel-left">
-      <div class="panel-scroll" id="controls-root"></div>
+      <div class="panel-scroll" id="beam-controls-root"></div>
+      <div class="panel-scroll" id="controls-root" hidden></div>
     </aside>
 
     <section class="panel panel-center">
-<!-- Each button sits over the panel it copies FROM, and its arrow points at
-     where that copy is going - which is the panel next to it. Both were
-     centred together in the middle before, where "B to A" had to be read
-     rather than seen. -->
-      <div class="compare-bar" id="compare-bar" hidden>
-        <button type="button" id="sync-a-to-b" class="sync-button"
-                data-i18n="compare.syncAtoB" data-i18n-title="compare.syncAtoBHelp"></button>
-        <button type="button" id="sync-b-to-a" class="sync-button"
-                data-i18n="compare.syncBtoA" data-i18n-title="compare.syncBtoAHelp"></button>
-      </div>
-
-      <div class="canvas-wrap">
-        <canvas id="scene-canvas"></canvas>
-        <button type="button" class="png-button" data-download="scene-canvas"
-                data-file="cross-section" data-i18n-title="canvas.downloadPng">PNG</button>
-        <p class="canvas-hint" data-i18n="canvas.clickRay"></p>
-      </div>
-
-      <div class="hist-wrap">
-        <div class="strip-header">
-          <span data-i18n="histogram.title"></span>
-          <span class="strip-help" data-i18n-title="histogram.help">?</span>
-        </div>
-        <div class="canvas-frame">
-          <canvas id="histogram-canvas"></canvas>
-          <button type="button" class="png-button" data-download="histogram-canvas"
-                  data-file="histogram" data-i18n-title="canvas.downloadPng">PNG</button>
+      <div id="beam-center-wrap" class="beam-center-wrap">
+        <div class="canvas-wrap beam-canvas-wrap">
+          <canvas id="beam-canvas"></canvas>
         </div>
       </div>
 
-      <div class="sky-wrap">
-        <div class="strip-header">
-          <span data-i18n="canvas.skyStrip"></span>
-          <span class="strip-help" data-i18n-title="canvas.skyStripHelp">?</span>
+      <div id="scattering-center-wrap" class="scattering-center-wrap" hidden>
+        <!-- Each button sits over the panel it copies FROM, and its arrow points at
+             where that copy is going - which is the panel next to it. Both were
+             centred together in the middle before, where "B to A" had to be read
+             rather than seen. -->
+        <div class="compare-bar" id="compare-bar" hidden>
+          <button type="button" id="sync-a-to-b" class="sync-button"
+                  data-i18n="compare.syncAtoB" data-i18n-title="compare.syncAtoBHelp"></button>
+          <button type="button" id="sync-b-to-a" class="sync-button"
+                  data-i18n="compare.syncBtoA" data-i18n-title="compare.syncBtoAHelp"></button>
         </div>
-        <div class="canvas-frame">
-          <canvas id="sky-canvas"></canvas>
-          <button type="button" class="png-button" data-download="sky-canvas"
-                  data-file="sky" data-i18n-title="canvas.downloadPng">PNG</button>
-        </div>
-      </div>
 
-      <div class="ray-log" id="ray-log" hidden>
-        <div class="ray-log-head">
-          <strong data-i18n="canvas.rayLog"></strong>
-          <button type="button" id="ray-log-close" class="ghost-button small"
-                  data-i18n="canvas.rayLogClose"></button>
+        <div class="canvas-wrap">
+          <canvas id="scene-canvas"></canvas>
+          <button type="button" class="png-button" data-download="scene-canvas"
+                  data-file="cross-section" data-i18n-title="canvas.downloadPng">PNG</button>
+          <p class="canvas-hint" data-i18n="canvas.clickRay"></p>
         </div>
-        <div class="ray-log-body" id="ray-log-body"></div>
-      </div>
 
-      <p class="canvas-note" data-i18n="canvas.verticalExaggerated"></p>
+        <div class="hist-wrap">
+          <div class="strip-header">
+            <span data-i18n="histogram.title"></span>
+            <span class="strip-help" data-i18n-title="histogram.help">?</span>
+          </div>
+          <div class="canvas-frame">
+            <canvas id="histogram-canvas"></canvas>
+            <button type="button" class="png-button" data-download="histogram-canvas"
+                    data-file="histogram" data-i18n-title="canvas.downloadPng">PNG</button>
+          </div>
+        </div>
+
+        <div class="sky-wrap">
+          <div class="strip-header">
+            <span data-i18n="canvas.skyStrip"></span>
+            <span class="strip-help" data-i18n-title="canvas.skyStripHelp">?</span>
+          </div>
+          <div class="canvas-frame">
+            <canvas id="sky-canvas"></canvas>
+            <button type="button" class="png-button" data-download="sky-canvas"
+                    data-file="sky" data-i18n-title="canvas.downloadPng">PNG</button>
+          </div>
+        </div>
+
+        <div class="ray-log" id="ray-log" hidden>
+          <div class="ray-log-head">
+            <strong data-i18n="canvas.rayLog"></strong>
+            <button type="button" id="ray-log-close" class="ghost-button small"
+                    data-i18n="canvas.rayLogClose"></button>
+          </div>
+          <div class="ray-log-body" id="ray-log-body"></div>
+        </div>
+
+        <p class="canvas-note" data-i18n="canvas.verticalExaggerated"></p>
+      </div>
     </section>
 
     <aside class="panel panel-right">
-      <div class="panel-scroll" id="right-panel">
+      <div class="panel-scroll" id="beam-telemetry-root"></div>
+      <div class="panel-scroll" id="right-panel" hidden>
 
         <p class="panel-target" id="panel-target" hidden></p>
 

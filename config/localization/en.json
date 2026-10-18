@@ -17,6 +17,8 @@
     "levelAdvanced": "Advanced",
     "experiment": "Experiment",
     "experimentNone": "Free exploration",
+    "viewBeam": "Single Beam",
+    "viewScattering": "Light Scattering",
     "reset": "Reset",
     "resetTitle": "Return every control to its starting value"
   },

@@ -48,6 +48,9 @@ import {
   tracePhotons, summarisePhotons, histogramPhotons, VIEW_CONE_HALF_DEG,
   drawnRayShare, isRayDrawn, skyFromRays, shaftWallSpectrum, measureCone,
 } from '../js/render/photons.js';
+import {
+  traceSingleBeam, chordLengthM, calculateAirmass, airRefractivitySTP,
+} from '../js/physics/beam-tracer.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
 
@@ -2419,6 +2422,69 @@ export function registerTests({ group, test, assert }, config) {
       // altitude there, so this is where quantising could show.
       assert.close(cached, uncached, 0.004,
         `cached ${cached.toFixed(2)} nm vs uncached ${uncached.toFixed(2)} nm`);
+    });
+  });
+
+  /* ---------------------------------------------------------------- */
+
+  group('single beam ray tracer', () => {
+    test('geometric chord length and airmass scale with elevation angle', () => {
+      const noonChord = chordLengthM(90);
+      const sunsetChord = chordLengthM(0);
+      assert.close(noonChord, 80000, 10, 'zenith chord matches 80 km atmosphere height');
+      assert.greater(sunsetChord, 1000000, 'sunset chord exceeds 1000 km across spherical atmosphere');
+
+      assert.close(calculateAirmass(90), 1.0, 0.01, 'zenith airmass is 1.0');
+      assert.close(calculateAirmass(60), 1.15, 0.02, '60 deg airmass is ~1.15');
+      assert.between(calculateAirmass(0), 30, 40, 'horizon airmass is 30-40');
+    });
+
+    test('refractivity of air exhibits normal dispersion (blue > red)', () => {
+      const nBlue = airRefractivitySTP(405);
+      const nGreen = airRefractivitySTP(532);
+      const nRed = airRefractivitySTP(650);
+      assert.greater(nBlue, nGreen, 'blue refractivity is greater than green');
+      assert.greater(nGreen, nRed, 'green refractivity is greater than red');
+      assert.between(nRed, 2.7e-4, 2.8e-4, 'red refractivity is near standard 2.75e-4');
+    });
+
+    test('at midday, direct beam preserves both red and blue light', () => {
+      const trace = traceSingleBeam({ elevationDeg: 90, mode: 'sunlight' });
+      assert.greater(trace.keyTransmittances.blue450, 0.70, 'midday blue transmission is > 70%');
+      assert.greater(trace.keyTransmittances.red650, 0.90, 'midday red transmission is > 90%');
+      assert.greater(trace.counts.rayleigh, 0, 'molecular scattering events occur');
+    });
+
+    test('at sunset, blue light collapses while red light survives the long chord', () => {
+      const trace = traceSingleBeam({ elevationDeg: 1.5, mode: 'sunlight' });
+      assert.less(trace.keyTransmittances.blue450, 0.01, 'sunset blue transmission is < 1% (scattered away)');
+      assert.greater(trace.keyTransmittances.red650, 0.05, 'sunset red transmission survives significantly');
+      assert.greater(trace.keyTransmittances.red650 / Math.max(1e-6, trace.keyTransmittances.blue450), 10,
+        'red/blue survival ratio is over 10x, turning the direct beam deep red');
+    });
+
+    test('blue monochromatic laser scatters far more aggressively than red laser', () => {
+      const blueTrace = traceSingleBeam({ elevationDeg: 10, mode: 'monochromatic', wavelengthNm: 405 });
+      const redTrace = traceSingleBeam({ elevationDeg: 10, mode: 'monochromatic', wavelengthNm: 650 });
+      assert.greater(redTrace.keyTransmittances.red650, blueTrace.keyTransmittances.blue450 * 2,
+        'red laser transmits over double the flux of blue laser along low chord');
+    });
+
+    test('refraction bends low-elevation rays downward', () => {
+      const trace = traceSingleBeam({ elevationDeg: 2, enableRefraction: true, refractionFactor: 1 });
+      assert.greater(trace.deflectionArcmin, 10, 'downward deflection at low angle exceeds 10 arcminutes');
+    });
+
+    test('setting rayleighExponent = 0 makes molecular scattering colour-neutral', () => {
+      const neutralTrace = traceSingleBeam({ elevationDeg: 30, rayleighExponent: 0, aerosolScale: 0 });
+      const blue = neutralTrace.keyTransmittances.blue450;
+      const red = neutralTrace.keyTransmittances.red650;
+      assert.close(blue / red, 1.0, 0.05, 'blue and red transmittances are virtually equal when n = 0');
+    });
+
+    test('absorbing aerosols (albedo < 1.0) record absorbed events', () => {
+      const sootTrace = traceSingleBeam({ elevationDeg: 20, aerosolScale: 2, aerosolAlbedo: 0.6 });
+      assert.greater(sootTrace.counts.absorbed, 0, 'absorbing aerosols produce absorption events');
     });
   });
 }
