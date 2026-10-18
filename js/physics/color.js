@@ -158,7 +158,7 @@ export function createColorimetry(cieConfig) {
   return {
     xBar, yBar, zBar, yBarIntegral,
     spectrumToXYZ, luminance, xyzToChromaticity, xyzToLinearRgb,
-    encodeComponent, fitToGamut, spectrumToSrgb, normalizeToLuminance,
+    encodeComponent, fitToGamut, spectrumToSrgb, spectrumToSRGB: spectrumToSrgb, normalizeToLuminance,
     spectralLocus,
   };
 }

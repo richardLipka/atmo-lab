@@ -329,8 +329,8 @@ export function createBeamUI({
 
     if (!traceResult) return;
 
-    const finalSRGB = colorimetry.spectrumToSRGB(traceResult.finalSpectrum, 1.4);
-    const chipCol = `rgb(${finalSRGB[0]}, ${finalSRGB[1]}, ${finalSRGB[2]})`;
+    const finalSRGB = colorimetry.spectrumToSrgb(traceResult.finalSpectrum, 1.4);
+    const chipCol = finalSRGB.css;
 
     const tRed = (traceResult.keyTransmittances.red650 * 100).toFixed(1);
     const tGreen = (traceResult.keyTransmittances.green530 * 100).toFixed(1);
@@ -347,7 +347,7 @@ export function createBeamUI({
             <div class="swatch-chip" style="width:48px;height:48px;border-radius:8px;background:${chipCol};box-shadow:0 0 16px ${chipCol}44;border:1px solid rgba(255,255,255,0.2);"></div>
             <div>
               <div style="font-weight:600;font-size:14px;color:var(--text);">${isSunset ? (isCs ? 'Zapadající Slunce (červánky)' : 'Setting Sun (Crimson)') : (isCs ? 'Přímý sluneční paprsek' : 'Direct Sunbeam')}</div>
-              <div style="font-size:12px;color:var(--text-dim);font-family:var(--mono);">sRGB: ${finalSRGB[0]}, ${finalSRGB[1]}, ${finalSRGB[2]}</div>
+              <div style="font-size:12px;color:var(--text-dim);font-family:var(--mono);">sRGB: ${finalSRGB.rgb[0]}, ${finalSRGB.rgb[1]}, ${finalSRGB.rgb[2]}</div>
             </div>
           </div>
         </div>

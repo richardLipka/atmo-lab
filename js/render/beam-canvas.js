@@ -294,8 +294,8 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, onElevationChange 
         const p2 = screenPoints[i + 1];
 
         // Color of beam at this point from physical spectrum
-        const srgb = colorimetry.spectrumToSRGB(p1.p.spectrum, 1.2);
-        const colStr = `rgb(${srgb[0]}, ${srgb[1]}, ${srgb[2]})`;
+        const srgb = colorimetry.spectrumToSrgb(p1.p.spectrum, 1.2);
+        const colStr = srgb.css;
 
         // Intensity falloff
         const alpha = Math.max(0.15, Math.min(1.0, p1.p.normalizedIntensity * 1.3));
@@ -330,8 +330,8 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, onElevationChange 
           const idx = Math.floor(phase * (screenPoints.length - 1));
           const pt = screenPoints[idx];
           if (pt) {
-            const srgb = colorimetry.spectrumToSRGB(pt.p.spectrum, 1.8);
-            ctx.fillStyle = `rgb(${srgb[0]}, ${srgb[1]}, ${srgb[2]})`;
+            const srgb = colorimetry.spectrumToSrgb(pt.p.spectrum, 1.8);
+            ctx.fillStyle = srgb.css;
             ctx.shadowColor = ctx.fillStyle;
             ctx.shadowBlur = 8;
             ctx.beginPath();
@@ -396,8 +396,8 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, onElevationChange 
 
     // 8. Ground Received Light Spot
     ctx.save();
-    const finalSRGB = colorimetry.spectrumToSRGB(traceResult.finalSpectrum, 1.4);
-    const finalCol = `rgb(${finalSRGB[0]}, ${finalSRGB[1]}, ${finalSRGB[2]})`;
+    const finalSRGB = colorimetry.spectrumToSrgb(traceResult.finalSpectrum, 1.4);
+    const finalCol = finalSRGB.css;
     const spotGrad = ctx.createRadialGradient(ox, oy - 2, 2, ox, oy - 2, 18);
     spotGrad.addColorStop(0, finalCol);
     spotGrad.addColorStop(0.5, finalCol);

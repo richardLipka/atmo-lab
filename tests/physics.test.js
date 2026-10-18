@@ -2486,5 +2486,19 @@ export function registerTests({ group, test, assert }, config) {
       const sootTrace = traceSingleBeam({ elevationDeg: 20, aerosolScale: 2, aerosolAlbedo: 0.6 });
       assert.greater(sootTrace.counts.absorbed, 0, 'absorbing aerosols produce absorption events');
     });
+
+    test('colorimetry converts single beam spectrum to valid sRGB and supports both spectrumToSrgb and spectrumToSRGB alias', () => {
+      const trace = traceSingleBeam({ elevationDeg: 1.5, mode: 'sunlight' });
+      const c1 = colorimetry.spectrumToSrgb(trace.finalSpectrum, 1.4);
+      const c2 = colorimetry.spectrumToSRGB(trace.finalSpectrum, 1.4);
+      assert.equal(typeof colorimetry.spectrumToSrgb, 'function');
+      assert.equal(typeof colorimetry.spectrumToSRGB, 'function');
+      assert.equal(c1.css, c2.css);
+      assert.equal(c1.rgb.length, 3);
+      assert.between(c1.rgb[0], 0, 255);
+      assert.between(c1.rgb[1], 0, 255);
+      assert.between(c1.rgb[2], 0, 255);
+      assert.greater(c1.rgb[0], c1.rgb[2], 'sunset direct beam is dominantly red over blue in sRGB');
+    });
   });
 }
