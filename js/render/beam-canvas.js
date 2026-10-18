@@ -91,9 +91,8 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, onElevationChange 
     const px = e.clientX - rect.left;
     const py = e.clientY - rect.top;
 
-    // Observer is located near bottom-center: (cx, cy)
-    const cx = rect.width * 0.28;
-    const cy = rect.height * 0.82;
+    const cx = rect.width * 0.18;
+    const cy = rect.height * 0.84;
 
     const dx = px - cx;
     const dy = cy - py; // positive upwards
@@ -172,17 +171,42 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, onElevationChange 
     ctx.fillRect(0, 0, w, h);
 
     // Coordinate mapping:
-    // Observer is near bottom-left: (ox, oy)
-    const ox = w * 0.22;
-    const oy = h * 0.82;
+    // Observer is anchored on the ground on the left: (ox, oy)
+    const ox = w * 0.18;
+    const oy = h * 0.84;
 
     // Ground radius on screen (scaled to show spherical curvature)
-    const viewR = Math.max(w * 1.4, 900);
+    const viewR = Math.max(w * 1.5, 1100);
     const planetCenter = { x: ox, y: oy + viewR };
 
     // Atmosphere visual thickness
-    const atmoThickness = Math.min(h * 0.55, 230);
+    const atmoThickness = Math.min(h * 0.36, 160);
     const atmoOuterR = viewR + atmoThickness;
+
+    // Helper to get ground surface height at any screen x
+    const getGroundY = (x) => {
+      const dx = x - planetCenter.x;
+      if (Math.abs(dx) >= viewR) return planetCenter.y;
+      return planetCenter.y - Math.sqrt(viewR * viewR - dx * dx);
+    };
+
+    // Sun angle and trigonometry
+    const elevRad = (state.elevationDeg * Math.PI) / 180;
+    const cosE = Math.cos(elevRad);
+    const sinE = Math.sin(elevRad);
+
+    // Exact geometric chord distance from observer along line of sight to top of atmosphere
+    const atmoChordLen = Math.sqrt(viewR * viewR * sinE * sinE + 2 * viewR * atmoThickness + atmoThickness * atmoThickness) - viewR * sinE;
+
+    // Atmospheric entry point on screen (where ray enters from space)
+    const entryX = ox + atmoChordLen * cosE;
+    const entryY = oy - atmoChordLen * sinE;
+
+    // Sun Emitter position in space beyond atmosphere
+    const spaceMargin = Math.min(w * 0.20, 100);
+    const sunDist = atmoChordLen + spaceMargin;
+    const sunX = ox + sunDist * cosE;
+    const sunY = oy - sunDist * sinE;
 
     // 2. Atmosphere Density Glow (Exponential layers)
     const atmoGrad = ctx.createRadialGradient(
@@ -200,6 +224,12 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, onElevationChange 
     ctx.arc(planetCenter.x, planetCenter.y, atmoOuterR, 0, Math.PI * 2);
     ctx.fillStyle = atmoGrad;
     ctx.fill();
+
+    // Subtle Karman line / top of atmosphere boundary
+    ctx.strokeStyle = 'rgba(90, 169, 255, 0.12)';
+    ctx.setLineDash([3, 6]);
+    ctx.lineWidth = 1;
+    ctx.stroke();
     ctx.restore();
 
     // 3. Ground / Planet Surface
@@ -229,20 +259,14 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, onElevationChange 
     ctx.restore();
 
     // 5. Celestial Arc & Sun Emitter Handle
-    const domeR = Math.min(w * 0.68, h * 0.72);
     ctx.save();
     ctx.beginPath();
-    ctx.arc(ox, oy, domeR, -Math.PI * 0.5, 0);
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.arc(ox, oy, sunDist, -Math.PI * 0.5, 0);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
     ctx.setLineDash([4, 6]);
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.setLineDash([]);
-
-    // Sun Emitter Position
-    const elevRad = (state.elevationDeg * Math.PI) / 180;
-    const sunX = ox + domeR * Math.cos(elevRad);
-    const sunY = oy - domeR * Math.sin(elevRad);
 
     // Glowing Sun Disc
     const sunGrad = ctx.createRadialGradient(sunX, sunY, 2, sunX, sunY, 22);
@@ -265,40 +289,87 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, onElevationChange 
     ctx.font = 'bold 12px ui-monospace, monospace';
     const elevText = `${state.elevationDeg.toFixed(1)}°`;
     ctx.fillText(elevText, sunX + 14, sunY - 8);
+
+    // Apparent Sun indicator if refraction is enabled
+    if (state.enableRefraction && traceResult.deflectionArcmin > 0.5) {
+      const deflDeg = Math.min(2.5, traceResult.deflectionArcmin / 60);
+      const appElevRad = ((state.elevationDeg + deflDeg) * Math.PI) / 180;
+      const appSunX = ox + sunDist * Math.cos(appElevRad);
+      const appSunY = oy - sunDist * Math.sin(appElevRad);
+      ctx.strokeStyle = 'rgba(255, 224, 130, 0.45)';
+      ctx.setLineDash([3, 4]);
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(appSunX, appSunY, 12, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = '10px ui-monospace, monospace';
+      ctx.fillStyle = 'rgba(255, 224, 130, 0.75)';
+      ctx.fillText(`+${traceResult.deflectionArcmin.toFixed(1)}'`, appSunX + 14, appSunY + 3);
+    }
     ctx.restore();
 
-    // 6. Project Beam Path from Emitter to Observer
+    // 6. Expected Straight Line (Reference Guide from Sun to Observer)
+    ctx.save();
+    ctx.setLineDash([4, 6]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sunX, sunY);
+    ctx.lineTo(ox, oy);
+    ctx.stroke();
+    ctx.restore();
+
+    // Atmosphere Entry Marker
+    ctx.save();
+    ctx.strokeStyle = 'rgba(90, 169, 255, 0.5)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(entryX, entryY, 5, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    // Vacuum Segment: From Sun Emitter to Atmosphere Entry (Straight Line)
     const pts = traceResult.pathPoints;
+    const srcSrgb = colorimetry.spectrumToSrgb(pts && pts[0] ? pts[0].spectrum : traceResult.finalSpectrum, 1.2);
+    ctx.save();
+    ctx.strokeStyle = srcSrgb.css;
+    ctx.globalAlpha = 0.40;
+    ctx.lineWidth = 6;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(sunX, sunY);
+    ctx.lineTo(entryX, entryY);
+    ctx.stroke();
+
+    ctx.globalAlpha = 0.95;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.moveTo(sunX, sunY);
+    ctx.lineTo(entryX, entryY);
+    ctx.stroke();
+    ctx.restore();
+
+    // Atmospheric Segment: From Entry to Observer (Straight Line)
     if (pts && pts.length > 1) {
-      // Screen projection: map normalized (sFromEntry / L) and altitude to canvas coords
       const totalL = traceResult.totalChordLengthKm * 1000;
 
-      const screenPoints = pts.map((p) => {
-        const t = Math.max(0, Math.min(1, p.sFromEntry / totalL));
-        // Linear chord from Sun to Observer
-        let sx = sunX + (ox - sunX) * t;
-        let sy = sunY + (oy - sunY) * t;
+      // Draw Beam Glow & Core along the straight chord
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p1 = pts[i];
+        const p2 = pts[i + 1];
 
-        // Downward curvature if refraction enabled
-        if (state.enableRefraction) {
-          const bendCurve = Math.sin(t * Math.PI) * (traceResult.deflectionArcmin / 60) * 12;
-          sy += bendCurve;
-        }
+        const frac1 = p1.sFromEntry / totalL;
+        const frac2 = p2.sFromEntry / totalL;
 
-        return { x: sx, y: sy, p };
-      });
+        const x1 = entryX + (ox - entryX) * frac1;
+        const y1 = entryY + (oy - entryY) * frac1;
+        const x2 = entryX + (ox - entryX) * frac2;
+        const y2 = entryY + (oy - entryY) * frac2;
 
-      // Draw Beam Glow & Core
-      for (let i = 0; i < screenPoints.length - 1; i++) {
-        const p1 = screenPoints[i];
-        const p2 = screenPoints[i + 1];
-
-        // Color of beam at this point from physical spectrum
-        const srgb = colorimetry.spectrumToSrgb(p1.p.spectrum, 1.2);
+        const srgb = colorimetry.spectrumToSrgb(p1.spectrum, 1.2);
         const colStr = srgb.css;
-
-        // Intensity falloff
-        const alpha = Math.max(0.15, Math.min(1.0, p1.p.normalizedIntensity * 1.3));
+        const alpha = Math.max(0.15, Math.min(1.0, p1.normalizedIntensity * 1.3));
 
         // Outer glow
         ctx.save();
@@ -307,86 +378,110 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, onElevationChange 
         ctx.lineWidth = 7;
         ctx.lineCap = 'round';
         ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
         ctx.stroke();
 
         // Inner core
         ctx.globalAlpha = Math.min(1.0, alpha * 0.95);
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
         ctx.stroke();
         ctx.restore();
       }
 
-      // Animated Photons along the beam
+      // Animated Photons streaming down the straight beam
       if (state.animate) {
         ctx.save();
-        const photonCount = 7;
+        const photonCount = 8;
+        const entryFrac = spaceMargin / sunDist;
         for (let j = 0; j < photonCount; j++) {
           const phase = ((animTime * 0.45 + j / photonCount) % 1);
-          const idx = Math.floor(phase * (screenPoints.length - 1));
-          const pt = screenPoints[idx];
-          if (pt) {
-            const srgb = colorimetry.spectrumToSrgb(pt.p.spectrum, 1.8);
-            ctx.fillStyle = srgb.css;
-            ctx.shadowColor = ctx.fillStyle;
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
-            ctx.fill();
+          const px = sunX + (ox - sunX) * phase;
+          const py = sunY + (oy - sunY) * phase;
+
+          let spec = pts[0].spectrum;
+          if (phase >= entryFrac) {
+            const atmoPhase = (phase - entryFrac) / (1 - entryFrac);
+            const idx = Math.min(pts.length - 1, Math.floor(atmoPhase * pts.length));
+            spec = pts[idx].spectrum;
           }
+          const srgb = colorimetry.spectrumToSrgb(spec, 1.8);
+          ctx.fillStyle = srgb.css;
+          ctx.shadowColor = srgb.css;
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(px, py, 3, 0, Math.PI * 2);
+          ctx.fill();
         }
         ctx.restore();
       }
 
-      // 7. Scattering Events & Daughter Rays
+      // 7. Scattering Events: Diverting Parts of the Beam Away into the Sky
       const events = traceResult.scatteringEvents;
       if (events) {
-        for (const ev of events) {
-          const t = Math.max(0, Math.min(1, ev.distanceM / totalL));
-          const ex = sunX + (ox - sunX) * t;
-          let ey = sunY + (oy - sunY) * t;
-          if (state.enableRefraction) {
-            ey += Math.sin(t * Math.PI) * (traceResult.deflectionArcmin / 60) * 12;
-          }
+        const beamAngle = Math.atan2(oy - entryY, ox - entryX);
+
+        for (let k = 0; k < events.length; k++) {
+          const ev = events[k];
+          const frac = Math.max(0, Math.min(1, ev.distanceM / totalL));
+          const ex = entryX + (ox - entryX) * frac;
+          const ey = entryY + (oy - entryY) * frac;
 
           const isRayleigh = ev.type === 'rayleigh';
           const dotCol = isRayleigh ? '#5aa9ff' : '#ffe082';
 
-          // Collision Node
+          // Collision Node on the straight beam
           ctx.save();
           ctx.fillStyle = dotCol;
+          ctx.shadowColor = dotCol;
+          ctx.shadowBlur = 6;
           ctx.beginPath();
           ctx.arc(ex, ey, isRayleigh ? 2.5 : 3.5, 0, Math.PI * 2);
           ctx.fill();
+          ctx.restore();
 
-          // Emitted daughter ray
-          const rayLen = isRayleigh ? 32 : 46;
-          const endX = ex + ev.outDirectionX * rayLen;
-          const endY = ey - ev.outDirectionY * rayLen; // screen Y inverted
+          // Emitted daughter ray radiating AWAY into the sky
+          const scAngleRad = (ev.scatterAngleDeg * Math.PI) / 180;
+          const side = (k % 2 === 0) ? 1 : -1;
+          let divAngle = beamAngle + side * Math.max(0.35, scAngleRad * 0.8);
+          // Ensure scattered rays radiate upwards into the open atmosphere rather than underground
+          if (Math.sin(divAngle) > 0) {
+            divAngle = beamAngle - Math.abs(scAngleRad * 0.8);
+          }
+
+          const rayLen = isRayleigh ? 36 : 48;
+          let endX = ex + Math.cos(divAngle) * rayLen;
+          let endY = ey + Math.sin(divAngle) * rayLen;
+
+          // Ground surface clipping: never penetrate rock
+          const gy = getGroundY(endX);
+          if (endY > gy) endY = gy;
 
           const daughterGrad = ctx.createLinearGradient(ex, ey, endX, endY);
           daughterGrad.addColorStop(0, dotCol);
           daughterGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
 
+          ctx.save();
           ctx.strokeStyle = daughterGrad;
-          ctx.lineWidth = isRayleigh ? 1.2 : 1.8;
+          ctx.lineWidth = isRayleigh ? 1.3 : 1.9;
           ctx.beginPath();
           ctx.moveTo(ex, ey);
           ctx.lineTo(endX, endY);
           ctx.stroke();
 
-          // Wave pulse on daughter ray if animated
-          if (state.animate && isRayleigh) {
-            const wavePhase = (animTime * 1.5 + ev.distanceM * 0.0001) % 1;
-            const waveX = ex + ev.outDirectionX * rayLen * wavePhase;
-            const waveY = ey - ev.outDirectionY * rayLen * wavePhase;
-            ctx.fillStyle = 'rgba(120, 190, 255, 0.6)';
+          // Animated branching photons diverted away into the sky
+          if (state.animate) {
+            const wavePhase = (animTime * 1.5 + k * 0.22) % 1;
+            const wx = ex + (endX - ex) * wavePhase;
+            const wy = ey + (endY - ey) * wavePhase;
+            ctx.fillStyle = dotCol;
+            ctx.shadowColor = dotCol;
+            ctx.shadowBlur = 6;
             ctx.beginPath();
-            ctx.arc(waveX, waveY, 1.8, 0, Math.PI * 2);
+            ctx.arc(wx, wy, isRayleigh ? 1.8 : 2.2, 0, Math.PI * 2);
             ctx.fill();
           }
           ctx.restore();

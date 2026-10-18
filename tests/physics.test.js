@@ -2500,5 +2500,15 @@ export function registerTests({ group, test, assert }, config) {
       assert.between(c1.rgb[2], 0, 255);
       assert.greater(c1.rgb[0], c1.rgb[2], 'sunset direct beam is dominantly red over blue in sRGB');
     });
+
+    test('no point of the traced beam path penetrates inside the Earth (altitude >= 0)', () => {
+      for (const elev of [0, 0.5, 1, 2, 5, 15, 30, 60, 90]) {
+        const trace = traceSingleBeam({ elevationDeg: elev, enableRefraction: true });
+        for (const pt of trace.pathPoints) {
+          assert.greater(pt.altitudeM, -0.001, `altitude at elev ${elev} deg must be non-negative`);
+          assert.greater(Math.hypot(pt.x, pt.y), 6371000 - 0.001, 'distance from planet center >= Earth radius');
+        }
+      }
+    });
   });
 }

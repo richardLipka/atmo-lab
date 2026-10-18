@@ -210,7 +210,7 @@ export function traceSingleBeam(options = {}) {
     let x = sFromObserver * cosE;
     let y = R + sFromObserver * sinE;
 
-    // Apply continuous downward refraction bending if enabled
+    // Accumulate continuous refraction deflection angle if enabled
     if (enableRefraction && n0_minus_1 > 0 && sFromEntry > 0) {
       const rCurrent = Math.sqrt(x * x + y * y);
       const zCurrent = Math.max(0, rCurrent - R);
@@ -219,11 +219,6 @@ export function traceSingleBeam(options = {}) {
       const gradN = (n0_minus_1 / gasScaleHeightM) * gasDensityFrac;
       const bendRate = gradN * cosE * refractionFactor;
       totalDeflectionRad += bendRate * ds;
-
-      // Downward deflection displacement
-      const deflectionDist = totalDeflectionRad * sFromObserver;
-      y -= deflectionDist * cosE;
-      x += deflectionDist * sinE;
     }
 
     const r = Math.sqrt(x * x + y * y);
