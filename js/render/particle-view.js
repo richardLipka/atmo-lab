@@ -1,25 +1,16 @@
 /**
  * The single-particle view: one particle of any size, from an air molecule
- * to a 20 micrometre cloud droplet, lit from the left.
- *
- *   Left:  where its scattered light goes, for the chosen colour (filled) and
- *          a contrasting one (dashed), with a fan of rays of the chosen colour
- *          spread exactly as the pattern says - each ray carries the same
- *          share of the scattered light, so where rays crowd, much light goes.
- *   Right: for every colour band, how large the particle's target is (how
- *          often light is scattered at all) and how far the light typically
- *          turns. A molecule: steep in the first, flat in the second. A haze
- *          droplet: mild in both. A cloud droplet: flat in the first, all
- *          turns tiny.
+ * to a 20 micrometre cloud droplet, lit from the left. Three kinds of picture,
+ * each tagged with what it is: the particle to scale against the wave, the
+ * paths the light takes, and graphs of how much light goes where.
  *
  * The patterns come from physics/mie.js.
  */
 
 import { RAY_BANDS } from '../physics/spectrum.js';
 import { dropletPattern, sizeRegime } from '../physics/mie.js';
+import { drawKindTag, drawToScale } from './particle-strips.js';
 
-/** Rays in the fan. */
-const FAN_RAYS = 60;
 /** Decades shown on the logarithmic radial scale. */
 const LOG_DECADES = 4;
 
@@ -66,6 +57,16 @@ function lobe(ctx, pattern, cx, cy, R, log) {
 }
 
 /**
+ * Three kinds of picture, kept apart and labelled the same way as in the
+ * collision view:
+ *   1. TO SCALE - the particle beside the light's wave crests;
+ *   2. LIGHT PATHS - rays arriving from the left and the scattered rays
+ *      leaving, each carrying the same share of the scattered light;
+ *   3. BRIGHTNESS GRAPH - how much light goes in each direction, with the
+ *      strongest direction on the outer ring. Its outline is not the shape of
+ *      the particle, and its size says nothing about how much is scattered.
+ * Below: two graphs by colour band - the target, and the typical turn.
+ *
  * @param {CanvasRenderingContext2D} ctx
  * @param {object} o w, h, t, lang, diameterUm, band, log
  */
@@ -75,6 +76,7 @@ export function drawParticleView(ctx, o) {
   const chosen = dropletPattern(diameterUm, RAY_BANDS[band].centreNm);
   const other = dropletPattern(diameterUm, RAY_BANDS[contrast].centreNm);
   const regime = sizeRegime(chosen.sizeParameter);
+  const [r, g, bl] = RAY_BANDS[band].rgb;
 
   // Header: the particle against the two wavelengths.
   ctx.save();
@@ -84,111 +86,139 @@ export function drawParticleView(ctx, o) {
   ctx.textBaseline = 'alphabetic';
   ctx.fillText(t('beam.particle.header', {
     d: diameterText(diameterUm, lang), regime: t(`beam.particle.regime.${regime}`),
-  }), 16, 22);
+  }), 14, 20);
   ctx.font = '10.5px system-ui, sans-serif';
-  let x = 16;
-  const piece = (text, colour) => { ctx.fillStyle = colour; ctx.fillText(text, x, 40); x += ctx.measureText(text).width; };
+  let x = 14;
+  const piece = (text, colour) => { ctx.fillStyle = colour; ctx.fillText(text, x, 36); x += ctx.measureText(text).width; };
   for (const [b, p, sep] of [[band, chosen, ' · '], [contrast, other, '']]) {
     piece(t('beam.particle.sizeAgainst', {
-      nm: Math.round(RAY_BANDS[b].centreNm), ratio: viewNumber(diameterUm / (RAY_BANDS[b].centreNm / 1000), diameterUm * 1000 / RAY_BANDS[b].centreNm < 0.1 ? 4 : 2, lang),
+      nm: Math.round(RAY_BANDS[b].centreNm),
+      ratio: viewNumber(diameterUm / (RAY_BANDS[b].centreNm / 1000), diameterUm * 1000 / RAY_BANDS[b].centreNm < 0.1 ? 4 : 2, lang),
       x: viewNumber(p.sizeParameter, p.sizeParameter < 0.1 ? 4 : 2, lang),
     }), RAY_BANDS[b].css);
     piece(sep, 'rgba(255,255,255,0.6)');
   }
 
-  // The polar picture.
-  const area = { x: 12, y: 52, w: Math.max(200, w * 0.58), h: h - 52 - 44 };
-  const cx = area.x + area.w / 2, cy = area.y + area.h / 2;
-  const R = Math.max(40, Math.min(area.w / 2, area.h / 2) - 22);
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  // Row 1: three boxes, one per kind of picture.
+  const top = 46, gap = 10;
+  const legendH = 30;
+  const rowH = Math.round((h - top - legendH - gap) * 0.6);
+  const innerW = w - 28;
+  const w1 = Math.round(innerW * 0.24), w2 = Math.round(innerW * 0.38);
+  const w3 = innerW - w1 - w2 - 2 * gap;
+  const boxScale = { x: 14, y: top, w: w1, h: rowH };
+  const boxRays = { x: 14 + w1 + gap, y: top, w: w2, h: rowH };
+  const boxGraph = { x: 14 + w1 + w2 + 2 * gap, y: top, w: w3, h: rowH };
+
+  // 1. To scale.
+  boxTitle(ctx, boxScale, t('beam.particle.box.scale'));
+  const pic = { x: boxScale.x, y: boxScale.y + 18, w: boxScale.w, h: boxScale.h - 18 };
+  drawToScale(ctx, pic, diameterUm, band, t, diameterUm < 0.002);
+  drawKindTag(ctx, pic, 'scale', t);
+
+  // 2. Light paths.
+  boxTitle(ctx, boxRays, t('beam.particle.box.rays'));
+  const rays = { x: boxRays.x, y: boxRays.y + 18, w: boxRays.w, h: boxRays.h - 18 };
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillRect(rays.x, rays.y, rays.w, rays.h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(rays.x + 0.5, rays.y + 0.5, rays.w - 1, rays.h - 1);
+  const rcx = rays.x + rays.w * 0.5, rcy = rays.y + rays.h * 0.5;
+  const reach = Math.min(rays.w * 0.46, rays.h * 0.44);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(rays.x, rays.y, rays.w, rays.h); ctx.clip();
+  // Arriving: a narrow parallel beam from the left, straight at the particle.
+  ctx.strokeStyle = RAY_BANDS[band].css;
+  ctx.fillStyle = RAY_BANDS[band].css;
+  ctx.lineWidth = 1.6;
+  for (const dy of [-4, 0, 4]) arrow(ctx, rays.x + 4, rcy + dy, rcx - 9, rcy + dy, 6);
+  // Leaving: each ray carries the same share of the scattered light.
+  ctx.strokeStyle = `rgba(${r},${g},${bl},0.85)`;
+  ctx.fillStyle = `rgba(${r},${g},${bl},0.85)`;
+  ctx.lineWidth = 1.2;
+  const fan = 24;
+  for (let k = 0; k < fan; k++) {
+    const q = (Math.floor(k / 2) + 0.5) / (fan / 2);
+    const th = chosen.turnAt(q) * Math.PI / 180 * (k % 2 ? -1 : 1);
+    arrow(ctx, rcx + 6 * Math.cos(th), rcy - 6 * Math.sin(th), rcx + reach * Math.cos(th), rcy - reach * Math.sin(th), 5);
+  }
+  ctx.restore();
+  ctx.fillStyle = '#d9b77a';
+  ctx.beginPath(); ctx.arc(rcx, rcy, 3.5, 0, Math.PI * 2); ctx.fill();
+  ctx.font = '9.5px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(t('beam.particle.raysNote', { n: fan }), rays.x + 5, rays.y + rays.h - 4);
+  drawKindTag(ctx, rays, 'rays', t);
+
+  // 3. Brightness graph.
+  boxTitle(ctx, boxGraph, t('beam.particle.box.graph'));
+  const graph = { x: boxGraph.x, y: boxGraph.y + 18, w: boxGraph.w, h: boxGraph.h - 18 };
+  ctx.fillStyle = 'rgba(143,227,196,0.03)';
+  ctx.fillRect(graph.x, graph.y, graph.w, graph.h);
+  ctx.strokeStyle = 'rgba(143,227,196,0.35)';
+  ctx.strokeRect(graph.x + 0.5, graph.y + 0.5, graph.w - 1, graph.h - 1);
+  const gcx = graph.x + graph.w / 2, gcy = graph.y + graph.h / 2 - 4;
+  const R = Math.max(24, Math.min(graph.w / 2 - 22, graph.h / 2 - 26));
+  ctx.strokeStyle = 'rgba(143,227,196,0.22)';
   ctx.lineWidth = 1;
   for (const f of (log ? [0.25, 0.5, 0.75, 1] : [0.5, 1])) {
-    ctx.beginPath(); ctx.arc(cx, cy, R * f, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(gcx, gcy, R * f, 0, Math.PI * 2); ctx.stroke();
   }
-  ctx.font = '10px system-ui, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '9.5px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(143,227,196,0.75)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
   for (const deg of [0, 45, 90, 135, 180, 225, 270, 315]) {
     const a = deg * Math.PI / 180;
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + R * Math.cos(a), cy - R * Math.sin(a)); ctx.stroke();
-    const label = deg > 180 ? 360 - deg : deg;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    // The back direction's label sits below the axis, clear of the arriving light.
-    ctx.fillText(`${label}°`, cx + (R + 12) * Math.cos(a), cy - (R + 12) * Math.sin(a) + (deg === 180 ? 34 : 0));
+    ctx.beginPath(); ctx.moveTo(gcx, gcy); ctx.lineTo(gcx + R * Math.cos(a), gcy - R * Math.sin(a)); ctx.stroke();
+    if (deg % 90 === 0) ctx.fillText(`${deg > 180 ? 360 - deg : deg}°`, gcx + (R + 11) * Math.cos(a), gcy - (R + 9) * Math.sin(a));
   }
   if (log) {
     ctx.textAlign = 'left';
     for (let k = 0; k < LOG_DECADES; k++) {
-      ctx.fillText(k ? `10⁻${'¹²³⁴'[k - 1]}` : '1', cx + 3, cy - R * (1 - k / LOG_DECADES) + 6);
+      ctx.fillText(k ? `10⁻${'¹²³⁴'[k - 1]}` : '1', gcx + 3, gcy - R * (1 - k / LOG_DECADES) + 6);
     }
   }
-
-  // Light arriving from the left.
-  ctx.strokeStyle = RAY_BANDS[band].css;
-  ctx.fillStyle = RAY_BANDS[band].css;
-  ctx.lineWidth = 1.5;
-  for (const dy of [-24, -12, 0, 12, 24]) {
-    const y = cy + dy;
-    const x1 = cx - R * 0.42;
-    ctx.globalAlpha = 0.85;
-    ctx.beginPath(); ctx.moveTo(area.x + 2, y); ctx.lineTo(x1, y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(x1 - 6, y - 3); ctx.lineTo(x1 - 6, y + 3); ctx.closePath(); ctx.fill();
-  }
-  ctx.globalAlpha = 1;
-
-  // The fan: each ray carries the same share of the scattered light.
-  const [r, g, bl] = RAY_BANDS[band].rgb;
-  ctx.strokeStyle = `rgba(${r},${g},${bl},0.55)`;
-  ctx.lineWidth = 1;
-  for (let k = 0; k < FAN_RAYS; k++) {
-    const q = (Math.floor(k / 2) + 0.5) / (FAN_RAYS / 2);
-    const th = chosen.turnAt(q) * Math.PI / 180 * (k % 2 ? -1 : 1);
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + R * 1.02 * Math.cos(th), cy - R * 1.02 * Math.sin(th));
-    ctx.stroke();
-  }
-
-  // The patterns.
-  lobe(ctx, chosen, cx, cy, R, log);
+  lobe(ctx, chosen, gcx, gcy, R, log);
   ctx.fillStyle = `rgba(${r},${g},${bl},0.3)`;
   ctx.fill();
   ctx.strokeStyle = RAY_BANDS[band].css;
   ctx.lineWidth = 2;
   ctx.stroke();
-  lobe(ctx, other, cx, cy, R, log);
+  lobe(ctx, other, gcx, gcy, R, log);
   ctx.setLineDash([5, 3]);
   ctx.strokeStyle = RAY_BANDS[contrast].css;
   ctx.lineWidth = 1.6;
   ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = '#ffffff';
-  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill();
-
-  // Legend under the picture.
-  ctx.font = '10.5px system-ui, sans-serif';
-  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.font = '9.5px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'alphabetic';
-  ctx.fillText(t('beam.particle.legend', {
-    nm: Math.round(RAY_BANDS[band].centreNm), nmC: Math.round(RAY_BANDS[contrast].centreNm), n: FAN_RAYS,
-  }), 16, h - 26);
-  ctx.fillText(t(log ? 'beam.particle.scaleLog' : 'beam.particle.scaleLinear'), 16, h - 10);
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(t(log ? 'beam.particle.graphNoteLog' : 'beam.particle.graphNote'), graph.x + 5, graph.y + graph.h - 4);
+  drawKindTag(ctx, graph, 'graph', t);
 
-  // Right: by colour band, the target and the typical turn.
-  const right = { x: area.x + area.w + 18, w: w - (area.x + area.w + 18) - 14 };
-  const half = (h - 52 - 20) / 2;
+  // Row 2: by colour band, the target and the typical turn - graphs too.
+  const row2Y = top + rowH + gap;
+  const row2H = h - legendH - row2Y;
+  const half = (innerW - gap) / 2;
   const patterns = RAY_BANDS.map((b) => dropletPattern(diameterUm, b.centreNm));
   const maxC = Math.max(...patterns.map((p) => p.crossSection));
   const ratio = patterns[band].crossSection / patterns[contrast].crossSection;
-  bars(ctx, { x: right.x, y: 52, w: right.w, h: half - 8 },
+  const targetBox = { x: 14, y: row2Y, w: half, h: row2H };
+  const turnBox = { x: 14 + half + gap, y: row2Y, w: half, h: row2H };
+  bars(ctx, targetBox,
     t('beam.particle.targetTitle'),
     t('beam.particle.targetNote', {
       nm: Math.round(RAY_BANDS[band].centreNm), nmC: Math.round(RAY_BANDS[contrast].centreNm), ratio: viewNumber(ratio, ratio < 10 ? 2 : 1, lang),
     }),
     patterns.map((p) => p.crossSection / maxC), () => '', band);
+  drawKindTag(ctx, targetBox, 'graph', t);
   const maxTurn = Math.max(90, ...patterns.map((p) => p.medianTurnDeg));
-  bars(ctx, { x: right.x, y: 52 + half + 10, w: right.w, h: half - 8 },
+  bars(ctx, turnBox,
     t('beam.particle.turnTitle'),
     t('beam.particle.turnNote'),
     patterns.map((p) => p.medianTurnDeg / maxTurn),
@@ -196,7 +226,39 @@ export function drawParticleView(ctx, o) {
       const v = patterns[k].medianTurnDeg;
       return `${viewNumber(v, v < 10 ? 1 : 0, lang)}°`;
     }, band);
+  drawKindTag(ctx, turnBox, 'graph', t);
+
+  // What each kind of picture means.
+  ctx.font = '10px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(t('beam.particle.kindsLegend', {
+    nm: Math.round(RAY_BANDS[band].centreNm), nmC: Math.round(RAY_BANDS[contrast].centreNm),
+  }), 14, h - 10);
   ctx.restore();
+}
+
+function boxTitle(ctx, box, text) {
+  ctx.save();
+  ctx.font = 'bold 10.5px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.88)';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText(text, box.x + 2, box.y + 12);
+  ctx.restore();
+}
+
+/** A ray: a line with an arrowhead where it ends. */
+function arrow(ctx, x0, y0, x1, y1, head) {
+  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+  const a = Math.atan2(y1 - y0, x1 - x0);
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x1 - head * Math.cos(a - 0.45), y1 - head * Math.sin(a - 0.45));
+  ctx.lineTo(x1 - head * Math.cos(a + 0.45), y1 - head * Math.sin(a + 0.45));
+  ctx.closePath();
+  ctx.fill();
 }
 
 function bars(ctx, box, title, note, values, label, band) {

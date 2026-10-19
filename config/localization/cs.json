@@ -498,11 +498,18 @@
       "compare": "Při změně barvy zůstává stejný paprsek, vstupující ve stejné výšce: míjí stejné částice, ale jejich terče jsou pro něj jinak velké. Modré paprsky narazí mnohem častěji než červené.",
       "pickHint": "Klikni na rozptyl v seznamu (nebo na jeho číslo v obrázku): pás pod komorou ukáže, proč se paprsek stočil právě tak.",
       "moleculeColour": "Směr stočení na barvě nezávisí; barva mění jen to, jak často ke srážce dojde.",
-      "hazeColour": "Na takové kapce se světlo {nmS} nm stočí typicky o {mS}°, světlo {nmL} nm o {mL}°: tady barva mění i směr."
+      "hazeColour": "Na takové kapce se světlo {nmS} nm stočí typicky o {mS}°, světlo {nmL} nm o {mL}°: tady barva mění i směr.",
+      "and": "a",
+      "nearTitle": "Těsně minuté částice: co by zastavilo jinou barvu",
+      "nearIntro": "Čárkované kroužky s písmeny: částice, které tento paprsek minul, ale jinou barvu by zasáhly. Všechny barvy vstupují ve stejné výšce, takže až do první srážky letí po stejné přímce.",
+      "near": {
+        "scatter": "Tento paprsek ({nm} nm) ji minul, ale pro světlo {others} je její terč širší: to by se tu rozptýlilo, kdežto tento paprsek letěl dál.",
+        "absorb": "Tento paprsek ({nm} nm) ji minul, ale pro světlo {others} je její terč širší: to by tu bylo pohlceno, kdežto tento paprsek letěl dál."
+      }
     },
     "bench": {
-      "title": "Zkušební částice: kam odchází rozptýlené světlo (světlo přichází zleva). Plně: {nm} nm, čárkovaně: {nmC} nm.",
-      "titleOne": "Zkušební částice: kam odchází rozptýlené světlo (světlo přichází zleva), pro {nm} nm.",
+      "title": "Grafy jasu: kolik rozptýleného světla jde kterým směrem (světlo zleva). Plně {nm} nm, čárkovaně {nmC} nm. Není to tvar částice.",
+      "titleOne": "Grafy jasu: kolik rozptýleného světla jde kterým směrem (světlo zleva), {nm} nm. Není to tvar částice.",
       "name": {
         "molecule": "molekula N₂, O₂ (0,3 nm)",
         "fine": "kapička 0,1 µm",
@@ -563,9 +570,6 @@
         "comparable": "velká zhruba jako vlnová délka",
         "large": "mnohem větší než vlnová délka"
       },
-      "legend": "Plně: {nm} nm, čárkovaně: {nmC} nm. Tenké čáry: {n} paprsků {nm} nm, každý nese stejný díl rozptýleného světla.",
-      "scaleLinear": "Vzdálenost od středu = kolik světla jde tím směrem (nejsilnější směr sahá k vnější kružnici).",
-      "scaleLog": "Logaritmická stupnice: každá kružnice znamená desetkrát méně světla než ta vnější.",
       "targetTitle": "Jak velký terč, podle barvy",
       "targetNote": "Jak často se světlo vůbec rozptýlí. {nm} nm proti {nmC} nm: {ratio}×.",
       "turnTitle": "Typické stočení, podle barvy",
@@ -588,7 +592,23 @@
         "one": "Posuň velikost od molekuly ke kapce mraku a sleduj tvar: z „dopředu i dozadu“ se stane úzký kužel dopředu.",
         "two": "Sleduj sloupce terče: u molekuly prudce klesají (modrá daleko před červenou), pak se srovnávají a u kapky mraku jsou stejné.",
         "three": "Kolem 0,3–1 µm se plný a čárkovaný tvar liší nejvíc: tady barva mění nejen to, jak často se světlo rozptýlí, ale i kam odejde."
-      }
+      },
+      "box": {
+        "scale": "1. Částice a vlna ve stejném měřítku",
+        "rays": "2. Kudy světlo letí",
+        "graph": "3. Kolik světla jde kterým směrem"
+      },
+      "raysNote": "Každá z {n} šipek nese stejný díl rozptýleného světla.",
+      "graphNote": "Nejsilnější směr sahá k vnější kružnici. Není to tvar částice.",
+      "graphNoteLog": "Každá kružnice: desetkrát méně světla. Není to tvar částice.",
+      "kindsLegend": "V měřítku: skutečná velikost proti vlně · Paprsky: kudy světlo letí · Grafy: kolik světla, {nm} nm plně, {nmC} nm čárkovaně."
+    },
+    "kinds": {
+      "scale": "v měřítku",
+      "rays": "paprsky",
+      "graph": "graf jasu",
+      "sum": "součet vln",
+      "tooSmall": "ve skutečnosti mnohem menší"
     }
   }
 }

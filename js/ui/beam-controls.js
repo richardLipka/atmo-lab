@@ -11,7 +11,7 @@
 import { RAY_BANDS } from '../physics/spectrum.js';
 import { particlePattern, dropletPattern, sizeRegime, CHAMBER_SAMPLE } from '../physics/mie.js';
 import { diameterText, particleContrast } from '../render/particle-view.js';
-import { chosenScatterEvent, contrastBand, rayleighBandRatio } from '../render/beam-canvas.js';
+import { chosenScatterEvent, contrastBand, rayleighBandRatio, nearMisses } from '../render/beam-canvas.js';
 
 const SOURCES = [
   ['beam.sources.bodhaine', 'https://doi.org/10.1175/1520-0426(1999)016%3C1854:ORODC%3E2.0.CO;2'],
@@ -470,7 +470,36 @@ export function createBeamUI({
       colours, stepper,
       ray.events.some((e) => e.action === 'scatter') ? el('p', { className: 'note', text: t('beam.chosen.pickHint') }) : null,
       el('ol', { className: 'beam-chosen-list' }, items),
+      nearMissList(result),
       el('p', { className: 'note', text: t('beam.chosen.compare') }),
+    ]);
+  }
+
+  /** Colour bands as words: "448 nm", "405–480 nm" or "405, 448 and 615 nm". */
+  function bandsText(list) {
+    const nms = list.map((b) => Math.round(RAY_BANDS[b].centreNm));
+    if (nms.length === 1) return `${nms[0]} nm`;
+    const contiguous = list.every((b, i) => i === 0 || b === list[i - 1] + 1);
+    if (contiguous) return `${nms[0]}–${nms[nms.length - 1]} nm`;
+    return `${nms.slice(0, -1).join(', ')} ${t('beam.chosen.and')} ${nms[nms.length - 1]} nm`;
+  }
+
+  /** The particles this ray passed that another colour would have hit (the lettered rings). */
+  function nearMissList(result) {
+    const { model, selection, chamber } = result;
+    if (!chamber || model.bands.length < 2) return null;
+    const misses = nearMisses(selection.ray, chamber, model.bands);
+    if (!misses.length) return null;
+    const nm = Math.round(RAY_BANDS[selection.band].centreNm);
+    return el('div', {}, [
+      el('h3', { className: 'beam-subhead', text: t('beam.chosen.nearTitle') }),
+      el('p', { className: 'note', text: t('beam.chosen.nearIntro') }),
+      el('ol', { className: 'beam-chosen-list beam-near-list' }, misses.map((m, k) => el('li', {}, [
+        el('strong', { text: `${String.fromCharCode(97 + k)}. ${t(`beam.chosen.kind.${m.kind}`)}` }),
+        ` ${t(`beam.chosen.near.${m.kind === 'rayleigh' || m.kind === 'aerosolScatter' ? 'scatter' : 'absorb'}`, {
+          nm, others: bandsText(m.bands),
+        })}`,
+      ]))),
     ]);
   }
 

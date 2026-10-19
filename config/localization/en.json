@@ -498,11 +498,18 @@
       "compare": "Switching colour keeps the same ray, entering at the same height: it passes the same particles, but their targets are a different size for it. Blue rays hit something far more often than red ones.",
       "pickHint": "Click a scattering in the list (or its number in the picture): the strip under the chamber shows why the ray turned as it did.",
       "moleculeColour": "The direction of the turn does not depend on colour; colour only changes how often a collision happens.",
-      "hazeColour": "On such a droplet {nmS} nm light typically turns by {mS}°, {nmL} nm light by {mL}°: here colour changes the direction too."
+      "hazeColour": "On such a droplet {nmS} nm light typically turns by {mS}°, {nmL} nm light by {mL}°: here colour changes the direction too.",
+      "and": "and",
+      "nearTitle": "Near misses: what would stop another colour",
+      "nearIntro": "Dashed rings with letters: particles this ray passed that would have hit another colour. All colours enter at the same height, so up to the first collision they fly along the same line.",
+      "near": {
+        "scatter": "This ray ({nm} nm) passed it, but for {others} light its target is wider: that light would be scattered here, while this one went on.",
+        "absorb": "This ray ({nm} nm) passed it, but for {others} light its target is wider: that light would be absorbed here, while this one went on."
+      }
     },
     "bench": {
-      "title": "Test particles: where the scattered light goes (light arrives from the left). Filled: {nm} nm, dashed: {nmC} nm.",
-      "titleOne": "Test particles: where the scattered light goes (light arrives from the left), for {nm} nm.",
+      "title": "Brightness graphs: how much scattered light goes which way (light from the left). Filled {nm} nm, dashed {nmC} nm. Not the particle’s shape.",
+      "titleOne": "Brightness graphs: how much scattered light goes which way (light from the left), {nm} nm. Not the particle’s shape.",
       "name": {
         "molecule": "molecule N₂, O₂ (0.3 nm)",
         "fine": "droplet 0.1 µm",
@@ -563,9 +570,6 @@
         "comparable": "about the size of the wavelength",
         "large": "much larger than the wavelength"
       },
-      "legend": "Filled: {nm} nm, dashed: {nmC} nm. Thin lines: {n} rays of {nm} nm, each carrying the same share of the scattered light.",
-      "scaleLinear": "Distance from the centre = how much light goes that way (the strongest direction reaches the outer circle).",
-      "scaleLog": "Logarithmic scale: each ring is ten times less light than the next one out.",
       "targetTitle": "How large a target, by colour",
       "targetNote": "How often light is scattered at all. {nm} nm against {nmC} nm: {ratio}×.",
       "turnTitle": "Typical turn, by colour",
@@ -588,7 +592,23 @@
         "one": "Move the slider from the molecule to the cloud droplet and watch the shape: from forwards-and-backwards to a narrow forward cone.",
         "two": "Watch the target bars: steep for a molecule (blue far ahead of red), then flatter, and level for a cloud droplet.",
         "three": "Around 0.3–1 µm the filled and dashed shapes differ most: here colour changes not only how often light is scattered but also where it goes."
-      }
+      },
+      "box": {
+        "scale": "1. The particle and the wave, to scale",
+        "rays": "2. Where the light flies",
+        "graph": "3. How much light goes which way"
+      },
+      "raysNote": "Each of the {n} arrows carries the same share of the scattered light.",
+      "graphNote": "The strongest direction reaches the outer ring. Not the particle’s shape.",
+      "graphNoteLog": "Each ring: ten times less light. Not the particle’s shape.",
+      "kindsLegend": "To scale: the real size against the wave · Light paths: where the light flies · Graphs: how much light, {nm} nm filled, {nmC} nm dashed."
+    },
+    "kinds": {
+      "scale": "to scale",
+      "rays": "light paths",
+      "graph": "brightness graph",
+      "sum": "waves added",
+      "tooSmall": "far smaller than drawn"
     }
   }
 }

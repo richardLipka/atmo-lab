@@ -74,12 +74,23 @@ light that arrives is the direct beam the sky model computes, to 0.2 %.
   only forward, and less so for red). In white light it sets the same particle in two
   colours side by side; with one colour, beside the other kind of particle. Click a
   scattering in the panel's list, or its number in the picture, to explain it.
+- *Near misses.* In white light every colour enters at the same heights, so a red ray often
+  passes a particle that stops blue. Those particles are ringed with the other colour's
+  target and lettered (a, b, c…), and the panel says which colours would have been
+  scattered or absorbed there while this ray flew on.
+- *Three kinds of picture, always labelled.* Every box carries a tag saying what it is:
+  **to scale** (the particle beside the light's wave crests), **light paths** (rays, with
+  arrowheads), **brightness graph** (how much light goes which way, on a polar grid; its
+  outline is not the particle's shape and its size says nothing about how much is
+  scattered) and **waves added** (the dials). The test bench is all graphs; the wave strip
+  is a to-scale picture beside the dials.
 - *One particle* is a third picture: a single water droplet of any diameter, from the size
   of an air molecule (0.3 nm, where it scatters exactly as one) to 20 µm, on a logarithmic
-  slider with named stops. Light arrives from the left; the polar picture shows where the
-  scattered light goes for the chosen colour (filled) and red or blue (dashed), with a fan
-  of 60 rays spread exactly as the pattern says, and a logarithmic scale for the faint side
-  lobes of large drops. Beside it, for all eight colour bands, the size of the target and
+  slider with named stops. Three boxes keep three things apart: the particle drawn to scale
+  against the wave crests; the light's paths (a parallel beam arriving from the left and 24
+  scattered rays, each carrying the same share of the light); and the brightness graph for
+  the chosen colour (filled) and red or blue (dashed), with a logarithmic option for the
+  faint side lobes of large drops. Beside it, for all eight colour bands, the size of the target and
   the typical turn: steep and flat at 90° for a molecule, mild for haze, level and under
   2° for a cloud droplet. The panel gives the size parameter x = πd/λ for both colours, the
   share scattered forward, and what the regime means.
@@ -971,7 +982,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **168 tests** covering:
+`node tests/run-tests.js` runs **169 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine

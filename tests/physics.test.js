@@ -52,7 +52,7 @@ import {
   traceBeam, airRefractivity, refractionArcmin, singleColourSpectrum,
   createChamber, traceChamberBundle,
 } from '../js/physics/beam.js';
-import { resolveSelection, chosenScatterEvent } from '../js/render/beam-canvas.js';
+import { resolveSelection, chosenScatterEvent, nearMisses } from '../js/render/beam-canvas.js';
 import { mie, particlePattern, dropletPattern, phasorChain, sampleTurnDeg, sizeRegime } from '../js/physics/mie.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
@@ -2648,6 +2648,37 @@ export function registerTests({ group, test, assert }, config) {
       assert.equal(sizeRegime(dropletPattern(0.0003, 543).sizeParameter), 'small');
       assert.equal(sizeRegime(dropletPattern(0.5, 543).sizeParameter), 'comparable');
       assert.equal(sizeRegime(dropletPattern(10, 543).sizeParameter), 'large');
+    });
+
+    test('near misses: the particles a red ray passed are the ones that stop blue at the same height', () => {
+      const beam = beamAt(20);
+      const chamber = createChamber({ width: 600, height: 360, tauByKind: beam.tauByKind });
+      const bands = RAY_BANDS.map((_, b) => b);
+      const { rays } = traceChamberBundle(chamber, { bands, raysPerBand: 40 });
+      const of = (band) => rays.filter((r) => r.band === band);
+      const red = of(7), blue = of(1);
+      let checked = 0, found = 0;
+      red.forEach((ray, k) => {
+        const misses = nearMisses(ray, chamber, bands);
+        for (const m of misses) {
+          // Missed by red, within reach for every colour named.
+          assert.greater(m.distance, chamber.halfWidths[m.kind][7]);
+          for (const b of m.bands) assert.less(m.distance, chamber.halfWidths[m.kind][b]);
+          found++;
+        }
+        // Before red's first collision both colours fly the same straight line:
+        // blue's first collision, if it comes earlier, is red's first near miss for blue.
+        const b0 = blue[k].events[0];
+        const r0x = ray.events[0]?.x ?? Infinity;
+        // (Unless red hits that same particle too, only a little later: then it is no miss.)
+        if (b0 && b0.x < r0x && b0.particle !== ray.events[0]?.particle) {
+          const first = misses.find((m) => m.segment === 0 && m.bands.includes(1));
+          assert.equal(first?.particle, b0.particle, `ray ${k}`);
+          checked++;
+        }
+      });
+      assert.greater(found, 5);
+      assert.greater(checked, 3);
     });
 
     test('the wave strip explains the collision asked for, or else the first scattering', () => {

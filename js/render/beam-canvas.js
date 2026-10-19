@@ -116,6 +116,49 @@ export function resolveSelection(state, model, bundle) {
   return { band, index, ray: rays[index], count: rays.length };
 }
 
+/** At most this many near misses are marked on one ray. */
+const MAX_NEAR_MISSES = 8;
+
+/**
+ * Particles the ray passed that another colour would have hit: the ray went
+ * by closer than that colour's target is wide, but not close enough for its
+ * own. All colours enter at the same heights, so up to the ray's first
+ * collision these are exactly the particles that stop the other colours'
+ * rays; further on they say where light of those colours, on this path,
+ * would be scattered or absorbed.
+ * @returns {Array<{particle:number, kind:string, x:number, y:number, distance:number, bands:number[], segment:number}>}
+ */
+export function nearMisses(ray, chamber, bands) {
+  const { particles, halfWidths, height } = chamber;
+  const met = new Set(ray.events.map((e) => e.particle));
+  const out = [];
+  for (let i = 0; i + 1 < ray.points.length; i++) {
+    const a = ray.points[i], b = ray.points[i + 1];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const len = Math.hypot(dx, dy);
+    if (!(len > 0)) continue;
+    const ux = dx / len, uy = dy / len;
+    for (let k = 0; k < particles.length; k++) {
+      if (met.has(k)) continue;
+      const p = particles[k];
+      const own = halfWidths[p.kind][ray.band] ?? 0;
+      for (const shift of [-height, 0, height]) {
+        const px = p.x - a.x, py = p.y + shift - a.y;
+        const along = px * ux + py * uy;
+        if (along <= 0 || along >= len) continue;
+        const distance = Math.abs(px * uy - py * ux);
+        if (distance <= own) continue;
+        const others = bands.filter((bb) => bb !== ray.band && (halfWidths[p.kind][bb] ?? 0) > distance);
+        if (others.length) {
+          out.push({ particle: k, kind: p.kind, x: p.x, y: p.y + shift, distance, bands: others, segment: i, along });
+        }
+      }
+    }
+  }
+  out.sort((m, n) => m.segment - n.segment || m.along - n.along);
+  return out.slice(0, MAX_NEAR_MISSES);
+}
+
 /**
  * The collision the wave strip explains: the one asked for if it scattered the
  * ray, otherwise the ray's first scattering; null if nothing scattered it.
@@ -788,6 +831,7 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     }
     for (const e of chosen.events) drawTarget(e.kind, e.at, chamber.halfWidths[e.kind][selection.band], true);
     drawRay(chosen, 1);
+    drawNearMisses(nearMisses(chosen, chamber, model.bands));
     ctx.restore();
     drawChosenMarks(chosen, rect);
     ctx.strokeStyle = 'rgba(120,150,200,0.35)';
@@ -833,6 +877,34 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
       ? [{ particle, band, chosen: true }, { particle, band: contrast, chosen: false }]
       : [{ particle, band, chosen: true }, { particle: other, band, chosen: false }];
     drawWaveStrip(ctx, { rect: layout.wave, t, lang, panels });
+  }
+
+  /**
+   * The particles another colour would have hit: that colour's target as a
+   * dashed ring in its colour, and a lettered tag (a, b, c...), as in the panel.
+   */
+  function drawNearMisses(misses) {
+    ctx.save();
+    misses.forEach((m, k) => {
+      const widest = m.bands.reduce((best, bb) =>
+        (chamber.halfWidths[m.kind][bb] > chamber.halfWidths[m.kind][best] ? bb : best), m.bands[0]);
+      ctx.strokeStyle = RAY_BANDS[widest].css;
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.arc(m.x, m.y, chamber.halfWidths[m.kind][widest], 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+      const tx = m.x - 11, ty = m.y + 13;
+      ctx.fillStyle = 'rgba(5,7,13,0.9)';
+      ctx.strokeStyle = RAY_BANDS[widest].css;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.rect(tx - 7, ty - 7, 14, 14); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String.fromCharCode(97 + k), tx, ty + 0.5);
+    });
+    ctx.restore();
   }
 
   function drawTarget(kind, at, b, strong) {

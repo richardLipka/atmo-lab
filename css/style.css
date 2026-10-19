@@ -860,6 +860,8 @@ body[data-level="basic"] .explain-column.is-why { opacity: 0.78; }
 .beam-chosen-list li.is-clickable:hover { background: rgba(255,255,255,0.07); }
 .beam-chosen-list li.is-active { border-left-color: #ffffff; background: rgba(255,255,255,0.08); }
 .beam-size li.is-active { color: var(--text); }
+.beam-subhead { margin: 10px 0 4px; font-size: 11.5px; font-weight: 600; color: var(--text); }
+.beam-near-list li { border-left-style: dashed; }
 .beam-size li.is-active strong { color: var(--accent); }
 
 .scattering-center-wrap {
