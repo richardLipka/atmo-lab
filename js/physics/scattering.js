@@ -37,7 +37,7 @@ export const REFERENCE_WAVELENGTH_NM = 550;
  * than 0.01 % over 250-850 nm. Only its SHAPE is used here - the strength comes
  * from the atmosphere's own column - so the leading constant cancels.
  */
-function bodhaineAirShape(lambdaNm) {
+export function bodhaineAirShape(lambdaNm) {
   const l = lambdaNm / 1000;          // the fit is written in micrometres
   const l2 = l * l;
   return (1.0455996 - 341.29061 / l2 - 0.90230850 * l2)

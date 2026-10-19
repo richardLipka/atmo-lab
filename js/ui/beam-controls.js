@@ -117,7 +117,10 @@ export function createBeamUI({
     leftContainer.textContent = '';
 
     const view = section('beam.controls.viewTitle',
-      segmented([['macro', 'beam.controls.viewMacro'], ['micro', 'beam.controls.viewMicro'], ['particle', 'beam.controls.viewParticle']],
+      // From the smallest scale to the largest: one ray at one particle, many
+      // rays in a piece of air, the whole beam through the air - and then the
+      // whole sky, in the other tab.
+      segmented([['particle', 'beam.controls.viewParticle'], ['micro', 'beam.controls.viewMicro'], ['macro', 'beam.controls.viewMacro']],
         state.viewType, (v) => { emit({ viewType: v }); renderLeft(); }, 'beam-view-picker'),
       el('p', { className: 'field-help', text: t({
         macro: 'beam.controls.viewMacroHelp', micro: 'beam.controls.viewMicroHelp', particle: 'beam.controls.viewParticleHelp',
@@ -231,15 +234,21 @@ export function createBeamUI({
     ]);
   }
 
-  /** Where it comes from, and the way to the whole sky. */
-  function sourcesSection() {
+  /** Where it comes from, and the way on to the next, larger picture. */
+  function sourcesSection(viewType) {
     const sources = el('p', { className: 'note beam-sources' }, [t('beam.panel.sources'), ' ']);
     SOURCES.forEach(([key, url], i) => {
       if (i) sources.append(' · ');
       sources.append(el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: t(key) }));
     });
-    const go = el('button', { type: 'button', className: 'primary-button beam-go', text: t('beam.panel.toScattering') });
-    go.addEventListener('click', () => onSwitchToScattering?.());
+    const next = { particle: 'micro', micro: 'macro' }[viewType];
+    const go = el('button', {
+      type: 'button', className: 'primary-button beam-go',
+      text: t(next ? `beam.panel.next.${next}` : 'beam.panel.toScattering'),
+    });
+    go.addEventListener('click', () => {
+      if (next) { emit({ viewType: next }); renderLeft(); } else onSwitchToScattering?.();
+    });
     return el('section', { className: 'panel-section' }, [sources, go]);
   }
 
@@ -285,6 +294,7 @@ export function createBeamUI({
           el('tbody', {}, rows.map((r) => el('tr', {}, r.map((c) => el('td', { text: c }))))),
         ]),
         el('p', { className: 'note', text: t('beam.particle.tableNote') }),
+        el('p', { className: 'note', text: t('beam.particle.angleNote') }),
       ]),
       el('section', { className: 'panel-section' }, [
         el('h2', { text: t(`beam.particle.regime.${regime}`) }),
@@ -303,7 +313,7 @@ export function createBeamUI({
     const trace = model.trace;
     rightContainer.textContent = '';
     if (result.state.viewType === 'particle') {
-      rightContainer.append(...particleSections(result.state), principlesSection(), sourcesSection());
+      rightContainer.append(...particleSections(result.state), principlesSection(), sourcesSection('particle'));
       return;
     }
 
@@ -397,7 +407,7 @@ export function createBeamUI({
       }) }),
     ]));
 
-    rightContainer.append(sourcesSection());
+    rightContainer.append(sourcesSection(result.state.viewType));
   }
 
   /**

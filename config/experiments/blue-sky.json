@@ -48,8 +48,8 @@
         "en": "Light is an electromagnetic wave. Its electric field sets the electrons in a molecule oscillating at the light's frequency, and the oscillating electrons themselves radiate light of the same frequency in all directions: most forwards and backwards, half as much sideways. The light is not lost; it only changes direction. The molecule is set oscillating about equally by every visible colour, but the power it radiates grows as the fourth power of the frequency. That is why scattering by particles much smaller than the wavelength grows as 1/λ⁴ (Rayleigh scattering)."
       },
       "observe": {
-        "cs": "V grafu Spektrum nemá světlo oblohy žádnou vlnovou délku, kterou by nemělo sluneční světlo: rozptyl nové barvy nevytváří, jen mění poměr těch, které už ve světle jsou. Jak paprsek naráží do jednotlivých molekul, ukazuje záložka Jeden paprsek, pohled Srážky zblízka.",
-        "en": "In the Spectrum chart, the sky light has no wavelength that sunlight lacks: scattering makes no new colours, it only changes the proportions of those already in the light. How a ray meets single molecules is shown in the Single beam tab, view Collisions up close."
+        "cs": "V grafu Spektrum nemá světlo oblohy žádnou vlnovou délku, kterou by nemělo sluneční světlo: rozptyl nové barvy nevytváří, jen mění poměr těch, které už ve světle jsou. Jak paprsek naráží do jednotlivých molekul, ukazuje záložka Jeden paprsek, obrázky 1 (jedna částice) a 2 (srážky zblízka).",
+        "en": "In the Spectrum chart, the sky light has no wavelength that sunlight lacks: scattering makes no new colours, it only changes the proportions of those already in the light. How a ray meets single molecules is shown in the Single beam tab, pictures 1 (one particle) and 2 (collisions up close)."
       },
       "sources": [
         {

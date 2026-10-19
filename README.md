@@ -39,7 +39,24 @@ every colour's losses as scattered by molecules, scattered by haze, absorbed by 
 absorbed by ozone — for every colour these and the transmitted share sum to one, and the
 light that arrives is the direct beam the sky model computes, to 0.2 %.
 
-- *Beam through the air* draws the path in the planet's own coordinates, so the beam is a
+The tab has three pictures, from the smallest scale to the largest, and the **Light
+scattering** tab is the fourth: 1 — one ray meets one particle; 2 — many rays cross a
+piece of air (collisions up close); 3 — the composite beam of all colours along its whole
+path; 4 — the whole sky. Each panel ends with a button to the next. The tab opens on
+picture 1.
+
+**What differs between colours, and what does not.** Scattering by a molecule turns blue
+and red light by the same angles — the pattern is the same for every colour — and only how
+often it happens depends on colour (λ⁻⁴·⁰⁹). Refraction bends blue a little more than red,
+but the two colours arrive only 29.7″ apart with the Sun on the horizon, 9.9″ at 5° and
+2.8″ at 20°, so over the whole path their tracks stay within about 160 m, 35 m and 4 m of
+each other — against a beam that, coming from the whole solar disc, is already half a
+degree wide. So the colour of the Sun is not a matter of colours taking
+different paths: it is how much of each colour survives the amount of air on the way,
+e^(−τ·m), with τ several times larger for blue and the air mass m growing from 1 overhead
+to about 34 at the horizon.
+
+- *3. The composite beam through the air* draws the path in the planet's own coordinates, so the beam is a
   straight line from the Sun and the ground curves away beneath it. When a low Sun needs the
   heights stretched to fit, the whole picture is stretched evenly, which keeps the beam
   straight, and the factor is printed. The beam is drawn in the colour of the light still in
@@ -50,7 +67,7 @@ light that arrives is the direct beam the sky model computes, to 0.2 %.
   share of the path's air crossed, where each colour fades steadily and blue fastest. With
   the Sun 5° up the molecules take 86 % of the blue (430–465 nm) and 28 % of the red; ozone
   takes a quarter of the yellow-orange.
-- *Collisions up close* is a magnified, still piece of air. In two dimensions a ray meets a
+- *2. Many rays: collisions up close* is a magnified, still piece of air. In two dimensions a ray meets a
   particle if it passes within its half-width b, so the hit rate is n·2b; each kind of
   particle's b is set, colour by colour, so the chamber has the optical depth of the real
   path. Blue's targets are larger than red's by exactly the scattering law, and the share of
@@ -63,8 +80,14 @@ light that arrives is the direct beam the sky model computes, to 0.2 %.
 - *Why the size of the particle decides* is shown around the chamber. Where a particle
   sends scattered light depends on its size compared with the wavelength, so turns are drawn
   from real scattering patterns (`physics/mie.js`: the Bohren–Huffman Mie algorithm for
-  droplets, 1 + cos²θ for molecules): a molecule turns blue and red alike and only hits blue
-  more often; a 0.5 µm haze droplet turns blue typically by 15° and red by 23°. A *test
+  droplets; for molecules the Rayleigh pattern with the depolarisation of air and Bodhaine's
+  cross-section, as the sky uses them). A turn is the scattering angle, distributed as
+  p(θ)·sin θ — in three dimensions a turn of 90° has a whole ring of directions, a turn of 0°
+  one — so the mean cosine of the drawn turns is the Mie asymmetry parameter g (tested), and
+  the half-micrometre droplet's g ≈ 0.75 at 550 nm is close to the sky's OPAC aerosol
+  (0.709). A molecule turns blue and red alike (typically by 90°) and only hits blue about
+  6× more often; a 0.5 µm haze droplet turns blue (448 nm) typically by 26° and red (693 nm)
+  by 38°. A *test
   bench* above the chamber shows the pattern of four particles — a molecule, droplets of
   0.1 and 0.5 µm, and a 10 µm cloud droplet — for the chosen colour and, in white light,
   for red (or blue) dashed beside it, with the typical turn and the ratio of the targets. A
@@ -84,15 +107,17 @@ light that arrives is the direct beam the sky model computes, to 0.2 %.
   outline is not the particle's shape and its size says nothing about how much is
   scattered) and **waves added** (the dials). The test bench is all graphs; the wave strip
   is a to-scale picture beside the dials.
-- *One particle* is a third picture: a single water droplet of any diameter, from the size
-  of an air molecule (0.3 nm, where it scatters exactly as one) to 20 µm, on a logarithmic
+- *1. One ray, one particle* is the first picture: a single water droplet of any diameter,
+  from 2 nm (below that it is computed as an air molecule) to 20 µm, on a logarithmic
   slider with named stops. Three boxes keep three things apart: the particle drawn to scale
   against the wave crests; the light's paths (a parallel beam arriving from the left and 24
-  scattered rays, each carrying the same share of the light); and the brightness graph for
+  scattered rays, each carrying the same share of the light, at their real angles); and the
+  brightness graph (light per direction) for
   the chosen colour (filled) and red or blue (dashed), with a logarithmic option for the
   faint side lobes of large drops. Beside it, for all eight colour bands, the size of the target and
-  the typical turn: steep and flat at 90° for a molecule, mild for haze, level and under
-  2° for a cloud droplet. The panel gives the size parameter x = πd/λ for both colours, the
+  the typical turn: steep and flat at 90° for a molecule, mild for haze, level and a few
+  degrees for a cloud droplet. The panel explains why the arrows crowd round 90° for a
+  molecule although its graph is brightest forwards and backwards. The panel gives the size parameter x = πd/λ for both colours, the
   share scattered forward, and what the regime means.
 
 **Refraction depends only weakly on colour.** The refractive index of air is about 1.5 %
@@ -367,6 +392,13 @@ reason a low Sun is red: **at 55° above the horizon the unscattered beams cross
 120 km of air; at 3° they cross about 1260 km**, a chord that skims the limb and simply
 does not fit in a picture of the local sky. Zoom out at sunset and you can see it — the
 planet's arc, the atmosphere as a thin shell, and the beams running the length of it.
+
+**Where the observer looks is set with the mouse too.** Drag anywhere in the cross-section
+and the viewing cone turns towards the pointer; press or drag in the strip *What the
+observer sees* and the view points at that part of the sky, horizon to horizon. A press on
+a ray still opens its log, a press that does not move is still a click, and in a
+two-panel comparison aiming in the other panel selects it. The cursor says which: a hand
+over a ray, a crosshair where a drag will aim. The view slider follows.
 
 The wavelength of each arriving ray is drawn from the true single-scattering weight
 β(λ)ρ·P(θ)·T_sun(λ)·T_view(λ)·I₀(λ) — the same product the integrator forms — so the
@@ -982,7 +1014,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **169 tests** covering:
+`node tests/run-tests.js` runs **170 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine

@@ -103,7 +103,7 @@
     "altitudeAxis": "Altitude",
     "angle": "Deflection",
     "blocked": "Blocked by shaft wall",
-    "clickRay": "Click any path to trace it step by step",
+    "clickRay": "Drag: set where the observer looks · mouse wheel: zoom in and out · click a ray: its path step by step",
     "coneExaggerated": "cone widened to be drawable",
     "downloadPng": "Save this image as a PNG, exactly as it is drawn now.",
     "drawnRatio": "drawn as",
@@ -129,7 +129,7 @@
     "shaftPatch": "the only sky left",
     "shaftReaches": "reaches the observer",
     "skyStrip": "What the observer sees",
-    "skyStripHelp": "The sky from horizon to horizon through the observer's own eyes. Black wedges are directions stopped by the shaft wall.",
+    "skyStripHelp": "The sky from horizon to horizon, as the observer sees it. Click or drag in the strip to set where they look. Black wedges are directions blocked by the shaft wall.",
     "space": "Space",
     "star": "to the star",
     "title": "Cross-section",
@@ -375,10 +375,10 @@
     },
     "controls": {
       "viewTitle": "View",
-      "viewMacro": "Beam through the air",
-      "viewMicro": "Collisions up close",
-      "viewMacroHelp": "The whole path of a sunbeam from the top of the atmosphere (100 km) to an observer on the ground: how much of each colour is lost, and where. How it happens to single rays is shown in Collisions up close.",
-      "viewMicroHelp": "A magnified piece of air standing for the beam’s whole path: of each colour, the same share crosses it without a collision as reaches the observer (flag D in Beam through the air). A particle’s target shows how likely a collision is; for blue the molecules’ targets are larger.",
+      "viewMacro": "3. The composite beam through the air",
+      "viewMicro": "2. Many rays: collisions up close",
+      "viewMacroHelp": "The whole path of a sunbeam of all colours from the top of the atmosphere (100 km) to an observer on the ground: how much of each colour is lost, and where. Then the Light scattering tab: the whole sky.",
+      "viewMicroHelp": "A magnified piece of air standing for the beam’s whole path: of each colour, the same share crosses it without a collision as reaches the observer (flag D in picture 3). A particle’s target shows how likely a collision is; for blue the molecules’ targets are larger.",
       "bundle": "All rays",
       "single": "Only the chosen ray",
       "singleHelp": "Only the chosen ray, with dashed rings showing how big a target each particle is for its colour. Choose the ray in the panel on the right.",
@@ -399,8 +399,8 @@
       "exponent": "Wavelength exponent n",
       "exponentHelp": "Scattering on molecules goes as 1/λⁿ; n = 4 is real air. At n = 0 the molecules scatter every colour equally.",
       "bundleHelp": "Every colour sends the same number of rays at the same heights. Click a ray to follow it; the panel on the right explains each of its collisions.",
-      "viewParticle": "One particle",
-      "viewParticleHelp": "One particle of any size, from an air molecule to a cloud droplet, lit from the left: where its scattered light goes, and how often each colour is scattered at all."
+      "viewParticle": "1. One ray, one particle",
+      "viewParticleHelp": "One ray of light meets one particle of any size, from an air molecule to a cloud droplet: where the scattered light goes, and how often each colour is scattered at all. Then picture 2: many rays in a piece of air."
     },
     "panel": {
       "arrivesTitle": "What reaches the observer",
@@ -423,7 +423,7 @@
       "refractionTitle": "Refraction and dispersion",
       "refractionText": "Refraction lifts the Sun by {arcmin}′. Its blue image sits {arcsec}″ above its red one, because the refractive index of air is about 1.5 % larger for blue. For comparison: the Sun is about 32′ across.",
       "sources": "Sources:",
-      "toScattering": "The whole sky: Light scattering →",
+      "toScattering": "Next: 4. The whole atmosphere, Light scattering →",
       "principlesTitle": "What the air does to light",
       "principles": {
         "molecules": {
@@ -447,9 +447,13 @@
           "text": "Air also bends light, blue about 1.5 % more than red. Near the horizon this lifts the Sun by about half a degree and gives it coloured rims and the green flash. It does not make the setting Sun red: scattering does."
         },
         "views": {
-          "lead": "The two pictures.",
-          "text": "Beam through the air shows how much of each colour is lost, and where. Collisions up close shows how it happens to single rays: a ray that meets nothing stays in the Sun’s beam, a scattered one becomes light of the sky, an absorbed one is gone."
+          "lead": "Four pictures.",
+          "text": "Four pictures, from small to large. 1: one ray at one particle, whose size decides where the light goes. 2: many rays in a piece of air: a ray that meets nothing stays in the Sun’s beam, a scattered one becomes light of the sky, an absorbed one is gone. 3: the composite beam of all colours along its whole path, and how much of each colour is lost where. 4 (Light scattering tab): the whole sky that this scattered light makes."
         }
+      },
+      "next": {
+        "micro": "Next: 2. Many rays, collisions up close →",
+        "macro": "Next: 3. The composite beam through the air →"
       }
     },
     "sources": {
@@ -551,7 +555,7 @@
     "particle": {
       "controlsTitle": "The particle",
       "size": "Diameter",
-      "sizeHelp": "A water droplet of this diameter (logarithmic scale); at the smallest sizes it scatters exactly like an air molecule.",
+      "sizeHelp": "A water droplet of this diameter (logarithmic scale). Below 2 nm there is no droplet, only molecules: it is computed as an air molecule (N₂, O₂).",
       "stop": {
         "molecule": "molecule",
         "fine": "0.1 µm",
@@ -598,10 +602,11 @@
         "rays": "2. Where the light flies",
         "graph": "3. How much light goes which way"
       },
-      "raysNote": "Each of the {n} arrows carries the same share of the scattered light.",
+      "raysNote": "Each of the {n} arrows carries the same share of the scattered light, at its real angle.",
       "graphNote": "The strongest direction reaches the outer ring. Not the particle’s shape.",
       "graphNoteLog": "Each ring: ten times less light. Not the particle’s shape.",
-      "kindsLegend": "To scale: the real size against the wave · Light paths: where the light flies · Graphs: how much light, {nm} nm filled, {nmC} nm dashed."
+      "kindsLegend": "To scale: the real size against the wave · Light paths: where the light flies · Graphs: how much light, {nm} nm filled, {nmC} nm dashed.",
+      "angleNote": "Why the arrows (2) and the graph (3) differ: the graph is the brightness in one direction; the arrows are the angles light actually turns by. A turn of 90° can go anywhere round a whole circle of directions about the ray, a turn of 0° in one direction only. So a molecule’s arrows crowd round 90° although its graph is brightest forwards and backwards."
     },
     "kinds": {
       "scale": "to scale",

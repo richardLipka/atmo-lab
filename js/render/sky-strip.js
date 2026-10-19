@@ -43,6 +43,31 @@ export function createSkyStrip(canvas, { i18n, colorimetry }) {
 
   function update(next) { data = next; }
 
+  /** Where each observer's band lies across the strip: the layout draw() uses. */
+  function bandLayout(width) {
+    const stations = data?.stations ?? [];
+    if (stations.length === 1) return [{ id: stations[0].id, x: 0, w: width }];
+    if (stations.length === 2) {
+      const gap = 10;
+      const half = (width - gap) / 2;
+      return [{ id: stations[0].id, x: 0, w: half }, { id: stations[1].id, x: half + gap, w: half }];
+    }
+    return [];
+  }
+
+  /**
+   * The direction under a pointer: which observer's band it is in, and the
+   * signed angle from the zenith at that point (left horizon -90, right +90).
+   */
+  function angleAt(clientX, clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left, py = clientY - rect.top;
+    const box = bandLayout(rect.width).find((b) => px >= b.x - 2 && px <= b.x + b.w + 2 && py >= 0 && py <= rect.height);
+    if (!box) return null;
+    const angle = ((Math.max(box.x, Math.min(box.x + box.w, px)) - box.x) / box.w) * 180 - 90;
+    return { id: box.id, angle };
+  }
+
   function draw() {
     const { w, h } = resize();
     ctx.fillStyle = '#05070d';
@@ -238,5 +263,5 @@ export function createSkyStrip(canvas, { i18n, colorimetry }) {
     ctx.restore();
   }
 
-  return { update, draw };
+  return { update, draw, angleAt };
 }

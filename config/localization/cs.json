@@ -103,7 +103,7 @@
     "altitudeAxis": "Výška",
     "angle": "Vychýlení",
     "blocked": "Zastaveno stěnou šachty",
-    "clickRay": "Klikni na paprsek a projdi jeho cestu krok za krokem",
+    "clickRay": "Táhni myší: nastavíš, kam se pozorovatel dívá · kolečko myši: přiblížit a oddálit · klikni na paprsek: jeho cesta krok za krokem",
     "coneExaggerated": "kužel rozšířen, aby šel nakreslit",
     "downloadPng": "Uloží tento obrázek jako PNG, přesně tak, jak je právě vykreslený.",
     "drawnRatio": "nakresleno jako",
@@ -129,7 +129,7 @@
     "shaftPatch": "jediný zbytek oblohy",
     "shaftReaches": "dopadá k pozorovateli",
     "skyStrip": "Co pozorovatel vidí",
-    "skyStripHelp": "Obloha od obzoru k obzoru očima pozorovatele. Černé klíny jsou směry zastavené stěnou šachty.",
+    "skyStripHelp": "Obloha od obzoru k obzoru očima pozorovatele. Klikni nebo táhni v pásu: nastavíš, kam se dívá. Černé klíny jsou směry zastavené stěnou šachty.",
     "space": "Vesmír",
     "star": "ke hvězdě",
     "title": "Řez atmosférou",
@@ -375,10 +375,10 @@
     },
     "controls": {
       "viewTitle": "Pohled",
-      "viewMacro": "Paprsek atmosférou",
-      "viewMicro": "Srážky zblízka",
-      "viewMacroHelp": "Celá cesta slunečního paprsku od horní hranice atmosféry (100 km) k pozorovateli na zemi: kolik světla každé barvy se ztratí a kde. Jak se to stane jednotlivým paprskům, ukazují Srážky zblízka.",
-      "viewMicroHelp": "Zvětšený kousek vzduchu, který zastupuje celou cestu paprsku: z každé barvy jím bez srážky projde stejný podíl, jaký dorazí k pozorovateli (praporek D v pohledu Paprsek atmosférou). Terč částice ukazuje, jak pravděpodobná je srážka; pro modrou jsou terče molekul větší.",
+      "viewMacro": "3. Složený paprsek atmosférou",
+      "viewMicro": "2. Mnoho paprsků: srážky zblízka",
+      "viewMacroHelp": "Celá cesta slunečního paprsku všech barev od horní hranice atmosféry (100 km) k pozorovateli na zemi: kolik světla každé barvy se ztratí a kde. Pak záložka Rozptyl světla: celá obloha.",
+      "viewMicroHelp": "Zvětšený kousek vzduchu, který zastupuje celou cestu paprsku: z každé barvy jím bez srážky projde stejný podíl, jaký dorazí k pozorovateli (praporek D v obrázku 3). Terč částice ukazuje, jak pravděpodobná je srážka; pro modrou jsou terče molekul větší.",
       "bundle": "Všechny paprsky",
       "single": "Jen vybraný paprsek",
       "singleHelp": "Jen vybraný paprsek; čárkované kroužky ukazují, jak velký terč má každá částice pro jeho barvu. Paprsek vybereš v panelu vpravo.",
@@ -399,8 +399,8 @@
       "exponent": "Exponent vlnové délky n",
       "exponentHelp": "Rozptyl na molekulách je úměrný 1/λⁿ; n = 4 odpovídá skutečnému vzduchu. Při n = 0 molekuly rozptylují všechny barvy stejně.",
       "bundleHelp": "Každá barva vyšle stejný počet paprsků ve stejných výškách. Kliknutím na paprsek ho vybereš; panel vpravo popíše každou jeho srážku.",
-      "viewParticle": "Jedna částice",
-      "viewParticleHelp": "Jedna částice libovolné velikosti, od molekuly vzduchu po kapku mraku, osvětlená zleva: kam odchází rozptýlené světlo a jak často se jednotlivé barvy vůbec rozptýlí."
+      "viewParticle": "1. Jeden paprsek, jedna částice",
+      "viewParticleHelp": "Jeden paprsek světla potká jednu částici libovolné velikosti, od molekuly vzduchu po kapku mraku: kam odchází rozptýlené světlo a jak často se jednotlivé barvy vůbec rozptýlí. Pak obrázek 2: mnoho paprsků v kousku vzduchu."
     },
     "panel": {
       "arrivesTitle": "Co dorazí k pozorovateli",
@@ -423,7 +423,7 @@
       "refractionTitle": "Lom a disperze",
       "refractionText": "Lom zvedá Slunce o {arcmin}′. Modrý obraz je přitom o {arcsec}″ výš než červený, protože index lomu vzduchu je pro modrou asi o 1,5 % větší. Pro srovnání: Slunce má průměr asi 32′.",
       "sources": "Zdroje:",
-      "toScattering": "Celá obloha: Rozptyl světla →",
+      "toScattering": "Dál: 4. Celá atmosféra, Rozptyl světla →",
       "principlesTitle": "Co vzduch dělá se světlem",
       "principles": {
         "molecules": {
@@ -447,9 +447,13 @@
           "text": "Vzduch světlo také láme, modré asi o 1,5 % víc než červené. U obzoru tak zvedá Slunce asi o půl stupně a dává mu barevné okraje a zelený záblesk. Červenou barvu zapadajícího Slunce nezpůsobuje: tu dělá rozptyl."
         },
         "views": {
-          "lead": "Dva pohledy.",
-          "text": "Paprsek atmosférou ukazuje, kolik světla každé barvy se ztratí a kde. Srážky zblízka ukazují, jak se to stane jednotlivým paprskům: paprsek, který na nic nenarazí, zůstane ve slunečním svazku, rozptýlený se stane světlem oblohy, pohlcený zanikne."
+          "lead": "Čtyři obrázky.",
+          "text": "Čtyři obrázky od malého k velkému. 1: jeden paprsek a jedna částice, jejíž velikost rozhoduje, kam světlo odejde. 2: mnoho paprsků v kousku vzduchu: paprsek, který na nic nenarazí, zůstane ve slunečním svazku, rozptýlený se stane světlem oblohy, pohlcený zanikne. 3: složený paprsek všech barev po celé cestě a kolik které barvy kde ubude. 4 (záložka Rozptyl světla): celá obloha, kterou toto rozptýlené světlo tvoří."
         }
+      },
+      "next": {
+        "micro": "Dál: 2. Mnoho paprsků, srážky zblízka →",
+        "macro": "Dál: 3. Složený paprsek atmosférou →"
       }
     },
     "sources": {
@@ -551,7 +555,7 @@
     "particle": {
       "controlsTitle": "Částice",
       "size": "Průměr",
-      "sizeHelp": "Vodní kapka tohoto průměru (logaritmická stupnice); u nejmenších velikostí rozptyluje přesně jako molekula vzduchu.",
+      "sizeHelp": "Vodní kapka tohoto průměru (logaritmická stupnice). Pod 2 nm žádná kapka není, jen molekuly: počítá se jako molekula vzduchu (N₂, O₂).",
       "stop": {
         "molecule": "molekula",
         "fine": "0,1 µm",
@@ -598,10 +602,11 @@
         "rays": "2. Kudy světlo letí",
         "graph": "3. Kolik světla jde kterým směrem"
       },
-      "raysNote": "Každá z {n} šipek nese stejný díl rozptýleného světla.",
+      "raysNote": "Každá z {n} šipek nese stejný díl rozptýleného světla, ve svém skutečném úhlu.",
       "graphNote": "Nejsilnější směr sahá k vnější kružnici. Není to tvar částice.",
       "graphNoteLog": "Každá kružnice: desetkrát méně světla. Není to tvar částice.",
-      "kindsLegend": "V měřítku: skutečná velikost proti vlně · Paprsky: kudy světlo letí · Grafy: kolik světla, {nm} nm plně, {nmC} nm čárkovaně."
+      "kindsLegend": "V měřítku: skutečná velikost proti vlně · Paprsky: kudy světlo letí · Grafy: kolik světla, {nm} nm plně, {nmC} nm čárkovaně.",
+      "angleNote": "Proč se šipky (2) a graf (3) liší: graf ukazuje jas v jednom směru, šipky skutečné úhly, o které se světlo stočí. Stočení o 90° může mířit kamkoli po celém kruhu směrů kolem paprsku, stočení o 0° jen jedním směrem. Proto se u molekuly šipky hromadí kolem 90°, i když její graf je nejjasnější dopředu a dozadu."
     },
     "kinds": {
       "scale": "v měřítku",

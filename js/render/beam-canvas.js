@@ -30,7 +30,7 @@ import {
   traceBeam, singleColourSpectrum, createChamber, traceChamberBundle,
 } from '../physics/beam.js';
 import { createAtmosphere } from '../physics/atmosphere.js';
-import { CHAMBER_SAMPLE } from '../physics/mie.js';
+import { CHAMBER_SAMPLE, particlePattern } from '../physics/mie.js';
 import { drawTestBench, drawWaveStrip } from './particle-strips.js';
 import { drawParticleView } from './particle-view.js';
 import { makeBlackbodySpectrum, RAY_BANDS, BAND_OF_BIN, WAVELENGTHS_NM, SPECTRUM_BINS } from '../physics/spectrum.js';
@@ -51,7 +51,7 @@ const PHYSICS_KEYS = ['elevationDeg', 'mode', 'wavelengthNm', 'densityScale', 'a
 const DEFAULT_BAND = 1;
 
 export const DEFAULT_BEAM_STATE = {
-  viewType: 'macro',
+  viewType: 'particle',
   bundleMode: 'bundle',
   elevationDeg: 20,
   mode: 'sunlight',
@@ -172,17 +172,14 @@ export function chosenScatterEvent(ray, wanted) {
 
 /**
  * How many times more strongly air molecules scatter band a than band b: the
- * ratio of the air's own scattering coefficients, averaged over each band.
- * This is the ratio of the molecules' targets in the chamber.
+ * ratio of their targets. (The chamber's own targets are averaged over each
+ * band and differ from this by a couple of per cent.)
  */
 export function rayleighBandRatio(model, a, b) {
-  const beta = model.atmosphere.rayleighBeta0;
-  const mean = (band) => {
-    let sum = 0, n = 0;
-    for (let i = 0; i < beta.length; i++) if (BAND_OF_BIN[i] === band) { sum += beta[i]; n++; }
-    return n ? sum / n : 0;
-  };
-  return mean(b) > 0 ? mean(a) / mean(b) : 0;
+  // At the bands' centre wavelengths, with the real air's law (Bodhaine et
+  // al. 1999) - the same numbers the test bench and the one-particle view use.
+  const cs = (band) => particlePattern('molecule', RAY_BANDS[band].centreNm).crossSection;
+  return cs(a) / cs(b);
 }
 
 /** In white light, the colour set beside the chosen one: red, or blue for red itself. */
@@ -454,6 +451,7 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     // Light knocked out of the beam: short lines of its own colour, as many
     // as the share of that colour each step loses, pointing every way.
     const perBand = 55;
+    const moleculePattern = particlePattern('molecule', 550);
     bands.forEach((b) => {
       const rng = hashRng(977 * (b + 1));
       ctx.strokeStyle = RAY_BANDS[b].css;
@@ -467,8 +465,12 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
           const along = rng();
           const bx = screen[i - 1].x + (screen[i].x - screen[i - 1].x) * along;
           const by = screen[i - 1].y + (screen[i].y - screen[i - 1].y) * along;
-          // Any direction away from the beam's own line.
-          const turn = (25 + 130 * rng()) * Math.PI / 180 * (rng() < 0.5 ? 1 : -1);
+          // Turned as a molecule turns light (most of what leaves the beam is
+          // molecular scattering); turns under 25 degrees would lie on the beam
+          // itself, which is also where the haze sends its light.
+          let turnDeg;
+          do { turnDeg = moleculePattern.turnAt(rng()); } while (turnDeg < 25 || turnDeg > 155);
+          const turn = turnDeg * Math.PI / 180 * (rng() < 0.5 ? 1 : -1);
           const cx = Math.cos(turn) * ux - Math.sin(turn) * uy;
           const cy = Math.sin(turn) * ux + Math.cos(turn) * uy;
           const r0 = 5, r1 = 5 + 8 + 8 * rng();

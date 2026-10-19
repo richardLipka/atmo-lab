@@ -48,6 +48,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   /** Baked glow images, one per panel, keyed by what each was computed for. */
   const fields = new Map();
   let layout = null;         // geometry of the selected panel, for hit testing
+  let panelLayouts = {};     // every panel's geometry, for aiming the view with the pointer
   /** Where each panel was drawn last frame, so a click can find its panel. */
   let panelBoxes = [];
   /**
@@ -159,6 +160,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     ctx.fillRect(0, 0, w, h);
     panelBoxes = [];
     layout = null;
+    panelLayouts = {};
     if (!data || !data.result || !data.stations || data.stations.length === 0) return;
 
     const stations = data.stations;
@@ -310,6 +312,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     // Only the selected panel is hit-tested, and the origin travels with the
     // geometry so a click in the right-hand panel lands where it was drawn.
     if (current.active) layout = { plot, camera, originX, originY };
+    panelLayouts[current.id] = { camera, originX, originY, z };
   }
 
   /** The drawing area inside the canvas, shared by the view and the tracer. */
@@ -1370,6 +1373,28 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
     return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
   }
 
+  /**
+   * The viewing direction that points from the panel's observer towards a
+   * canvas point: signed degrees from the zenith, positive to the right, as
+   * the view slider and the strip use it. A point below the observer's
+   * horizon gives the horizon on that side.
+   */
+  function viewAngleAt(clientX, clientY, panelId = null) {
+    const id = panelId ?? panelAt(clientX, clientY);
+    const geometry = id ? panelLayouts[id] : null;
+    if (!geometry) return null;
+    const rect = canvas.getBoundingClientRect();
+    const px = clientX - rect.left - geometry.originX;
+    const py = clientY - rect.top - geometry.originY;
+    const o = geometry.camera.project({ x: 0, y: geometry.camera.R + geometry.z });
+    const dx = px - o.x, up = o.y - py;
+    if (Math.hypot(dx, up) < 4) return null;
+    let angle = Math.atan2(dx, up) * 180 / Math.PI;
+    if (angle > 90) angle = 90;
+    if (angle < -90) angle = -90;
+    return { id, angle };
+  }
+
   /** The panel the controls and the readouts belong to. */
   function selectedStation() {
     if (!data || !data.stations) return null;
@@ -1377,7 +1402,7 @@ export function createSceneRenderer(canvas, { i18n, colorimetry }) {
   }
 
   return {
-    update, draw, pick, panelAt, frameFor,
+    update, draw, pick, panelAt, frameFor, viewAngleAt,
     setHovered(index) { hoveredPath = index; },
     setSelected(index) { selectedPath = index; },
     getSelected() { return selectedPath; },

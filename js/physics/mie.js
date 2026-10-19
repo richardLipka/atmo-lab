@@ -12,9 +12,14 @@
  *     about as large as the wavelength turns forward, and more so the shorter
  *     the wavelength.
  *
- * The chamber is two-dimensional, so a turn is drawn in the plane with a
- * probability proportional to the pattern at that angle; the same pattern is
- * what the test bench and the wave strip draw.
+ * Two different things come out of the same pattern, and they must not be
+ * confused. The pattern p(theta) itself is the BRIGHTNESS in a direction: the
+ * light per unit solid angle, which is what the polar graphs draw. The TURN a
+ * ray takes is the scattering angle, and in three dimensions there are far
+ * more directions near 90 degrees than near 0 or 180 (a ring of directions,
+ * 2 pi sin(theta) dtheta), so the angle is distributed as p(theta) sin(theta).
+ * The chamber, the ray fan and the "typical turn" all use that distribution:
+ * each drawn ray is a real scattering seen in the plane it happened in.
  *
  * The wave picture (phasorChain) is the Rayleigh-Gans view of the same thing:
  * every small part of the particle re-radiates the wave that reaches it, and
@@ -23,6 +28,14 @@
  * they arrive in step only if the particle is small compared with the
  * wavelength.
  */
+
+import { rayleighPhase, bodhaineAirShape } from './scattering.js';
+
+/** The depolarisation ratio of air (Young 1980), as the sky simulation uses it. */
+export const AIR_DEPOLARIZATION = 0.0279;
+
+/** Below this diameter (micrometres) a "droplet" is an air molecule. */
+export const MOLECULE_LIMIT_UM = 0.002;
 
 /** Water droplets: real refractive index, no absorption. */
 export const WATER_INDEX = 1.33;
@@ -140,7 +153,7 @@ const patternCache = new Map();
  * @returns {{
  *   id:string, diameterUm:number, lambdaNm:number, sizeParameter:number,
  *   thetaDeg:Float64Array, pattern:Float64Array,   // pattern normalised to its maximum
- *   cdf:Float64Array,                                // planar: probability of turning by at most theta
+ *   cdf:Float64Array,                                // probability of turning by at most theta
  *   crossSection:number,                             // um^2; for the molecule, relative (lambda^-4)
  *   medianTurnDeg:number, forwardShare:number,       // forwardShare: turned by less than 90 degrees
  * }}
@@ -156,6 +169,8 @@ export function particlePattern(id, lambdaNm) {
  * slider. The diameter is rounded to four significant figures for the cache.
  */
 export function dropletPattern(diameterUm, lambdaNm, index = WATER_INDEX) {
+  // Smaller than a couple of nanometres there is no droplet, only molecules.
+  if (diameterUm < MOLECULE_LIMIT_UM) return particlePattern('molecule', lambdaNm);
   const d = Number(diameterUm.toPrecision(4));
   return buildPattern(`d${d}`, d, index, lambdaNm);
 }
@@ -174,8 +189,12 @@ function buildPattern(id, diameterUm, index, lambdaNm) {
 
   let raw, crossSection;
   if (id === 'molecule') {
-    raw = thetaDeg.map((t) => 1 + Math.cos(t * Math.PI / 180) ** 2);
-    crossSection = (550 / lambdaNm) ** 4;   // relative; only ratios between colours are used
+    // Rayleigh with the depolarisation of real air (Chandrasekhar; Hansen &
+    // Travis 1974), and the cross-section of real air (Bodhaine et al. 1999),
+    // exactly as the sky simulation uses them. Relative units: only ratios
+    // between colours are used.
+    raw = thetaDeg.map((t) => rayleighPhase(Math.cos(t * Math.PI / 180), AIR_DEPOLARIZATION));
+    crossSection = bodhaineAirShape(lambdaNm) / bodhaineAirShape(550);
   } else {
     const result = mie(sizeParameter, particle.index);
     raw = result.s11;
@@ -184,9 +203,10 @@ function buildPattern(id, diameterUm, index, lambdaNm) {
   let max = 0;
   for (const v of raw) max = Math.max(max, v);
   const pattern = raw.map((v) => v / max);
-  // Planar turn: probability proportional to the pattern at that angle.
+  // The turn: the scattering angle, distributed as p(theta) sin(theta).
+  const weight = (j) => pattern[j] * Math.sin(thetaDeg[j] * Math.PI / 180);
   const cdf = new Float64Array(nn);
-  for (let j = 1; j < nn; j++) cdf[j] = cdf[j - 1] + 0.5 * (pattern[j] + pattern[j - 1]);
+  for (let j = 1; j < nn; j++) cdf[j] = cdf[j - 1] + 0.5 * (weight(j) + weight(j - 1));
   const total = cdf[nn - 1];
   for (let j = 0; j < nn; j++) cdf[j] /= total;
   const at = (q) => {

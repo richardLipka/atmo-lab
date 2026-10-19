@@ -2603,15 +2603,37 @@ export function registerTests({ group, test, assert }, config) {
       assert.close(mie(200, 1.33).qext, 2, 0.05);
     });
 
+    test('scattering angles follow p(theta) sin(theta): a molecule turns light typically by 90 degrees', () => {
+      // The molecular pattern with depolarisation: P(theta) proportional to (1 + 3g) + (1 - g) cos^2.
+      const m = particlePattern('molecule', 550);
+      const gamma = 0.0279 / (2 - 0.0279);
+      assert.close(m.pattern[360], (1 + 3 * gamma) / (2 + 2 * gamma), 1e-6, 'sideways against forwards');
+      assert.close(m.medianTurnDeg, 90, 1e-6);
+      assert.close(m.forwardShare, 0.5, 1e-6);
+      // Mie asymmetry: the mean cosine of the drawn turns equals g from the series.
+      const x = 2 * Math.PI * 0.25 / 0.55;
+      const g = mie(x, 1.33).g;
+      const pat = dropletPattern(0.5, 550);
+      let sum = 0;
+      const n = 20000;
+      for (let k = 0; k < n; k++) sum += Math.cos(pat.turnAt((k + 0.5) / n) * Math.PI / 180);
+      assert.close(sum / n, g, 0.01);
+      // And the haze droplet is like the sky's own aerosol (OPAC continental clean, g = 0.709).
+      assert.between(g, 0.65, 0.8);
+    });
+
     test('size against wavelength: a molecule turns every colour alike, a haze droplet turns blue further forward', () => {
       const blue = (id) => particlePattern(id, 448), red = (id) => particlePattern(id, 693);
       assert.close(blue('molecule').medianTurnDeg, red('molecule').medianTurnDeg, 1e-9);
-      assert.close(blue('molecule').crossSection / red('molecule').crossSection, (693 / 448) ** 4, 1e-9);
+      // Real air: Bodhaine's law, a little steeper than the ideal fourth power.
+      const molecular = blue('molecule').crossSection / red('molecule').crossSection;
+      assert.between(molecular, (693 / 448) ** 4, (693 / 448) ** 4.15);
       assert.less(blue('haze').medianTurnDeg, red('haze').medianTurnDeg - 4);
       assert.greater(blue('haze').forwardShare, 0.9);
       assert.between(blue('haze').crossSection / red('haze').crossSection, 1.5, 3.5);
-      // A cloud droplet: a narrow forward cone and much the same target for every colour.
-      assert.less(blue('cloud').medianTurnDeg, 3);
+      // A cloud droplet: nearly all forward, and much the same target for every colour.
+      assert.greater(blue('cloud').forwardShare, 0.9);
+      assert.less(blue('cloud').medianTurnDeg, 15);
       assert.between(blue('cloud').crossSection / red('cloud').crossSection, 0.8, 1.2);
     });
 
@@ -2639,11 +2661,13 @@ export function registerTests({ group, test, assert }, config) {
       // A droplet the size of a molecule scatters exactly as a molecule does.
       const tiny = dropletPattern(0.0003, 448), molecule = particlePattern('molecule', 448);
       for (const j of [0, 180, 360, 540, 720]) assert.close(tiny.pattern[j], molecule.pattern[j], 1e-4);
-      assert.close(dropletPattern(0.0003, 448).crossSection / dropletPattern(0.0003, 693).crossSection, (693 / 448) ** 4, 0.01);
+      assert.close(dropletPattern(0.0003, 448).crossSection / dropletPattern(0.0003, 693).crossSection,
+        molecule.crossSection / particlePattern('molecule', 693).crossSection, 1e-9);
       // The slider's droplets agree with the test bench's.
       assert.close(dropletPattern(0.5, 448).medianTurnDeg, particlePattern('haze', 448).medianTurnDeg, 1e-9);
-      // Growing the droplet turns the light ever further forward.
-      const medians = [0.01, 0.1, 0.3, 1, 3, 10].map((d) => dropletPattern(d, 543).medianTurnDeg);
+      // Growing the droplet turns the light ever further forward, up to a few micrometres;
+      // beyond that light refracted through the drop keeps the typical turn at several degrees.
+      const medians = [0.01, 0.1, 0.3, 1, 3].map((d) => dropletPattern(d, 543).medianTurnDeg);
       for (let i = 1; i < medians.length; i++) assert.less(medians[i], medians[i - 1]);
       assert.equal(sizeRegime(dropletPattern(0.0003, 543).sizeParameter), 'small');
       assert.equal(sizeRegime(dropletPattern(0.5, 543).sizeParameter), 'comparable');

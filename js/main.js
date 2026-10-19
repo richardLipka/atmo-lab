@@ -490,12 +490,79 @@ async function start() {
     needsPaint = true;
   });
 
+  /**
+   * Aiming the view with the pointer. The same signed angle the view slider
+   * uses: degrees from the zenith, positive to the right. Aiming in the panel
+   * that is not selected selects it, as clicking it does.
+   */
+  function aimView(hit) {
+    if (!hit) return;
+    const angle = Math.round(hit.angle);
+    const patch = { observer: { viewZenithDeg: Math.abs(angle), viewAzimuthDeg: angle >= 0 ? 0 : 180 } };
+    const target = hit.id === 'b' ? { compare: { b: patch } } : patch;
+    if (store.state.compare.enabled && hit.id !== store.state.compare.active) {
+      target.compare = { ...(target.compare ?? {}), active: hit.id };
+    }
+    store.patch(target);
+  }
+
+  /** Keep receiving the pointer while it drags outside; harmless if the browser refuses. */
+  function capturePointer(element, event) {
+    try { element.setPointerCapture(event.pointerId); } catch { /* not an active pointer */ }
+  }
+
+  // Dragging in the cross-section turns the view towards the pointer. A press
+  // on a ray is left to the click that picks it; a press that does not move
+  // is a click as before.
+  let aiming = null;
+  let swallowClick = false;
+  sceneCanvas.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    if (sceneRenderer.pick(event.clientX, event.clientY) >= 0) return;
+    aiming = { x: event.clientX, y: event.clientY, moved: false, id: sceneRenderer.panelAt(event.clientX, event.clientY) };
+    capturePointer(sceneCanvas, event);
+  });
+  sceneCanvas.addEventListener('pointerup', () => {
+    if (aiming?.moved) swallowClick = true;
+    aiming = null;
+  });
+  sceneCanvas.addEventListener('pointercancel', () => { aiming = null; });
+
   sceneCanvas.addEventListener('mousemove', (event) => {
+    if (aiming) {
+      if (!aiming.moved && Math.hypot(event.clientX - aiming.x, event.clientY - aiming.y) < 4) return;
+      aiming.moved = true;
+      sceneCanvas.style.cursor = 'grabbing';
+      aimView(sceneRenderer.viewAngleAt(event.clientX, event.clientY, aiming.id));
+      return;
+    }
     const index = sceneRenderer.pick(event.clientX, event.clientY);
-    sceneCanvas.style.cursor = index >= 0 ? 'pointer' : 'default';
+    // Over a ray: it can be picked. Elsewhere: a drag aims the view.
+    sceneCanvas.style.cursor = index >= 0 ? 'pointer' : 'crosshair';
     sceneRenderer.setHovered(index);
     needsPaint = true;
   });
+
+  // The strip is the observer's own view from horizon to horizon: pressing or
+  // dragging in it points the view at that part of the sky.
+  const skyCanvas = document.getElementById('sky-canvas');
+  let stripAiming = null;
+  skyCanvas.style.cursor = 'crosshair';
+  skyCanvas.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    const hit = skyStrip.angleAt(event.clientX, event.clientY);
+    if (!hit) return;
+    stripAiming = hit.id;
+    aimView(hit);
+    capturePointer(skyCanvas, event);
+  });
+  skyCanvas.addEventListener('pointermove', (event) => {
+    if (!stripAiming) return;
+    const hit = skyStrip.angleAt(event.clientX, event.clientY);
+    if (hit && hit.id === stripAiming) aimView(hit);
+  });
+  skyCanvas.addEventListener('pointerup', () => { stripAiming = null; });
+  skyCanvas.addEventListener('pointercancel', () => { stripAiming = null; });
   /**
    * The wheel zooms the cross-section. Multiplicative, because the interesting
    * range spans three orders of magnitude - from a picture of the air over your
@@ -522,6 +589,8 @@ async function start() {
     needsPaint = true;
   });
   sceneCanvas.addEventListener('click', (event) => {
+    // The end of a drag that aimed the view is not a click.
+    if (swallowClick) { swallowClick = false; return; }
     // Clicking the panel that is not selected selects it, and does nothing
     // else. It is the fastest way to say which simulation you mean, and it
     // cannot be confused with picking a ray out of it, because a ray in an
