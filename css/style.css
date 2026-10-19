@@ -820,8 +820,30 @@ body[data-level="basic"] .explain-column.is-why { opacity: 0.78; }
   width: 100%;
   height: 100%;
   display: block;
-  cursor: crosshair;
 }
+
+/* ---- single-beam controls and readouts --------------------------- */
+.field-help { margin: 3px 0 0; font-size: 10.5px; line-height: 1.45; color: var(--text-faint); }
+.beam-quick { display: flex; flex-wrap: wrap; gap: 4px; margin: -2px 0 10px; }
+.beam-quick .is-active { border-color: var(--accent); color: var(--text); }
+.control-section .segmented { display: flex; width: 100%; margin-bottom: 8px; }
+.control-section .segmented button { flex: 1; }
+
+.beam-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.beam-chip { display: grid; gap: 4px; }
+.beam-chip-swatch { height: 34px; border-radius: var(--radius-sm); border: 1px solid rgba(255,255,255,0.15); }
+.beam-chip-caption { font-size: 10.5px; color: var(--text-dim); line-height: 1.3; }
+.beam-chip-detail { font-family: var(--mono); font-size: 10.5px; color: var(--text); }
+
+.beam-budget-row { display: grid; grid-template-columns: 74px 1fr 44px; gap: 6px; align-items: center; margin-bottom: 4px; }
+.beam-budget-label { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+.beam-budget-value { font-family: var(--mono); font-size: 10.5px; color: var(--text); text-align: right; }
+.beam-budget-bar { display: flex; height: 10px; border-radius: 3px; overflow: hidden; background: var(--bg-input); }
+.beam-budget-bar span { display: block; height: 100%; }
+.beam-budget-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; font-size: 10.5px; color: var(--text-dim); }
+.beam-budget-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.beam-sources a { color: var(--accent); }
+.beam-go { width: 100%; margin-top: 10px; }
 
 .scattering-center-wrap {
   display: flex;

@@ -24,7 +24,7 @@ import {
   shaftWallSpectrum, VIEW_CONE_HALF_DEG,
 } from './render/photons.js';
 import { createBeamHistogram } from './render/beam-histogram.js';
-import { createBeamCanvas } from './render/beam-canvas.js';
+import { createBeamCanvas, DEFAULT_BEAM_STATE } from './render/beam-canvas.js';
 import { createBeamUI } from './ui/beam-controls.js';
 import { createControls } from './ui/controls.js';
 import { createPanels } from './ui/panels.js';
@@ -81,16 +81,7 @@ async function start() {
 
   /* ---- Single Beam Chamber View (Tab 1) ---- */
   let activeView = 'beam';
-  let beamState = {
-    elevationDeg: 25,
-    mode: 'sunlight',
-    wavelengthNm: 532,
-    densityScale: 1,
-    rayleighExponent: 4,
-    aerosolScale: 1,
-    enableRefraction: true,
-    animate: true,
-  };
+  const beamState = { ...DEFAULT_BEAM_STATE };
 
   const beamCanvasEl = document.getElementById('beam-canvas');
   let beamCanvas = null;
@@ -120,6 +111,14 @@ async function start() {
     if (beamTelemetryRoot) beamTelemetryRoot.hidden = !isBeam;
     if (rightPanel) rightPanel.hidden = isBeam;
 
+    // The explanation footer and the guide bar belong to the scattering view:
+    // under the beam they described a different picture.
+    const explainPanel = document.getElementById('explain-panel');
+    if (explainPanel) explainPanel.hidden = isBeam;
+    const experimentPanel = document.getElementById('experiment-panel');
+    if (experimentPanel && isBeam) experimentPanel.hidden = true;
+    if (!isBeam) experiments.render();
+
     if (isBeam && beamCanvas && beamUI) {
       beamCanvas.update(beamState);
       beamUI.update(beamState, beamCanvas.getTraceResult());
@@ -129,20 +128,15 @@ async function start() {
   }
 
   if (beamCanvasEl) {
-    beamCanvas = createBeamCanvas(beamCanvasEl, {
-      i18n,
-      colorimetry,
-      onElevationChange: (elev) => {
-        beamState.elevationDeg = elev;
-        if (beamUI) beamUI.update(beamState, beamCanvas.getTraceResult());
-      },
-    });
+    beamCanvas = createBeamCanvas(beamCanvasEl, { i18n, colorimetry, config });
 
     beamUI = createBeamUI({
       leftContainer: document.getElementById('beam-controls-root'),
       rightContainer: document.getElementById('beam-telemetry-root'),
       i18n,
       colorimetry,
+      config,
+      initialState: beamState,
       onStateChange: (next) => {
         Object.assign(beamState, next);
         beamCanvas.update(beamState);
@@ -470,7 +464,8 @@ async function start() {
     panels.refreshLegendText();
     experiments.render();
     if (beamUI && beamCanvas) {
-      beamUI.update(beamState, beamCanvas.getTraceResult());
+      beamCanvas.draw();
+      beamUI.refresh(beamCanvas.getTraceResult());
     }
     if (result) publish({ photonsChanged: false });
     needsPaint = true;

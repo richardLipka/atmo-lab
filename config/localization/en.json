@@ -331,5 +331,92 @@
     "help": "The spectrum measured from the rays above, not computed from theory. Filled bars: light arriving at the observer, coloured from the viewing cone and grey from the rest of the sky. Dashed outline: the unscattered direct beam, scaled to its own peak because it is thousands of times brighter. The scale is held at the brightest sky seen so far, so climbing makes the bars fall.",
     "sky": "sky",
     "direct": "direct beam"
+  },
+  "beam": {
+    "canvas": {
+      "entry": "The Sun: entering the atmosphere",
+      "observer": "observer",
+      "pathInfo": "Path through the air {km} km · air mass {airmass} · vertical exaggeration {exaggeration}×",
+      "legendStrands": "Strands = the colours of the beam; thickness = how much light of that colour is left",
+      "legendSparks": "dots = light scattered sideways (the sky)",
+      "refractionTitle": "Refraction: the Sun as you see it",
+      "refractionLift": "lifted by {arcmin}′",
+      "refractionSpread": "blue higher by {arcsec}″",
+      "refractionMagnified": "colour difference magnified {m}×"
+    },
+    "micro": {
+      "source": "SOURCE",
+      "detector": "DETECTOR",
+      "singleCaption": "Ray at {nm} nm: {fate}. Click for the next colour.",
+      "bundleCaption": "Bundle: the same number of rays of every colour. Only rays that meet nothing reach the detector directly.",
+      "scaleNote": "The chamber has the same optical depth as the beam’s whole path. The particles are not drawn to scale.",
+      "fate": {
+        "direct": "crossed without a collision",
+        "scattered": "scattered",
+        "absorbed": "absorbed"
+      }
+    },
+    "controls": {
+      "viewTitle": "View",
+      "viewMacro": "Beam through the air",
+      "viewMicro": "Collisions up close",
+      "viewMacroHelp": "The whole path of a sunbeam from the top of the atmosphere (100 km) to an observer on the ground.",
+      "viewMicroHelp": "A magnified piece of air. The particles’ targets are sized for each colour so the chamber lets each colour through in the same proportion as the beam’s whole path.",
+      "bundle": "Bundle of rays",
+      "single": "Single ray",
+      "singleHelp": "Click in the chamber to fire the next ray; the colours take turns. The dashed rings show how big a target each particle is for this colour.",
+      "sunTitle": "The Sun",
+      "elevation": "Elevation above the horizon",
+      "elevationHelp": "The lower the Sun, the longer the path its light takes through the air.",
+      "lightTitle": "Light",
+      "white": "White sunlight",
+      "oneColour": "One colour",
+      "wavelength": "Wavelength",
+      "airTitle": "Air",
+      "density": "Air density",
+      "densityHelp": "Multiplies the amount of all the air: gas, aerosol and ozone.",
+      "aerosolType": "Aerosol type",
+      "aerosolEarth": "As on Earth (continental clean, OPAC)",
+      "aerosol": "Aerosol amount",
+      "aerosolHelp": "Multiplies the amount of dust and droplets of the chosen kind.",
+      "exponent": "Wavelength exponent n",
+      "exponentHelp": "Scattering on molecules goes as 1/λⁿ; n = 4 is real air. At n = 0 the molecules scatter every colour equally.",
+      "displayTitle": "Display",
+      "animate": "Animate"
+    },
+    "panel": {
+      "arrivesTitle": "What reaches the observer",
+      "entering": "Light above the atmosphere",
+      "arriving": "Arrives (true brightness)",
+      "arrivingHue": "Arrives (hue only)",
+      "pathInfo": "Path through the air {km} km, air mass {airmass}.",
+      "budgetTitle": "Where the light of each colour went",
+      "budgetTooltip": "got through {t}, scattered by molecules {r}, scattered by aerosol {a}, absorbed by ozone {o}, absorbed by aerosol {x}",
+      "legendTransmitted": "reaches the observer",
+      "legendRayleigh": "scattered by molecules",
+      "legendAerosol": "scattered by aerosol",
+      "legendAbsorbed": "absorbed (ozone, aerosol)",
+      "budgetNote": "Each row is one colour; 100 % is the light of that colour above the atmosphere. Scattered light does not vanish: it leaves sideways and glows as the sky.",
+      "chamberTitle": "Chamber: crossed without a collision",
+      "colour": "Colour",
+      "counted": "Counted",
+      "expected": "Calculated",
+      "chamberNote": "With few rays the counted share differs from the calculation by chance. The calculation is e^(−τ) for the beam’s whole path.",
+      "refractionTitle": "Refraction and dispersion",
+      "refractionText": "Refraction lifts the Sun by {arcmin}′. Its blue image sits {arcsec}″ above its red one, because the refractive index of air is about 1.5 % larger for blue. For comparison: the Sun is about 32′ across.",
+      "whyTitle": "Why",
+      "whyScattering": "The colours of the beam are lost in the air at different rates. Air molecules scatter light roughly as 1/λ⁴, so blue leaves the beam several times faster than red; the scattered light goes sideways and makes the sky. Dust and droplets (aerosol) scatter all colours alike, and ozone absorbs mainly yellow and orange. The lower the Sun, the longer its light’s path through the air and the more blue it loses: what reaches the observer is the remainder, yellow to red.",
+      "whyRefraction": "Refraction in the atmosphere depends only slightly on colour: the refractive index of air is about 1.5 % larger for blue than for red. Near the horizon the Sun is therefore lifted by about half a degree, and its blue image sits up to about 30 arcseconds above its red one. That gives the Sun coloured rims and the green flash. But the colour of the setting Sun is set by scattering, not by refraction.",
+      "sources": "Sources:",
+      "toScattering": "The whole sky: Light scattering →"
+    },
+    "sources": {
+      "bodhaine": "Bodhaine et al. 1999 (scattering by molecules)",
+      "opac": "Hess et al. 1998, OPAC (aerosol)",
+      "ozone": "Serdyuchenko et al. 2014 (ozone)",
+      "ciddor": "Ciddor 1996 (refractive index of air)",
+      "refraction": "Atmospheric refraction (Wikipedia)",
+      "greenFlash": "Green flash (Wikipedia)"
+    }
   }
 }

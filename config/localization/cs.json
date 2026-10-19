@@ -331,5 +331,92 @@
     "help": "Spektrum změřené z paprsků nahoře, ne spočítané z teorie. Plné sloupce: světlo dopadající k pozorovateli – barevně ze zorného kužele, šedě ze zbytku oblohy. Čárkovaná obrysová čára: přímý nerozptýlený svazek, škálovaný na vlastní vrchol, protože je tisíckrát jasnější. Měřítko drží nejjasnější dosud viděnou oblohu, takže při stoupání sloupce klesají.",
     "sky": "obloha",
     "direct": "přímý svazek"
+  },
+  "beam": {
+    "canvas": {
+      "entry": "Slunce: vstup do atmosféry",
+      "observer": "pozorovatel",
+      "pathInfo": "Cesta vzduchem {km} km · vzdušná hmota {airmass} · svisle zvětšeno {exaggeration}×",
+      "legendStrands": "Proužky = barvy paprsku; tloušťka = kolik světla té barvy ještě zbývá",
+      "legendSparks": "tečky = světlo rozptýlené do stran (obloha)",
+      "refractionTitle": "Lom: Slunce, jak ho vidíš",
+      "refractionLift": "zvednuto o {arcmin}′",
+      "refractionSpread": "modrá výš o {arcsec}″",
+      "refractionMagnified": "rozdíl barev zvětšen {m}×"
+    },
+    "micro": {
+      "source": "ZDROJ",
+      "detector": "DETEKTOR",
+      "singleCaption": "Paprsek {nm} nm: {fate}. Klikni pro další barvu.",
+      "bundleCaption": "Svazek: z každé barvy stejný počet paprsků. Přímo na detektor dojdou jen ty bez srážky.",
+      "scaleNote": "Komora má stejnou optickou tloušťku jako celá cesta paprsku. Částice nejsou kreslené v měřítku.",
+      "fate": {
+        "direct": "prošel bez srážky",
+        "scattered": "rozptýlen",
+        "absorbed": "pohlcen"
+      }
+    },
+    "controls": {
+      "viewTitle": "Pohled",
+      "viewMacro": "Paprsek atmosférou",
+      "viewMicro": "Srážky zblízka",
+      "viewMacroHelp": "Celá cesta slunečního paprsku od horní hranice atmosféry (100 km) k pozorovateli na zemi.",
+      "viewMicroHelp": "Zvětšený kousek vzduchu. Terče částic jsou pro každou barvu tak velké, aby komora propouštěla každou barvu ve stejném poměru jako celá cesta paprsku.",
+      "bundle": "Svazek paprsků",
+      "single": "Jeden paprsek",
+      "singleHelp": "Kliknutím do komory vystřelíš další paprsek, barvy se střídají. Čárkované kroužky ukazují, jak velký terč má každá částice pro tuto barvu.",
+      "sunTitle": "Slunce",
+      "elevation": "Výška nad obzorem",
+      "elevationHelp": "Čím níž je Slunce, tím delší cestou vzduchem jde jeho světlo.",
+      "lightTitle": "Světlo",
+      "white": "Bílé sluneční",
+      "oneColour": "Jedna barva",
+      "wavelength": "Vlnová délka",
+      "airTitle": "Vzduch",
+      "density": "Hustota vzduchu",
+      "densityHelp": "Násobí množství celého vzduchu: plynu, aerosolu i ozonu.",
+      "aerosolType": "Druh aerosolu",
+      "aerosolEarth": "Jako na Zemi (čistý kontinentální, OPAC)",
+      "aerosol": "Množství aerosolu",
+      "aerosolHelp": "Násobí množství prachu a kapiček zvoleného druhu.",
+      "exponent": "Exponent vlnové délky n",
+      "exponentHelp": "Rozptyl na molekulách je úměrný 1/λⁿ; n = 4 odpovídá skutečnému vzduchu. Při n = 0 molekuly rozptylují všechny barvy stejně.",
+      "displayTitle": "Zobrazení",
+      "animate": "Animovat"
+    },
+    "panel": {
+      "arrivesTitle": "Co dorazí k pozorovateli",
+      "entering": "Světlo nad atmosférou",
+      "arriving": "Dorazí (skutečný jas)",
+      "arrivingHue": "Dorazí (jen odstín)",
+      "pathInfo": "Cesta vzduchem {km} km, vzdušná hmota {airmass}.",
+      "budgetTitle": "Kam se podělo světlo jednotlivých barev",
+      "budgetTooltip": "prošlo {t}, rozptyl na molekulách {r}, rozptyl na aerosolu {a}, pohlceno ozonem {o}, pohlceno aerosolem {x}",
+      "legendTransmitted": "prošlo k pozorovateli",
+      "legendRayleigh": "rozptyl na molekulách",
+      "legendAerosol": "rozptyl na aerosolu",
+      "legendAbsorbed": "pohlceno (ozon, aerosol)",
+      "budgetNote": "Každý řádek je jedna barva; 100 % je světlo té barvy nad atmosférou. Rozptýlené světlo nezmizí: odchází do stran a svítí jako obloha.",
+      "chamberTitle": "Komora: prošlo bez srážky",
+      "colour": "Barva",
+      "counted": "Napočítáno",
+      "expected": "Podle výpočtu",
+      "chamberNote": "Při malém počtu paprsků se napočítaný podíl od výpočtu náhodně liší. Výpočet je e^(−τ) pro celou cestu paprsku.",
+      "refractionTitle": "Lom a disperze",
+      "refractionText": "Lom zvedá Slunce o {arcmin}′. Modrý obraz je přitom o {arcsec}″ výš než červený, protože index lomu vzduchu je pro modrou asi o 1,5 % větší. Pro srovnání: Slunce má průměr asi 32′.",
+      "whyTitle": "Proč",
+      "whyScattering": "Barvy paprsku se ve vzduchu ztrácejí různě rychle. Molekuly vzduchu rozptylují světlo zhruba úměrně 1/λ⁴, takže modrá ze svazku mizí několikrát rychleji než červená; rozptýlené světlo odchází do stran a tvoří oblohu. Prach a kapičky (aerosol) rozptylují všechny barvy podobně a ozon pohlcuje hlavně žlutou a oranžovou. Čím níž je Slunce, tím delší cestou vzduchem světlo jde a tím víc modré ztratí: k pozorovateli dorazí zbytek, žlutý až červený.",
+      "whyRefraction": "Lom světla v atmosféře na barvě závisí jen málo: index lomu vzduchu je pro modrou asi o 1,5 % větší než pro červenou. Slunce u obzoru je proto lomem zvednuto asi o půl stupně a jeho modrý obraz je až asi o 30 obloukových vteřin výš než červený. Odtud barevné okraje Slunce a zelený záblesk. Barvu zapadajícího Slunce však určuje rozptyl, ne lom.",
+      "sources": "Zdroje:",
+      "toScattering": "Celá obloha: Rozptyl světla →"
+    },
+    "sources": {
+      "bodhaine": "Bodhaine a kol. 1999 (rozptyl na molekulách)",
+      "opac": "Hess a kol. 1998, OPAC (aerosol)",
+      "ozone": "Serdyuchenko a kol. 2014 (ozon)",
+      "ciddor": "Ciddor 1996 (index lomu vzduchu)",
+      "refraction": "Atmosférický lom (Wikipedie)",
+      "greenFlash": "Zelený záblesk (Wikipedie)"
+    }
   }
 }

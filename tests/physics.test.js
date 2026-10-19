@@ -49,10 +49,9 @@ import {
   drawnRayShare, isRayDrawn, skyFromRays, shaftWallSpectrum, measureCone,
 } from '../js/render/photons.js';
 import {
-  traceSingleBeam, chordLengthM, calculateAirmass, airRefractivitySTP,
-  effectiveCollisionRadius, sampleRayleighAngle, sampleHenyeyGreensteinAngle,
-  createChamberParticles, traceMicroRay, traceMicroBundle,
-} from '../js/physics/beam-tracer.js';
+  traceBeam, airRefractivity, refractionArcmin, singleColourSpectrum,
+  createChamber, traceChamberBundle,
+} from '../js/physics/beam.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
 
@@ -2429,134 +2428,92 @@ export function registerTests({ group, test, assert }, config) {
 
   /* ---------------------------------------------------------------- */
 
-  group('single beam ray tracer', () => {
-    test('geometric chord length and airmass scale with elevation angle', () => {
-      const noonChord = chordLengthM(90);
-      const sunsetChord = chordLengthM(0);
-      assert.close(noonChord, 80000, 10, 'zenith chord matches 80 km atmosphere height');
-      assert.greater(sunsetChord, 1000000, 'sunset chord exceeds 1000 km across spherical atmosphere');
+  group('one sunbeam, colour by colour', () => {
+    const sun = makeBlackbodySpectrum(5800);
+    const beamAt = (elevationDeg, source = sun, atmosphere = earth) =>
+      traceBeam({ atmosphere, source, elevationDeg });
 
-      assert.close(calculateAirmass(90), 1.0, 0.01, 'zenith airmass is 1.0');
-      assert.close(calculateAirmass(60), 1.15, 0.02, '60 deg airmass is ~1.15');
-      assert.between(calculateAirmass(0), 30, 40, 'horizon airmass is 30-40');
+    test('the beam that arrives is the direct beam the sky model computes', () => {
+      for (const elevation of [60, 20, 5]) {
+        const beam = beamAt(elevation);
+        const reference = computeDirectBeam(sceneAt({ elevation, source: sun }), QUALITY_PRESETS.high);
+        for (const nm of [450, 550, 650]) {
+          assert.close(beam.transmittedSpectrum[INDEX(nm)], reference.spectrum[INDEX(nm)], 0.002,
+            `${elevation} degrees, ${nm} nm`);
+        }
+        assert.close(beam.airMass, reference.airMass, 0.01);
+      }
     });
 
-    test('refractivity of air exhibits normal dispersion (blue > red)', () => {
-      const nBlue = airRefractivitySTP(405);
-      const nGreen = airRefractivitySTP(532);
-      const nRed = airRefractivitySTP(650);
-      assert.greater(nBlue, nGreen, 'blue refractivity is greater than green');
-      assert.greater(nGreen, nRed, 'green refractivity is greater than red');
-      assert.between(nRed, 2.7e-4, 2.8e-4, 'red refractivity is near standard 2.75e-4');
-    });
-
-    test('at midday, direct beam preserves both red and blue light', () => {
-      const trace = traceSingleBeam({ elevationDeg: 90, mode: 'sunlight' });
-      assert.greater(trace.keyTransmittances.blue450, 0.70, 'midday blue transmission is > 70%');
-      assert.greater(trace.keyTransmittances.red650, 0.90, 'midday red transmission is > 90%');
-      assert.greater(trace.counts.rayleigh, 0, 'molecular scattering events occur');
-    });
-
-    test('at sunset, blue light collapses while red light survives the long chord', () => {
-      const trace = traceSingleBeam({ elevationDeg: 1.5, mode: 'sunlight' });
-      assert.less(trace.keyTransmittances.blue450, 0.01, 'sunset blue transmission is < 1% (scattered away)');
-      assert.greater(trace.keyTransmittances.red650, 0.05, 'sunset red transmission survives significantly');
-      assert.greater(trace.keyTransmittances.red650 / Math.max(1e-6, trace.keyTransmittances.blue450), 10,
-        'red/blue survival ratio is over 10x, turning the direct beam deep red');
-    });
-
-    test('blue monochromatic laser scatters far more aggressively than red laser', () => {
-      const blueTrace = traceSingleBeam({ elevationDeg: 10, mode: 'monochromatic', wavelengthNm: 405 });
-      const redTrace = traceSingleBeam({ elevationDeg: 10, mode: 'monochromatic', wavelengthNm: 650 });
-      assert.greater(redTrace.keyTransmittances.red650, blueTrace.keyTransmittances.blue450 * 2,
-        'red laser transmits over double the flux of blue laser along low chord');
-    });
-
-    test('refraction bends low-elevation rays downward', () => {
-      const trace = traceSingleBeam({ elevationDeg: 2, enableRefraction: true, refractionFactor: 1 });
-      assert.greater(trace.deflectionArcmin, 10, 'downward deflection at low angle exceeds 10 arcminutes');
-    });
-
-    test('setting rayleighExponent = 0 makes molecular scattering colour-neutral', () => {
-      const neutralTrace = traceSingleBeam({ elevationDeg: 30, rayleighExponent: 0, aerosolScale: 0 });
-      const blue = neutralTrace.keyTransmittances.blue450;
-      const red = neutralTrace.keyTransmittances.red650;
-      assert.close(blue / red, 1.0, 0.05, 'blue and red transmittances are virtually equal when n = 0');
-    });
-
-    test('absorbing aerosols (albedo < 1.0) record absorbed events', () => {
-      const sootTrace = traceSingleBeam({ elevationDeg: 20, aerosolScale: 2, aerosolAlbedo: 0.6 });
-      assert.greater(sootTrace.counts.absorbed, 0, 'absorbing aerosols produce absorption events');
-    });
-
-    test('colorimetry converts single beam spectrum to valid sRGB and supports both spectrumToSrgb and spectrumToSRGB alias', () => {
-      const trace = traceSingleBeam({ elevationDeg: 1.5, mode: 'sunlight' });
-      const c1 = colorimetry.spectrumToSrgb(trace.finalSpectrum, 1.4);
-      const c2 = colorimetry.spectrumToSRGB(trace.finalSpectrum, 1.4);
-      assert.equal(typeof colorimetry.spectrumToSrgb, 'function');
-      assert.equal(typeof colorimetry.spectrumToSRGB, 'function');
-      assert.equal(c1.css, c2.css);
-      assert.equal(c1.rgb.length, 3);
-      assert.between(c1.rgb[0], 0, 255);
-      assert.between(c1.rgb[1], 0, 255);
-      assert.between(c1.rgb[2], 0, 255);
-      assert.greater(c1.rgb[0], c1.rgb[2], 'sunset direct beam is dominantly red over blue in sRGB');
-    });
-
-    test('no point of the traced beam path penetrates inside the Earth (altitude >= 0)', () => {
-      for (const elev of [0, 0.5, 1, 2, 5, 15, 30, 60, 90]) {
-        const trace = traceSingleBeam({ elevationDeg: elev, enableRefraction: true });
-        for (const pt of trace.pathPoints) {
-          assert.greater(pt.altitudeM, -0.001, `altitude at elev ${elev} deg must be non-negative`);
-          assert.greater(Math.hypot(pt.x, pt.y), 6371000 - 0.001, 'distance from planet center >= Earth radius');
+    test('every colour\'s light is accounted for: through, scattered or absorbed', () => {
+      for (const elevation of [60, 5, 0]) {
+        for (const b of beamAt(elevation).budget) {
+          const sum = b.transmitted + b.rayleigh + b.aerosolScatter + b.aerosolAbsorb + b.ozone;
+          assert.close(sum, 1, 1e-9, `${elevation} degrees, band ${b.band.fromNm} nm`);
         }
       }
     });
 
-    test('effective collision radius scales inversely with squared wavelength (Rayleigh sigma ~ 1/lambda^4)', () => {
-      const rBlue = effectiveCollisionRadius(405);
-      const rGreen = effectiveCollisionRadius(532);
-      const rRed = effectiveCollisionRadius(650);
-      assert.greater(rBlue, rGreen, 'blue collision radius > green');
-      assert.greater(rGreen, rRed, 'green collision radius > red');
-      const areaRatio = (rBlue * rBlue) / (rRed * rRed);
-      assert.greater(areaRatio, 6.0, 'blue interaction cross section area is over 6x larger than red');
+    test('blue is scattered out of the beam far more than red, and more so the lower the Sun', () => {
+      const blue = (beam) => beam.budget[1];   // 430-464 nm
+      const red = (beam) => beam.budget[7];    // 635-750 nm
+      const high = beamAt(60), low = beamAt(5);
+      assert.greater(blue(high).rayleigh, 4 * red(high).rayleigh);
+      assert.less(blue(low).transmitted, red(low).transmitted / 5);
+      assert.greater(blue(low).rayleigh, blue(high).rayleigh);
+      // Haze is far less selective than the molecules.
+      assert.less(blue(high).aerosolScatter / red(high).aerosolScatter, 2);
     });
 
-    test('sampleRayleighAngle yields symmetric dipole distribution bounded by [-pi, pi]', () => {
-      let positiveCount = 0;
-      for (let i = 0; i < 500; i++) {
-        const theta = sampleRayleighAngle();
-        assert.between(theta, -Math.PI, Math.PI);
-        if (theta > 0) positiveCount++;
+    test('ozone takes most from yellow and orange, almost nothing from blue', () => {
+      const low = beamAt(5);
+      const ozone = low.budget.map((b) => b.ozone);
+      const peak = ozone.indexOf(Math.max(...ozone));
+      assert.ok(RAY_BANDS[peak].centreNm > 560 && RAY_BANDS[peak].centreNm < 640, 'peak in yellow-orange');
+      assert.less(low.budget[1].ozone, 0.02);
+    });
+
+    test('a single colour is followed on its own', () => {
+      const green = beamAt(20, singleColourSpectrum(530));
+      const present = green.budget.filter((b) => b.present);
+      assert.equal(present.length, 1);
+      assert.ok(present[0].band.fromNm <= 530 && present[0].band.toNm >= 530);
+    });
+
+    test('refraction follows Saemundsson, and blue is refracted about 1.5 % more than red', () => {
+      // n - 1 at 550 nm for standard air (Ciddor 1996): 2.778e-4.
+      assert.close(airRefractivity(550), 2.7784e-4, 1e-3);
+      assert.close(airRefractivity(450) / airRefractivity(650), 1.0153, 1e-3);
+      // At the horizon about half a degree; one degree up about 24 arcminutes; at 45 degrees about one.
+      assert.close(refractionArcmin(0), 29.0, 0.02);
+      assert.close(refractionArcmin(45), 1.0, 0.05);
+      const low = beamAt(0);
+      const spreadArcsec = (low.refraction[1].arcmin - low.refraction[7].arcmin) * 60;
+      assert.between(spreadArcsec, 15, 30, 'blue above red by tens of arcseconds at the horizon');
+      const high = beamAt(60);
+      assert.less((high.refraction[1].arcmin - high.refraction[7].arcmin) * 60, 1);
+    });
+
+    test('the chamber lets each colour through as the real path does', () => {
+      for (const elevation of [20, 5]) {
+        const beam = beamAt(elevation);
+        const chamber = createChamber({ width: 600, height: 360, tauByKind: beam.tauByKind });
+        const { tally } = traceChamberBundle(chamber, { bands: [1, 4, 7], raysPerBand: 1500 });
+        for (const b of [1, 4, 7]) {
+          const counted = tally[b].direct / tally[b].sent;
+          const expected = Math.exp(-beam.budget[b].tau);
+          assert.less(Math.abs(counted - expected), 0.05, `${elevation} deg, band ${b}: ${counted} vs ${expected}`);
+        }
       }
-      assert.between(positiveCount, 190, 310, 'forward/backward/side symmetry is balanced');
     });
 
-    test('sampleHenyeyGreensteinAngle with g=0.75 produces strongly forward-peaked angles', () => {
-      let forwardCount = 0;
-      for (let i = 0; i < 500; i++) {
-        const theta = sampleHenyeyGreensteinAngle(0.75);
-        if (Math.abs(theta) < Math.PI / 3) forwardCount++;
-      }
-      assert.greater(forwardCount, 350, 'majority of Mie scatterings are within 60 degrees forward cone');
-    });
-
-    test('traceMicroRay tracks collisions with chamber particles and records deflection', () => {
-      const chamber = createChamberParticles(800, 450, { densityScale: 2.0, aerosolScale: 1.0, seed: 101 });
-      const blueRay = traceMicroRay(chamber, { startX: 50, startY: 225, wavelengthNm: 405 });
-      assert.greater(blueRay.segments.length, 0, 'ray has at least one segment');
-      assert.equal(typeof blueRay.status, 'string');
-    });
-
-    test('traceMicroBundle in sunlight mode shows blue rays scattering away while red rays penetrate', () => {
-      const chamber = createChamberParticles(800, 450, { densityScale: 1.5, aerosolScale: 0.5, seed: 202 });
-      const bundle = traceMicroBundle(chamber, { rayCount: 30, mode: 'sunlight', seed: 303 });
-      assert.equal(bundle.rays.length, 30);
-      assert.greater(bundle.transmittedWavelengths.length, 0, 'direct beam transmits rays');
-      const avgTransWl = bundle.transmittedWavelengths.reduce((a, b) => a + b, 0) / Math.max(1, bundle.transmittedWavelengths.length);
-      const avgScatWl = bundle.scatteredWavelengths.reduce((a, b) => a + b, 0) / Math.max(1, bundle.scatteredWavelengths.length);
-      assert.greater(avgTransWl, avgScatWl, 'transmitted beam is shifted red, scattered sky light is shifted blue');
+    test('in the chamber blue\'s targets are bigger than red\'s by the scattering law', () => {
+      const beam = beamAt(20);
+      const chamber = createChamber({ width: 600, height: 360, tauByKind: beam.tauByKind });
+      const ratio = chamber.halfWidths.rayleigh[1] / chamber.halfWidths.rayleigh[7];
+      const law = beam.tauByKind.rayleigh[1] / beam.tauByKind.rayleigh[7];
+      assert.close(ratio, law, 1e-9);
+      assert.between(ratio, 3, 7);
     });
   });
 }

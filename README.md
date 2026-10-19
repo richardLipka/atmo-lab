@@ -26,6 +26,44 @@ exponent to 0 and the sky turns grey, because the physics says it must.
 
 ---
 
+## One beam, colour by colour
+
+The **Single beam** tab answers the question a student asks first: *does the air treat the
+colours of a sunbeam differently?* It does, in two different ways, and the view shows both.
+
+**Scattering depends strongly on colour.** Molecules scatter as λ⁻⁴·⁰⁹ (Bodhaine et al.
+1999), haze much more weakly (the Ångström law), and ozone absorbs yellow and orange (the
+Chappuis band). `physics/beam.js` follows the direct beam from the top of the atmosphere to
+an observer on the ground through the same atmosphere the sky simulation uses, and books
+every colour's losses as scattered by molecules, scattered by haze, absorbed by haze or
+absorbed by ozone — for every colour these and the transmitted share sum to one, and the
+light that arrives is the direct beam the sky model computes, to 0.2 %.
+
+- *Beam through the air* draws the path as eight coloured strands, each as thick as the
+  share of its colour still in the beam; the light a strand loses to scattering leaves it
+  sideways as dots of its own colour — that light is the sky. With the Sun 5° up the
+  molecules take 86 % of the blue (430–465 nm) and 28 % of the red; ozone takes a quarter of
+  the yellow-orange.
+- *Collisions up close* is a magnified piece of air. In two dimensions a ray meets a particle
+  if it passes within its half-width b, so the hit rate is n·2b; each kind of particle's b is
+  set, colour by colour, so the chamber has the optical depth of the real path. Blue's
+  targets are larger than red's by exactly the scattering law, and the share of each colour
+  that crosses untouched is e^−τ — counted, and set beside the calculation. Every colour
+  enters at the same heights, so colours differ by physics and not by chance.
+
+**Refraction depends only weakly on colour.** The refractive index of air is about 1.5 %
+larger for blue than for red (Ciddor 1996). Refraction (Sæmundsson's formula) lifts the Sun
+at the horizon by about half a degree, and its blue image by up to about 30″ more than its
+red one: coloured rims and the green flash. The inset draws the Sun once per colour with
+these offsets magnified by a stated factor and each image as bright as its colour's
+remaining share — so near the horizon only the red-orange images are left. The colour of
+the setting Sun comes from scattering, not refraction.
+
+An earlier version of this view drew scattering events at the 550 nm rate for every colour,
+scaled molecular targets as 1/λ² (which in two dimensions gives a hit rate of 1/λ², not
+1/λ⁴), packed its chamber so densely that no colour got through, computed refraction only
+at 550 nm, and kept its own copy of the atmosphere with different constants and no ozone.
+
 ## The guided experiments
 
 Six guides walk a student through one question each. Every guide states its **goal** at
@@ -880,7 +918,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **149 tests** covering:
+`node tests/run-tests.js` runs **157 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine
