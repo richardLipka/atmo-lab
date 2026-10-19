@@ -31,15 +31,42 @@
     {
       "title": { "cs": "Jen molekuly", "en": "Molecules only" },
       "text": {
-        "cs": "Ve vzduchu rozptylují světlo molekuly plynu a mnohem větší částice prachu a kapiček (aerosol). Aerosol jsme vypnuli, aby zbyly jen molekuly.",
-        "en": "In air, light is scattered by gas molecules and by much larger particles of dust and droplets (aerosol). We have switched the aerosol off so that only the molecules remain."
+        "cs": "Ve vzduchu rozptylují světlo molekuly plynu, hlavně dusíku N₂ a kyslíku O₂, velké asi 0,3 nm, tedy více než tisíckrát menší než vlnová délka světla (400–700 nm). Rozptylují ho i mnohem větší částice prachu a kapiček, aerosol, velké desetiny až jednotky mikrometru, tedy zhruba jako vlnová délka. Aerosol jsme vypnuli, aby zbyly jen molekuly.",
+        "en": "In air, light is scattered by gas molecules, mainly nitrogen N₂ and oxygen O₂, about 0.3 nm across: more than a thousand times smaller than the wavelength of light (400–700 nm). It is also scattered by much larger particles of dust and droplets, the aerosol, a tenth of a micrometre to a few micrometres across, about the size of the wavelength. We have switched the aerosol off so that only the molecules remain."
       },
       "observe": {
-        "cs": "Obloha je tmavší a sytěji modrá. Zář oblohy (jak jasný je kousek oblohy, kam se díváš) klesla v tabulce Fyzikální veličiny asi na 40 %. Aerosol přidával bělavé světlo.",
-        "en": "The sky is darker and a deeper blue. The sky radiance (how bright the patch of sky you look at is) has fallen to about 40 % in the Physical quantities table. The aerosol was adding whitish light."
+        "cs": "Obloha je tmavší a sytěji modrá. Zář oblohy (jak jasný je kousek oblohy, kam se díváš) klesla v tabulce Fyzikální veličiny asi na 40 %. Aerosol přidával bělavé světlo: částice velké jako vlnová délka rozptylují barvy mnohem rovnoměrněji než molekuly. Kapky v mracích jsou ještě větší a rozptylují všechny barvy stejně, proto jsou mraky bílé.",
+        "en": "The sky is darker and a deeper blue. The sky radiance (how bright the patch of sky you look at is) has fallen to about 40 % in the Physical quantities table. The aerosol was adding whitish light: particles the size of the wavelength scatter the colours much more evenly than molecules do. The droplets in clouds are larger still and scatter every colour alike, which is why clouds are white."
       },
       "state": { "atmosphere": { "aerosolScale": 0 } },
       "highlight": "ctl-aerosol"
+    },
+    {
+      "title": { "cs": "Co se při rozptylu děje", "en": "What happens in scattering" },
+      "text": {
+        "cs": "Světlo je elektromagnetické vlnění. Jeho elektrické pole rozkmitá elektrony v molekule s frekvencí světla a kmitající elektrony samy vyzařují světlo stejné frekvence do všech směrů: nejvíc dopředu a dozadu, do stran polovičně. Světlo se tím neztrácí, jen mění směr. Molekula se rozkmitá u všech viditelných barev skoro stejně, ale vyzářený výkon roste se čtvrtou mocninou frekvence. Proto rozptyl na částicích mnohem menších než vlnová délka roste jako 1/λ⁴ (Rayleighův rozptyl).",
+        "en": "Light is an electromagnetic wave. Its electric field sets the electrons in a molecule oscillating at the light's frequency, and the oscillating electrons themselves radiate light of the same frequency in all directions: most forwards and backwards, half as much sideways. The light is not lost; it only changes direction. The molecule is set oscillating about equally by every visible colour, but the power it radiates grows as the fourth power of the frequency. That is why scattering by particles much smaller than the wavelength grows as 1/λ⁴ (Rayleigh scattering)."
+      },
+      "observe": {
+        "cs": "V grafu Spektrum nemá světlo oblohy žádnou vlnovou délku, kterou by nemělo sluneční světlo: rozptyl nové barvy nevytváří, jen mění poměr těch, které už ve světle jsou. Jak paprsek naráží do jednotlivých molekul, ukazuje záložka Jeden paprsek, pohled Srážky zblízka.",
+        "en": "In the Spectrum chart, the sky light has no wavelength that sunlight lacks: scattering makes no new colours, it only changes the proportions of those already in the light. How a ray meets single molecules is shown in the Single beam tab, view Collisions up close."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "Rayleighův rozptyl (Wikipedie, Rayleigh scattering)",
+            "en": "Rayleigh scattering (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Rayleigh_scattering"
+        },
+        {
+          "label": {
+            "cs": "Rozptýlené světlo oblohy (Wikipedie, Diffuse sky radiation)",
+            "en": "Diffuse sky radiation (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Diffuse_sky_radiation"
+        }
+      ]
     },
     {
       "title": { "cs": "Všechny barvy stejně", "en": "Every colour alike" },
@@ -95,6 +122,40 @@
         "en": "Sky light is not one colour but a mixture of all wavelengths in which the short ones dominate. The Sun emits less violet than blue, and the eye is not very sensitive to violet, so we see that mixture as blue. The colour in the “What you see” box is computed from the sensitivity of the human eye."
       },
       "state": { "atmosphere": { "aerosolScale": 1 }, "observer": { "viewZenithDeg": 0 } }
+    },
+    {
+      "title": { "cs": "Shrnutí: jak to vysvětlit", "en": "Summary: how to explain it" },
+      "text": {
+        "cs": "1) Sluneční světlo je směs všech barev. 2) Elektrické pole světla rozkmitá elektrony v molekulách vzduchu a molekuly vyzáří část světla do jiných směrů: to je rozptyl. 3) Molekuly jsou mnohem menší než vlnová délka, a proto rozptylují úměrně 1/λ⁴: modrou (450 nm) asi 4,5× silněji než červenou (650 nm). 4) Mimo Slunce vidíme jen rozptýlené světlo. Převládají v něm krátké vlnové délky, a proto je obloha modrá. 5) Fialová se rozptyluje ještě silněji, ale Slunce jí vyzařuje méně a oko je na ni málo citlivé. 6) Větší částice (prach, kapky) rozptylují barvy rovnoměrněji, proto je opar bělavý a mraky bílé.",
+        "en": "1) Sunlight is a mixture of all colours. 2) The electric field of light sets the electrons in air molecules oscillating, and the molecules radiate part of the light in other directions: that is scattering. 3) Molecules are much smaller than the wavelength, so they scatter in proportion to 1/λ⁴: blue (450 nm) about 4.5 times as strongly as red (650 nm). 4) Away from the Sun we see only scattered light. Short wavelengths dominate it, so the sky is blue. 5) Violet is scattered even more strongly, but the Sun emits less of it and the eye is not very sensitive to it. 6) Larger particles (dust, droplets) scatter the colours more evenly, which is why haze is whitish and clouds are white."
+      },
+      "observe": {
+        "cs": "Častá chyba: obloha není modrá kvůli lomu světla (disperzi jako v hranolu) ani kvůli odrazu od moře. Lom na barvě závisí jen málo (porovnej v záložce Jeden paprsek) a obloha je modrá i nad pouští.",
+        "en": "A common mistake: the sky is not blue because of refraction (dispersion, as in a prism) or because it reflects the sea. Refraction depends on colour only slightly (compare in the Single beam tab), and the sky is blue over deserts too."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "Rayleighův rozptyl (Wikipedie, Rayleigh scattering)",
+            "en": "Rayleigh scattering (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Rayleigh_scattering"
+        },
+        {
+          "label": {
+            "cs": "Mieův rozptyl na větších částicích (Wikipedie, Mie scattering)",
+            "en": "Mie scattering by larger particles (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Mie_scattering"
+        },
+        {
+          "label": {
+            "cs": "B. A. Bodhaine a kol. (1999): rozptyl ve vzduchu roste jako λ⁻⁴·⁰⁹",
+            "en": "B. A. Bodhaine et al. (1999): scattering in air grows as λ⁻⁴·⁰⁹"
+          },
+          "url": "https://doi.org/10.1175/1520-0426(1999)016%3C1854:ORODC%3E2.0.CO;2"
+        }
+      ]
     }
   ]
 }

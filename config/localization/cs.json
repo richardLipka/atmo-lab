@@ -341,8 +341,9 @@
       "observer": "pozorovatel",
       "pathInfo": "Cesta vzduchem {km} km · vzdušná hmota {airmass}",
       "refractionTitle": "Lom: Slunce, jak ho vidíš",
-      "refractionLift": "zvednuto o {arcmin}′",
-      "refractionSpread": "modrá výš o {arcsec}″",
+      "refractionLift": "zvednuto o {arcmin}′ (ve skutečném měřítku)",
+      "refractionTrue": "čárkovaně: kde Slunce skutečně je",
+      "refractionSpread": "modrý obraz výš než červený o {arcsec}″",
       "refractionMagnified": "rozdíl barev zvětšen {m}×",
       "top": "horní hranice atmosféry ({km} km)",
       "ground": "Země",
@@ -356,7 +357,7 @@
     "micro": {
       "source": "ZDROJ",
       "detector": "DETEKTOR",
-      "scaleNote": "Komora má stejnou optickou tloušťku jako celá cesta paprsku. Částice nejsou kreslené v měřítku.",
+      "scaleNote": "Komora zastupuje celou cestu paprsku při Slunci {elev}° nad obzorem. Částice nejsou kreslené v měřítku.",
       "fate": {
         "direct": "prošel bez srážky",
         "scattered": "rozptýlen",
@@ -376,8 +377,8 @@
       "viewTitle": "Pohled",
       "viewMacro": "Paprsek atmosférou",
       "viewMicro": "Srážky zblízka",
-      "viewMacroHelp": "Celá cesta slunečního paprsku od horní hranice atmosféry (100 km) k pozorovateli na zemi.",
-      "viewMicroHelp": "Zvětšený kousek vzduchu. Terče částic jsou pro každou barvu tak velké, aby komora propouštěla každou barvu ve stejném poměru jako celá cesta paprsku.",
+      "viewMacroHelp": "Celá cesta slunečního paprsku od horní hranice atmosféry (100 km) k pozorovateli na zemi: kolik světla každé barvy se ztratí a kde. Jak se to stane jednotlivým paprskům, ukazují Srážky zblízka.",
+      "viewMicroHelp": "Zvětšený kousek vzduchu, který zastupuje celou cestu paprsku: z každé barvy jím bez srážky projde stejný podíl, jaký dorazí k pozorovateli (praporek D v pohledu Paprsek atmosférou). Terč částice ukazuje, jak pravděpodobná je srážka; pro modrou jsou terče molekul větší.",
       "bundle": "Všechny paprsky",
       "single": "Jen vybraný paprsek",
       "singleHelp": "Jen vybraný paprsek; čárkované kroužky ukazují, jak velký terč má každá částice pro jeho barvu. Paprsek vybereš v panelu vpravo.",
@@ -419,11 +420,35 @@
       "chamberNote": "Při malém počtu paprsků se napočítaný podíl od výpočtu náhodně liší. Výpočet je e^(−τ) pro celou cestu paprsku.",
       "refractionTitle": "Lom a disperze",
       "refractionText": "Lom zvedá Slunce o {arcmin}′. Modrý obraz je přitom o {arcsec}″ výš než červený, protože index lomu vzduchu je pro modrou asi o 1,5 % větší. Pro srovnání: Slunce má průměr asi 32′.",
-      "whyTitle": "Proč",
-      "whyScattering": "Barvy paprsku se ve vzduchu ztrácejí různě rychle. Molekuly vzduchu rozptylují světlo zhruba úměrně 1/λ⁴, takže modrá ze svazku mizí několikrát rychleji než červená; rozptýlené světlo odchází do stran a tvoří oblohu. Prach a kapičky (aerosol) rozptylují všechny barvy podobně a ozon pohlcuje hlavně žlutou a oranžovou. Čím níž je Slunce, tím delší cestou vzduchem světlo jde a tím víc modré ztratí: k pozorovateli dorazí zbytek, žlutý až červený.",
-      "whyRefraction": "Lom světla v atmosféře na barvě závisí jen málo: index lomu vzduchu je pro modrou asi o 1,5 % větší než pro červenou. Slunce u obzoru je proto lomem zvednuto asi o půl stupně a jeho modrý obraz je až asi o 30 obloukových vteřin výš než červený. Odtud barevné okraje Slunce a zelený záblesk. Barvu zapadajícího Slunce však určuje rozptyl, ne lom.",
       "sources": "Zdroje:",
-      "toScattering": "Celá obloha: Rozptyl světla →"
+      "toScattering": "Celá obloha: Rozptyl světla →",
+      "principlesTitle": "Co vzduch dělá se světlem",
+      "principles": {
+        "molecules": {
+          "lead": "Rozptyl na molekulách.",
+          "text": "Elektrické pole světla rozkmitá elektrony v molekule vzduchu a molekula vyzáří světlo stejné barvy do nových směrů. Světlo se neztrácí, mění jen směr. Molekuly (asi 0,3 nm) jsou mnohem menší než vlnová délka světla (400–700 nm) a pro tak malé částice roste rozptyl jako 1/λ⁴: modrá (450 nm) se rozptyluje asi 4,5× silněji než červená (650 nm)."
+        },
+        "haze": {
+          "lead": "Rozptyl na oparu.",
+          "text": "Kapičky a zrnka prachu jsou velké jako vlnová délka nebo větší. Rozptylují hlavně dopředu a barvy mnohem rovnoměrněji než molekuly (modrou nanejvýš asi dvakrát víc než červenou), proto je opar bělavý. Kapky v mracích jsou ještě větší a rozptylují všechny barvy stejně: mraky jsou bílé."
+        },
+        "absorption": {
+          "lead": "Pohlcení.",
+          "text": "Ozon a saze světlo z paprsku odeberou a změní v teplo. Ozon pohlcuje hlavně žlutou a oranžovou. V čistém vzduchu je to malá část ztrát."
+        },
+        "path": {
+          "lead": "Délka cesty.",
+          "text": "Stejné množství vzduchu odebere vždy stejný podíl světla, které do něj vstoupí, takže prošlé světlo klesá s množstvím vzduchu exponenciálně: I = I₀·e^(−τ). Čím níž je Slunce, tím víc vzduchu; modrá ubývá nejrychleji, a tak Slunce žloutne, oranžoví a červená. Modrá odebraná z paprsku nezmizela: při pohledu ze strany je to modrá obloha."
+        },
+        "refraction": {
+          "lead": "Lom.",
+          "text": "Vzduch světlo také láme, modré asi o 1,5 % víc než červené. U obzoru tak zvedá Slunce asi o půl stupně a dává mu barevné okraje a zelený záblesk. Červenou barvu zapadajícího Slunce nezpůsobuje: tu dělá rozptyl."
+        },
+        "views": {
+          "lead": "Dva pohledy.",
+          "text": "Paprsek atmosférou ukazuje, kolik světla každé barvy se ztratí a kde. Srážky zblízka ukazují, jak se to stane jednotlivým paprskům: paprsek, který na nic nenarazí, zůstane ve slunečním svazku, rozptýlený se stane světlem oblohy, pohlcený zanikne."
+        }
+      }
     },
     "sources": {
       "bodhaine": "Bodhaine a kol. 1999 (rozptyl na molekulách)",
@@ -446,8 +471,8 @@
       },
       "does": {
         "rayleigh": "Světlo rozkmitá elektrony molekuly a molekula ho vyzáří do nového směru; tady se paprsek stočil o {deg}°. Světlo se neztratí, jen už nemíří k pozorovateli. Modré světlo takto molekuly odklánějí několikrát častěji než červené (1/λ⁴); při pohledu ze strany je toto světlo modrá obloha.",
-        "aerosolScatter": "Zrnko světlo také rozptýlí, ale hlavně dopředu: tady se paprsek stočil o {deg}°. Zrnka jsou mnohem větší než molekuly a rozptylují všechny barvy přibližně stejně, proto opar oblohu zbělí a kolem Slunce vytvoří jasnou záři.",
-        "aerosolAbsorb": "Zrnko světlo pohltí: jeho energie ohřeje zrnko a okolní vzduch a paprsek tu končí. Tmavá zrnka pohlcují všechny barvy přibližně stejně.",
+        "aerosolScatter": "Zrnko světlo také rozptýlí, ale hlavně dopředu: tady se paprsek stočil o {deg}°. Zrnka jsou mnohem větší než molekuly a rozptylují barvy mnohem rovnoměrněji, proto opar oblohu zbělí a kolem Slunce vytvoří jasnou záři.",
+        "aerosolAbsorb": "Zrnko světlo pohltí: jeho energie ohřeje zrnko a okolní vzduch a paprsek tu končí. Tmavá zrnka pohlcují všechny barvy, modrou o něco víc.",
         "ozone": "Ozon světlo pohltí, nejsilněji žluté a oranžové (Chappuisův pás): jeho energie ohřeje vzduch a paprsek tu končí. Modré světlo ozon téměř nepohlcuje."
       },
       "again": {
@@ -466,7 +491,8 @@
           "inside": "Po {n} srážkách ho přestáváme sledovat; k přímému paprsku už nepatří."
         }
       },
-      "compare": "Při změně barvy zůstává stejný paprsek, vstupující ve stejné výšce: míjí stejné částice, ale jejich terče jsou pro něj jinak velké. Modré paprsky narazí mnohem častěji než červené."
+      "compare": "Při změně barvy zůstává stejný paprsek, vstupující ve stejné výšce: míjí stejné částice, ale jejich terče jsou pro něj jinak velké. Modré paprsky narazí mnohem častěji než červené.",
+      "target": "Pro {nm} nm je terč molekuly {ratio}× širší než pro červenou ({red} nm), protože molekuly tuto barvu rozptylují {ratio}× silněji."
     }
   }
 }

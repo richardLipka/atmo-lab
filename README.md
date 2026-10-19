@@ -64,9 +64,15 @@ light that arrives is the direct beam the sky model computes, to 0.2 %.
 **Refraction depends only weakly on colour.** The refractive index of air is about 1.5 %
 larger for blue than for red (Ciddor 1996). Refraction (Sæmundsson's formula) lifts the Sun
 at the horizon by about half a degree, and its blue image by up to about 30″ more than its
-red one: coloured rims and the green flash. The inset draws the Sun once per colour with
-these offsets magnified by a stated factor and each image as bright as its colour's
-remaining share — so near the horizon only the red-orange images are left. The colour of
+red one: coloured rims and the green flash. The inset draws the true Sun as a dashed circle
+and the Sun you see lifted above it at true scale (1.8 solar radii at the horizon, nothing
+visible high up), once per colour, with only the colour offsets magnified, by a fixed 20×,
+and each image as bright as its colour's remaining share: a high Sun is one white disc, and
+near the horizon only the red-orange images are left. The panel beside the picture states
+the principles in words a student could give back: scattering by molecules (oscillating
+electrons re-radiate; 1/λ⁴ for particles far smaller than the wavelength), by haze (more
+even across colours, mostly forwards), absorption, the exponential loss with the air
+crossed, refraction, and how the two pictures fit together. The colour of
 the setting Sun comes from scattering, not refraction.
 
 An earlier version of this view drew scattering events at the 550 nm rate for every colour,
@@ -83,8 +89,8 @@ the step, so the list cannot drift from what the step really does.
 
 | guide | the problem it shows | how the steps get there |
 |---|---|---|
-| **Why is the sky blue?** | white sunlight and colourless air give a blue sky | the sky spectrum against the source → molecules only (haze off) → n = 0, the sky turns grey with the same amount of light → n = 4 again, the blue missing from the direct beam is the sky → towards the horizon, paler → why not violet: the Sun's spectrum and the eye |
-| **Why is the setting Sun red?** | the same white star turns red near the horizon | 60° → 20° → 5° → 0° with the 400 km chord in view, reading the air mass and the direct-beam transmission at 450 and 650 nm → control: n = 0 and no haze at 5°, the beam only dims |
+| **Why is the sky blue?** | white sunlight and colourless air give a blue sky | the sky spectrum against the source → molecules only (haze off), with their size against the wavelength and why haze is white → what scattering is: oscillating electrons re-radiate, power ∝ 1/λ⁴ → n = 0, the sky turns grey with the same amount of light → n = 4 again, the blue missing from the direct beam is the sky → towards the horizon, paler → why not violet: the Sun's spectrum and the eye → summary as an exam answer, with the common mistakes (refraction, the sea) |
+| **Why is the setting Sun red?** | the same white star turns red near the horizon | 60° → 20° → 5° → 0° with the 400 km chord in view, reading the air mass and the direct-beam transmission at 450 and 650 nm → control: n = 0 and no haze at 5°, the beam only dims → summary as an exam answer: slant path, 1/λ⁴, I = I₀·e^(−τ), the same scattering as the blue sky; refraction does not redden the Sun |
 | **Flight into space** | the sky darkens to black while the Sun keeps shining | surface → 5 km → 20 km → 100 km, reading the share of the air column left and the sky radiance → control: the airless Moon at noon |
 | **The well paradox** | climbing and descending both darken your surroundings, for different reasons | surface → 10 km up (the sky itself dims) → 10 km down a shaft (the patch of sky is unchanged, the illuminance falls eight orders of magnitude) → both side by side → a shaft full of air |
 | **Stars by day: from a well and on the Moon** | Aristotle's claim that stars can be seen by day from a deep well | Vega against the 1′ of sky around it at noon: 1.4 % → the same at the bottom of a 50 m well → and of a 10 km shaft (Hynek and Winsor's chimney) → dusk, where the sky darkens and the star wins → the Moon: a black sky, and only glare from the ground in the way → summary |
@@ -942,7 +948,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **161 tests** covering:
+`node tests/run-tests.js` runs **162 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine

@@ -341,8 +341,9 @@
       "observer": "observer",
       "pathInfo": "Path through the air {km} km · air mass {airmass}",
       "refractionTitle": "Refraction: the Sun as you see it",
-      "refractionLift": "lifted by {arcmin}′",
-      "refractionSpread": "blue higher by {arcsec}″",
+      "refractionLift": "lifted by {arcmin}′ (to scale)",
+      "refractionTrue": "dashed: where the Sun really is",
+      "refractionSpread": "blue image higher than red by {arcsec}″",
       "refractionMagnified": "colour difference magnified {m}×",
       "top": "top of the atmosphere ({km} km)",
       "ground": "Earth",
@@ -356,7 +357,7 @@
     "micro": {
       "source": "SOURCE",
       "detector": "DETECTOR",
-      "scaleNote": "The chamber has the same optical depth as the beam’s whole path. The particles are not drawn to scale.",
+      "scaleNote": "The chamber stands for the beam’s whole path with the Sun {elev}° above the horizon. The particles are not drawn to scale.",
       "fate": {
         "direct": "crossed without a collision",
         "scattered": "scattered",
@@ -376,8 +377,8 @@
       "viewTitle": "View",
       "viewMacro": "Beam through the air",
       "viewMicro": "Collisions up close",
-      "viewMacroHelp": "The whole path of a sunbeam from the top of the atmosphere (100 km) to an observer on the ground.",
-      "viewMicroHelp": "A magnified piece of air. The particles’ targets are sized for each colour so the chamber lets each colour through in the same proportion as the beam’s whole path.",
+      "viewMacroHelp": "The whole path of a sunbeam from the top of the atmosphere (100 km) to an observer on the ground: how much of each colour is lost, and where. How it happens to single rays is shown in Collisions up close.",
+      "viewMicroHelp": "A magnified piece of air standing for the beam’s whole path: of each colour, the same share crosses it without a collision as reaches the observer (flag D in Beam through the air). A particle’s target shows how likely a collision is; for blue the molecules’ targets are larger.",
       "bundle": "All rays",
       "single": "Only the chosen ray",
       "singleHelp": "Only the chosen ray, with dashed rings showing how big a target each particle is for its colour. Choose the ray in the panel on the right.",
@@ -419,11 +420,35 @@
       "chamberNote": "With few rays the counted share differs from the calculation by chance. The calculation is e^(−τ) for the beam’s whole path.",
       "refractionTitle": "Refraction and dispersion",
       "refractionText": "Refraction lifts the Sun by {arcmin}′. Its blue image sits {arcsec}″ above its red one, because the refractive index of air is about 1.5 % larger for blue. For comparison: the Sun is about 32′ across.",
-      "whyTitle": "Why",
-      "whyScattering": "The colours of the beam are lost in the air at different rates. Air molecules scatter light roughly as 1/λ⁴, so blue leaves the beam several times faster than red; the scattered light goes sideways and makes the sky. Dust and droplets (aerosol) scatter all colours alike, and ozone absorbs mainly yellow and orange. The lower the Sun, the longer its light’s path through the air and the more blue it loses: what reaches the observer is the remainder, yellow to red.",
-      "whyRefraction": "Refraction in the atmosphere depends only slightly on colour: the refractive index of air is about 1.5 % larger for blue than for red. Near the horizon the Sun is therefore lifted by about half a degree, and its blue image sits up to about 30 arcseconds above its red one. That gives the Sun coloured rims and the green flash. But the colour of the setting Sun is set by scattering, not by refraction.",
       "sources": "Sources:",
-      "toScattering": "The whole sky: Light scattering →"
+      "toScattering": "The whole sky: Light scattering →",
+      "principlesTitle": "What the air does to light",
+      "principles": {
+        "molecules": {
+          "lead": "Scattering by molecules.",
+          "text": "The light's electric field sets the electrons in an air molecule oscillating, and the molecule sends out light of the same colour in new directions. The light is not lost; it changes direction. Molecules (about 0.3 nm) are far smaller than the wavelength of light (400–700 nm), and for such small particles scattering grows as 1/λ⁴: blue (450 nm) is scattered about 4.5 times as strongly as red (650 nm)."
+        },
+        "haze": {
+          "lead": "Scattering by haze.",
+          "text": "Droplets and dust grains are about as large as the wavelength or larger. They scatter mostly forwards and treat the colours much more evenly than molecules do (blue at most about twice as strongly as red), which is why haze looks whitish. Cloud droplets are larger still and scatter every colour alike: clouds are white."
+        },
+        "absorption": {
+          "lead": "Absorption.",
+          "text": "Ozone and soot take light out of the beam and turn it into heat. Ozone absorbs mainly yellow and orange. In clean air this is a small part of what the beam loses."
+        },
+        "path": {
+          "lead": "Length of the path.",
+          "text": "The same amount of air always removes the same share of the light that enters it, so the light that gets through falls exponentially with the air crossed: I = I₀·e^(−τ). The lower the Sun, the more air; blue goes first, so the Sun turns yellow, orange and red. The blue taken out of the beam has not vanished: seen from the side, it is the blue sky."
+        },
+        "refraction": {
+          "lead": "Refraction.",
+          "text": "Air also bends light, blue about 1.5 % more than red. Near the horizon this lifts the Sun by about half a degree and gives it coloured rims and the green flash. It does not make the setting Sun red: scattering does."
+        },
+        "views": {
+          "lead": "The two pictures.",
+          "text": "Beam through the air shows how much of each colour is lost, and where. Collisions up close shows how it happens to single rays: a ray that meets nothing stays in the Sun’s beam, a scattered one becomes light of the sky, an absorbed one is gone."
+        }
+      }
     },
     "sources": {
       "bodhaine": "Bodhaine et al. 1999 (scattering by molecules)",
@@ -446,8 +471,8 @@
       },
       "does": {
         "rayleigh": "The light sets the molecule's electrons oscillating, and the molecule sends it out again in a new direction; here the ray is turned by {deg}°. No light is lost, but it no longer travels towards the observer. Molecules do this to blue light several times as often as to red (1/λ⁴); seen from the side, this light is the blue sky.",
-        "aerosolScatter": "The grain scatters the light too, but mostly forwards; here the ray is turned by {deg}°. Grains are much larger than molecules and scatter all colours about equally, so haze whitens the sky and makes a bright glow round the Sun.",
-        "aerosolAbsorb": "The grain absorbs the light: its energy warms the grain and the air around it, and the ray ends here. Dark grains absorb all colours about equally.",
+        "aerosolScatter": "The grain scatters the light too, but mostly forwards; here the ray is turned by {deg}°. Grains are much larger than molecules and treat the colours much more evenly, so haze whitens the sky and makes a bright glow round the Sun.",
+        "aerosolAbsorb": "The grain absorbs the light: its energy warms the grain and the air around it, and the ray ends here. Dark grains absorb every colour, blue a little more.",
         "ozone": "Ozone absorbs the light, most strongly yellow and orange (the Chappuis band): its energy warms the air and the ray ends here. Ozone hardly absorbs blue light."
       },
       "again": {
@@ -466,7 +491,8 @@
           "inside": "We stop following it after {n} collisions; it no longer belongs to the direct beam."
         }
       },
-      "compare": "Switching colour keeps the same ray, entering at the same height: it passes the same particles, but their targets are a different size for it. Blue rays hit something far more often than red ones."
+      "compare": "Switching colour keeps the same ray, entering at the same height: it passes the same particles, but their targets are a different size for it. Blue rays hit something far more often than red ones.",
+      "target": "For {nm} nm a molecule’s target is {ratio}× as wide as for red ({red} nm), because molecules scatter this colour {ratio}× as strongly."
     }
   }
 }

@@ -8,7 +8,7 @@
  * localisation files, so Czech and English stay in step.
  */
 
-import { RAY_BANDS } from '../physics/spectrum.js';
+import { RAY_BANDS, BAND_OF_BIN } from '../physics/spectrum.js';
 
 const SOURCES = [
   ['beam.sources.bodhaine', 'https://doi.org/10.1175/1520-0426(1999)016%3C1854:ORODC%3E2.0.CO;2'],
@@ -18,6 +18,9 @@ const SOURCES = [
   ['beam.sources.refraction', 'https://en.wikipedia.org/wiki/Atmospheric_refraction'],
   ['beam.sources.greenFlash', 'https://en.wikipedia.org/wiki/Green_flash'],
 ];
+
+/** What the air does to light, in the order the panel lists it. */
+const PRINCIPLES = ['molecules', 'haze', 'absorption', 'path', 'refraction', 'views'];
 
 /** Colours for the parts of the light budget. */
 const BUDGET_COLOURS = {
@@ -234,6 +237,15 @@ export function createBeamUI({
     // The chosen ray, collision by collision.
     if (result.state.viewType === 'micro' && result.selection) rightContainer.append(chosenRaySection(result));
 
+    // The principles, in words a student could give back.
+    rightContainer.append(el('section', { className: 'panel-section' }, [
+      el('h2', { text: t('beam.panel.principlesTitle') }),
+      el('ul', { className: 'beam-principles' }, PRINCIPLES.map((key) => el('li', {}, [
+        el('strong', { text: t(`beam.panel.principles.${key}.lead`) }),
+        ` ${t(`beam.panel.principles.${key}.text`)}`,
+      ]))),
+    ]));
+
     // The chamber's own count, beside what the path says.
     if (result.state.viewType === 'micro' && bundle) {
       const counted = trace.budget.filter((b) => b.present).map((b) => {
@@ -258,7 +270,7 @@ export function createBeamUI({
     // Refraction: the weak, second dependence on colour.
     const refr = trace.refraction;
     const mid = refr[4].arcmin;
-    const spreadArcsec = (refr[0].arcmin - refr[refr.length - 1].arcmin) * 60;
+    const spreadArcsec = (refr[1].arcmin - refr[refr.length - 1].arcmin) * 60;
     rightContainer.append(el('section', { className: 'panel-section' }, [
       el('h2', { text: t('beam.panel.refractionTitle') }),
       el('p', { className: 'note', text: t('beam.panel.refractionText', {
@@ -266,7 +278,7 @@ export function createBeamUI({
       }) }),
     ]));
 
-    // Why, briefly, and where it comes from.
+    // Where it comes from.
     const sources = el('p', { className: 'note beam-sources' }, [t('beam.panel.sources'), ' ']);
     SOURCES.forEach(([key, url], i) => {
       if (i) sources.append(' · ');
@@ -274,12 +286,7 @@ export function createBeamUI({
     });
     const go = el('button', { type: 'button', className: 'primary-button beam-go', text: t('beam.panel.toScattering') });
     go.addEventListener('click', () => onSwitchToScattering?.());
-    rightContainer.append(el('section', { className: 'panel-section' }, [
-      el('h2', { text: t('beam.panel.whyTitle') }),
-      el('p', { className: 'note', text: t('beam.panel.whyScattering') }),
-      el('p', { className: 'note', text: t('beam.panel.whyRefraction') }),
-      sources, go,
-    ]));
+    rightContainer.append(el('section', { className: 'panel-section' }, [sources, go]));
   }
 
   /**
@@ -328,10 +335,24 @@ export function createBeamUI({
       el('span', { text: ` ${t(`beam.chosen.end.${endKey}`, { n: ray.events.length })}` }),
     ]));
 
+    // How much wider a molecule's target is for this colour than for red.
+    const beta = model.atmosphere.rayleighBeta0;
+    const bandBeta = (b) => {
+      let sum = 0, n = 0;
+      for (let i = 0; i < beta.length; i++) if (BAND_OF_BIN[i] === b) { sum += beta[i]; n++; }
+      return n ? sum / n : 0;
+    };
+    const red = RAY_BANDS.length - 1;
+    const ratio = bandBeta(red) > 0 ? bandBeta(band) / bandBeta(red) : 0;
+    const ratioText = i18n.getLanguage() === 'cs' ? ratio.toFixed(1).replace('.', ',') : ratio.toFixed(1);
+
     return el('section', { className: 'panel-section' }, [
       el('h2', { text: t('beam.chosen.title') }),
       colours, stepper,
       el('ol', { className: 'beam-chosen-list' }, items),
+      band !== red && ratio > 1.05
+        ? el('p', { className: 'note', text: t('beam.chosen.target', { nm, ratio: ratioText, red: Math.round(RAY_BANDS[red].centreNm) }) })
+        : null,
       el('p', { className: 'note', text: t('beam.chosen.compare') }),
     ]);
   }

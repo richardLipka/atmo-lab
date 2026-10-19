@@ -2189,7 +2189,7 @@ export function registerTests({ group, test, assert }, config) {
 
     test('a guide step is the same situation however you arrive at it', () => {
       // Going back must not keep what a later step set.
-      const forward = guideSituation(config.experiments['blue-sky'], 2);
+      const forward = guideSituation(config.experiments['blue-sky'], 3);
       assert.equal(forward.atmosphere.rayleighExponent, 0);
       const back = guideSituation(config.experiments['blue-sky'], 1);
       assert.equal(back.atmosphere.rayleighExponent, 4, 'step 2 has n = 4 again');
@@ -2198,12 +2198,24 @@ export function registerTests({ group, test, assert }, config) {
     });
 
     test('blue sky: n = 0 greys the sky and keeps its light', () => {
-      const blue = replay('blue-sky', 1).a, grey = replay('blue-sky', 2).a;
+      const blue = replay('blue-sky', 1).a, grey = replay('blue-sky', 3).a;
       const [x, y] = xy(grey.view.observed);
       assert.less(Math.hypot(x - 0.3127, y - 0.3290), 0.015, 'grey is near the white point');
       assert.close(grey.metrics.skyLuminance, blue.metrics.skyLuminance, 0.05, 'the same amount of light');
       assert.close(T(blue, 450), 0.77, 0.03);
       assert.close(T(blue, 650), 0.92, 0.03);
+    });
+
+    test('the closing summaries show a real sky again', () => {
+      const sky = replay('blue-sky', 7);
+      assert.equal(sky.state.atmosphere.rayleighExponent, 4);
+      assert.equal(sky.state.atmosphere.aerosolScale, 1);
+      const sunset = replay('sunset', 5);
+      assert.equal(sunset.state.atmosphere.rayleighExponent, 4);
+      assert.equal(sunset.state.atmosphere.aerosolScale, 1);
+      // Blue is all but gone from the direct beam, red is not.
+      assert.less(T(sunset.a, 450), 0.01);
+      assert.greater(T(sunset.a, 650) / T(sunset.a, 450), 10);
     });
 
     test('sunset: the numbers the guide quotes', () => {

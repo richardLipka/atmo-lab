@@ -36,6 +36,12 @@ import { makeBlackbodySpectrum, RAY_BANDS, BAND_OF_BIN, WAVELENGTHS_NM, SPECTRUM
 const SUN_TEMPERATURE_K = 5800;
 /** The narrowest stretch of ground the macro picture shows, so a high Sun still has air around it. */
 const MACRO_MIN_SPAN_M = 150e3;
+/**
+ * How much the refraction inset magnifies the differences between the colours'
+ * images: the half-arcminute spread at the horizon becomes a visible rim, and
+ * the sub-arcsecond spread of a high Sun stays invisible, as it is.
+ */
+const REFRACTION_COLOUR_MAGNIFICATION = 20;
 /** Settings that change the physics; the others only change what is drawn. */
 const PHYSICS_KEYS = ['elevationDeg', 'mode', 'wavelengthNm', 'densityScale', 'aerosolScale', 'aerosolPresetId', 'rayleighExponent'];
 /** The blue band, the most eventful one to show first. */
@@ -587,15 +593,19 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
 
   function formatPct(v) {
     const p = v * 100;
-    const text = p >= 10 ? p.toFixed(0) : p >= 1 ? p.toFixed(1) : p.toFixed(2);
+    const text = p >= 10 ? p.toFixed(0) : p >= 1 ? p.toFixed(1) : p >= 0.01 ? p.toFixed(2) : '< 0.01';
     return `${i18n.getLanguage?.() === 'cs' ? text.replace('.', ',') : text} %`;
   }
 
   /**
-   * Refraction and its dispersion, at a glance: the Sun drawn once per colour,
-   * each image lifted by that colour's refraction. The differences between the
-   * colours are tiny, so they are magnified by a stated factor; the brightness
-   * of each image is the share of that colour still in the beam.
+   * Refraction and its dispersion, at a glance. The dashed circle is where the
+   * Sun really is; the coloured discs are where each colour's image appears.
+   * The lift is drawn at true scale against the Sun's own 32' disc, so it is
+   * plain at the horizon and invisible high up. The differences between the
+   * colours are far smaller - tens of arcseconds at most - so they alone are
+   * magnified, by a fixed factor: a high Sun shows one white disc, a setting
+   * Sun a blue rim on top and a red one below. Each image is as bright as the
+   * share of its colour still in the beam.
    */
   function drawRefractionInset(box) {
     const refr = model.trace.refraction;
@@ -613,33 +623,42 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     ctx.fillText(t('beam.canvas.refractionTitle'), box.x + 8, box.y + 10);
 
     const mid = refr[Math.min(4, refr.length - 1)].arcmin;
-    const spread = refr[0].arcmin - refr[refr.length - 1].arcmin;   // violet minus red
-    const radius = Math.max(10, Math.min(22, (box.h - 40) / 3));
-    const cx = box.x + 14 + radius;
-    const cy = box.y + 22 + (box.h - 22) / 2;
-    // Magnify the colour differences so the whole spread spans ~16 px.
-    const pxPerArcmin = 16 / Math.max(1e-6, spread);
-    const magnification = pxPerArcmin * (32 / (2 * radius));   // relative to the disc's own scale
+    const spread = refr[1].arcmin - refr[refr.length - 1].arcmin;   // blue (430-465 nm) minus red
+    // The largest lift, at the horizon, is about 1.8 solar radii: leave room for it.
+    const radius = Math.max(8, Math.min(18, (box.h - 34) / 3.9));
+    const pxPerArcmin = radius / 16;                  // the Sun's radius is 16'
+    const cx = box.x + 16 + radius;
+    const trueY = box.y + box.h - 8 - radius;
+    const seenY = trueY - mid * pxPerArcmin;
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, trueY, radius, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+
     ctx.globalCompositeOperation = 'lighter';
     const initial = model.trace.points[0].bands;
     const final = model.trace.points[model.trace.points.length - 1].bands;
     const strongest = Math.max(...bands.map((b) => (initial[b] > 0 ? final[b] / initial[b] : 0)), 1e-9);
     for (const b of bands) {
-      const lift = (refr[b].arcmin - mid) * pxPerArcmin;
+      const lift = (refr[b].arcmin - mid) * pxPerArcmin * REFRACTION_COLOUR_MAGNIFICATION;
       const share = initial[b] > 0 ? final[b] / initial[b] : 0;
       const [r, g, bl] = RAY_BANDS[b].rgb;
       ctx.fillStyle = `rgba(${r},${g},${bl},${Math.min(1, 0.9 * share / strongest)})`;
       ctx.beginPath();
-      ctx.arc(cx, cy - lift, radius, 0, Math.PI * 2);
+      ctx.arc(cx, seenY - lift, radius, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.font = '10px system-ui, sans-serif';
     const tx = cx + radius + 12;
-    ctx.fillText(t('beam.canvas.refractionLift', { arcmin: mid.toFixed(1) }), tx, cy - 16);
-    ctx.fillText(t('beam.canvas.refractionSpread', { arcsec: (spread * 60).toFixed(1) }), tx, cy);
-    ctx.fillText(t('beam.canvas.refractionMagnified', { m: Math.round(magnification) }), tx, cy + 16);
+    const ty = box.y + 30;
+    ctx.fillText(t('beam.canvas.refractionLift', { arcmin: mid.toFixed(1) }), tx, ty);
+    ctx.fillText(t('beam.canvas.refractionTrue'), tx, ty + 15);
+    ctx.fillText(t('beam.canvas.refractionSpread', { arcsec: (spread * 60).toFixed(1) }), tx, ty + 34);
+    ctx.fillText(t('beam.canvas.refractionMagnified', { m: REFRACTION_COLOUR_MAGNIFICATION }), tx, ty + 49);
     ctx.restore();
   }
 
@@ -813,7 +832,7 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     }), 70, h - 28);
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.fillText(state.bundleMode === 'single' ? t('beam.micro.singleHint') : t('beam.micro.bundleHint'), 70, h - 12);
-    ctx.fillText(t('beam.micro.scaleNote'), 70, 18);
+    ctx.fillText(t('beam.micro.scaleNote', { elev: Number(state.elevationDeg).toFixed(state.elevationDeg % 1 ? 1 : 0) }), 70, 18);
 
     // A key to the particles.
     const keys = [
