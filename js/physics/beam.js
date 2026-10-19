@@ -29,6 +29,7 @@
 
 import { SPECTRUM_BINS, WAVELENGTHS_NM, RAY_BANDS, BAND_OF_BIN } from './spectrum.js';
 import { v3, v3addScaled, v3length, sunDirectionFromElevation } from './geometry.js';
+import { particlePattern, sampleTurnDeg, CHAMBER_SAMPLE } from './mie.js';
 
 /* ------------------------------------------------------------------ */
 /* refraction and dispersion                                          */
@@ -254,19 +255,15 @@ export function createChamber({ width, height, tauByKind, seed = 2026 }) {
   return { width, height, particles, halfWidths };
 }
 
-/** 2D deflection angles: Rayleigh's dipole shape for molecules, forward-peaked for haze. */
-function deflection(kind, rng) {
-  if (kind === 'rayleigh') {
-    for (;;) {
-      const theta = (rng() * 2 - 1) * Math.PI;
-      const c = Math.cos(theta);
-      if (rng() * 2 <= 1 + c * c) return theta;
-    }
-  }
-  const g = 0.7;
-  const s = (1 - g * g) / (1 - g + 2 * g * rng());
-  const theta = Math.acos(Math.max(-1, Math.min(1, (1 + g * g - s * s) / (2 * g))));
-  return rng() < 0.5 ? theta : -theta;
+/**
+ * The turn at a scattering, drawn from the pattern of the particle the kind
+ * stands for, at this colour's wavelength (physics/mie.js): an air molecule
+ * scatters as 1 + cos^2(theta) whatever the colour; a haze droplet half a
+ * micrometre across scatters forward, and blue more forward than red.
+ */
+function deflection(kind, rng, band) {
+  const pattern = particlePattern(CHAMBER_SAMPLE[kind], RAY_BANDS[band].centreNm);
+  return sampleTurnDeg(pattern, rng) * Math.PI / 180;
 }
 
 /**
@@ -323,7 +320,7 @@ export function traceChamberRay(chamber, { band, y0, rng, maxEvents = 3 }) {
     // Which particle, and where its copy stood if it was one of the images.
     events.push({ x, y, kind: best.kind, action, particle: best.i, at: { x: p.x, y: p.y + best.shift } });
     if (action === 'absorb') return { band, points, events, exit: null, fate: 'absorbed' };
-    const turn = deflection(best.kind, rng);
+    const turn = deflection(best.kind, rng, band);
     events[events.length - 1].turnDeg = Math.abs(turn) * 180 / Math.PI;
     angle += turn;
     // Wrap a scattered ray back into the chamber vertically only while it is

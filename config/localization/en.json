@@ -398,7 +398,9 @@
       "aerosolHelp": "Multiplies the amount of dust and droplets of the chosen kind.",
       "exponent": "Wavelength exponent n",
       "exponentHelp": "Scattering on molecules goes as 1/λⁿ; n = 4 is real air. At n = 0 the molecules scatter every colour equally.",
-      "bundleHelp": "Every colour sends the same number of rays at the same heights. Click a ray to follow it; the panel on the right explains each of its collisions."
+      "bundleHelp": "Every colour sends the same number of rays at the same heights. Click a ray to follow it; the panel on the right explains each of its collisions.",
+      "viewParticle": "One particle",
+      "viewParticleHelp": "One particle of any size, from an air molecule to a cloud droplet, lit from the left: where its scattered light goes, and how often each colour is scattered at all."
     },
     "panel": {
       "arrivesTitle": "What reaches the observer",
@@ -456,7 +458,9 @@
       "ozone": "Serdyuchenko et al. 2014 (ozone)",
       "ciddor": "Ciddor 1996 (refractive index of air)",
       "refraction": "Atmospheric refraction (Wikipedia)",
-      "greenFlash": "Green flash (Wikipedia)"
+      "greenFlash": "Green flash (Wikipedia)",
+      "mie": "Mie scattering",
+      "bohren": "Bohren & Huffman 1983"
     },
     "chosen": {
       "title": "The chosen ray",
@@ -492,7 +496,99 @@
         }
       },
       "compare": "Switching colour keeps the same ray, entering at the same height: it passes the same particles, but their targets are a different size for it. Blue rays hit something far more often than red ones.",
-      "target": "For {nm} nm a molecule’s target is {ratio}× as wide as for red ({red} nm), because molecules scatter this colour {ratio}× as strongly."
+      "pickHint": "Click a scattering in the list (or its number in the picture): the strip under the chamber shows why the ray turned as it did.",
+      "moleculeColour": "The direction of the turn does not depend on colour; colour only changes how often a collision happens.",
+      "hazeColour": "On such a droplet {nmS} nm light typically turns by {mS}°, {nmL} nm light by {mL}°: here colour changes the direction too."
+    },
+    "bench": {
+      "title": "Test particles: where the scattered light goes (light arrives from the left). Filled: {nm} nm, dashed: {nmC} nm.",
+      "titleOne": "Test particles: where the scattered light goes (light arrives from the left), for {nm} nm.",
+      "name": {
+        "molecule": "molecule N₂, O₂ (0.3 nm)",
+        "fine": "droplet 0.1 µm",
+        "haze": "haze droplet 0.5 µm",
+        "cloud": "cloud droplet 10 µm"
+      },
+      "turn": "typical turn",
+      "target": "target",
+      "inChamber": "in the chamber"
+    },
+    "wave": {
+      "title": "Collision {n}: why the ray turned as it did. Dials: the waves from all parts of the particle added up; a long arrow means much light goes that way.",
+      "titleNone": "This ray was not scattered. Shown for an air molecule: the waves from all parts of the particle added up in three directions.",
+      "headerMolecule": "molecule · {nm} nm · {times}× smaller than the wavelength (not to scale)",
+      "headerDroplet": "{name} · {nm} nm · diameter = {ratio} wavelengths",
+      "crests": "lines: wave crests",
+      "dir": {
+        "forward": "forward",
+        "side": "sideways",
+        "back": "back"
+      }
+    },
+    "size": {
+      "title": "Particle size decides",
+      "intro": "The test particles above the chamber show where the scattered light goes; the strip below it shows why. What matters is the particle’s size compared with the wavelength.",
+      "small": {
+        "lead": "Much smaller than the wavelength (molecule).",
+        "text": "All its parts oscillate together, so their waves add up in every direction: the light goes forwards and backwards alike, and this shape is the same for every colour (typical turn {mS}° for {nmS} nm and {mL}° for {nmL} nm). Colour changes only how often scattering happens: the target is {ratio}× as wide for {nmS} nm as for {nmL} nm."
+      },
+      "comparable": {
+        "lead": "About the size of the wavelength (haze droplet 0.5 µm).",
+        "text": "The waves from its front and back largely cancel sideways and backwards and add up forwards. For a shorter wavelength the droplet is “larger”, the cancelling is stronger and the light goes further forward: {nmS} nm turns typically by {mS}°, {nmL} nm by {mL}°. Here colour changes the direction too, and the target is only {ratio}× larger for {nmS} nm."
+      },
+      "large": {
+        "lead": "Much larger than the wavelength (cloud droplet 10 µm).",
+        "text": "Outside a narrow forward cone the waves cancel almost completely: the light turns by only about {mS}° ({nmS} nm) or {mL}° ({nmL} nm), and the target is practically the same for every colour ({ratio}×). That is why clouds are white."
+      }
+    },
+    "particle": {
+      "controlsTitle": "The particle",
+      "size": "Diameter",
+      "sizeHelp": "A water droplet of this diameter (logarithmic scale); at the smallest sizes it scatters exactly like an air molecule.",
+      "stop": {
+        "molecule": "molecule",
+        "fine": "0.1 µm",
+        "haze": "haze 0.5 µm",
+        "dust": "2 µm",
+        "cloud": "cloud 10 µm"
+      },
+      "colour": "Colour of the light (nm)",
+      "colourHelp": "Drawn filled; red is drawn dashed beside it for comparison (blue, if you choose red).",
+      "log": "Logarithmic scale",
+      "logHelp": "Large droplets send almost everything into a narrow forward cone; on a logarithmic scale the weak light in other directions shows too.",
+      "header": "Diameter {d} · {regime}",
+      "sizeAgainst": "{nm} nm: diameter = {ratio} wavelengths (x = {x})",
+      "regime": {
+        "small": "much smaller than the wavelength",
+        "comparable": "about the size of the wavelength",
+        "large": "much larger than the wavelength"
+      },
+      "legend": "Filled: {nm} nm, dashed: {nmC} nm. Thin lines: {n} rays of {nm} nm, each carrying the same share of the scattered light.",
+      "scaleLinear": "Distance from the centre = how much light goes that way (the strongest direction reaches the outer circle).",
+      "scaleLog": "Logarithmic scale: each ring is ten times less light than the next one out.",
+      "targetTitle": "How large a target, by colour",
+      "targetNote": "How often light is scattered at all. {nm} nm against {nmC} nm: {ratio}×.",
+      "turnTitle": "Typical turn, by colour",
+      "turnNote": "Half the scattered light turns by less than this.",
+      "panelTitle": "The particle against the wavelength",
+      "row": {
+        "x": "size parameter x = πd/λ",
+        "turn": "typical turn",
+        "forward": "scattered forward (under 90°)",
+        "target": "target, against the longer wavelength"
+      },
+      "tableNote": "The size parameter compares the particle with the wavelength. Where the light goes and how often it is scattered depend on it, not on the size alone.",
+      "explain": {
+        "small": "The particle ({d}) is so small that all its parts oscillate together, and their waves add up in every direction. The light goes forwards and backwards alike, and the shape is the same for every colour: the typical turn is {mS}° for {nmS} nm and {mL}° for {nmL} nm. Colour changes only how often scattering happens, as 1/λ⁴: the target is {ratio}× larger for {nmS} nm. This is how air molecules make the sky blue.",
+        "comparable": "The particle ({d}) is about as large as the wavelength. The waves from its front and back cancel sideways and backwards and add up forwards: {fS} of the {nmS} nm light and {fL} of the {nmL} nm light goes forward. For the shorter wavelength the particle is “larger”, so it turns the light less: typically {mS}° against {mL}°. The target still depends on colour, but much less than for a molecule ({ratio}×). This is haze and smoke: a whitish sky and a bright glow round the Sun.",
+        "large": "The particle ({d}) is many times larger than the wavelength. Outside a narrow forward cone the waves cancel: the light turns by only about {mS}° ({nmS} nm) or {mL}° ({nmL} nm), and the target is practically the same for every colour ({ratio}×). Every colour is scattered alike, which is why clouds and fog are white."
+      },
+      "tryTitle": "Try",
+      "try": {
+        "one": "Move the slider from the molecule to the cloud droplet and watch the shape: from forwards-and-backwards to a narrow forward cone.",
+        "two": "Watch the target bars: steep for a molecule (blue far ahead of red), then flatter, and level for a cloud droplet.",
+        "three": "Around 0.3–1 µm the filled and dashed shapes differ most: here colour changes not only how often light is scattered but also where it goes."
+      }
     }
   }
 }

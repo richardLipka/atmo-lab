@@ -816,6 +816,8 @@ body[data-level="basic"] .explain-column.is-why { opacity: 0.78; }
   display: flex;
 }
 
+.beam-canvas-wrap.is-micro { min-height: 720px; }
+
 #beam-canvas {
   width: 100%;
   height: 100%;
@@ -828,6 +830,8 @@ body[data-level="basic"] .explain-column.is-why { opacity: 0.78; }
 .beam-quick .is-active { border-color: var(--accent); color: var(--text); }
 .control-section .segmented { display: flex; width: 100%; margin-bottom: 8px; }
 .control-section .segmented button { flex: 1; }
+/* Three pictures to choose from: one per line, so the names do not wrap. */
+.control-section .segmented.beam-view-picker { flex-direction: column; }
 
 .beam-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .beam-chip { display: grid; gap: 4px; }
@@ -852,6 +856,11 @@ body[data-level="basic"] .explain-column.is-why { opacity: 0.78; }
 .beam-chosen-list li { margin: 0 0 6px; padding: 5px 7px; border-left: 2px solid var(--line); background: rgba(255,255,255,0.03); border-radius: 3px; }
 .beam-chosen-list li strong { color: var(--text); }
 .beam-chosen-list .beam-chosen-end { border-left-color: var(--accent); }
+.beam-chosen-list li.is-clickable { cursor: pointer; }
+.beam-chosen-list li.is-clickable:hover { background: rgba(255,255,255,0.07); }
+.beam-chosen-list li.is-active { border-left-color: #ffffff; background: rgba(255,255,255,0.08); }
+.beam-size li.is-active { color: var(--text); }
+.beam-size li.is-active strong { color: var(--accent); }
 
 .scattering-center-wrap {
   display: flex;

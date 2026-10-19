@@ -60,6 +60,29 @@ light that arrives is the direct beam the sky model computes, to 0.2 %.
   in the picture, and the panel says for each what was hit — a molecule, a haze droplet, a
   soot grain or ozone — what it did (scattered, and by how many degrees, or absorbed) and how
   the ray ended. Switching colour keeps the same ray, entering at the same height.
+- *Why the size of the particle decides* is shown around the chamber. Where a particle
+  sends scattered light depends on its size compared with the wavelength, so turns are drawn
+  from real scattering patterns (`physics/mie.js`: the Bohren–Huffman Mie algorithm for
+  droplets, 1 + cos²θ for molecules): a molecule turns blue and red alike and only hits blue
+  more often; a 0.5 µm haze droplet turns blue typically by 15° and red by 23°. A *test
+  bench* above the chamber shows the pattern of four particles — a molecule, droplets of
+  0.1 and 0.5 µm, and a 10 µm cloud droplet — for the chosen colour and, in white light,
+  for red (or blue) dashed beside it, with the typical turn and the ratio of the targets. A
+  *wave strip* below explains the chosen collision: the particle drawn to scale against the
+  wave crests, and dials adding up the waves from all its parts forward, sideways and back
+  (in step for a molecule in every direction; for a droplet as large as the wavelength,
+  only forward, and less so for red). In white light it sets the same particle in two
+  colours side by side; with one colour, beside the other kind of particle. Click a
+  scattering in the panel's list, or its number in the picture, to explain it.
+- *One particle* is a third picture: a single water droplet of any diameter, from the size
+  of an air molecule (0.3 nm, where it scatters exactly as one) to 20 µm, on a logarithmic
+  slider with named stops. Light arrives from the left; the polar picture shows where the
+  scattered light goes for the chosen colour (filled) and red or blue (dashed), with a fan
+  of 60 rays spread exactly as the pattern says, and a logarithmic scale for the faint side
+  lobes of large drops. Beside it, for all eight colour bands, the size of the target and
+  the typical turn: steep and flat at 90° for a molecule, mild for haze, level and under
+  2° for a cloud droplet. The panel gives the size parameter x = πd/λ for both colours, the
+  share scattered forward, and what the regime means.
 
 **Refraction depends only weakly on colour.** The refractive index of air is about 1.5 %
 larger for blue than for red (Ciddor 1996). Refraction (Sæmundsson's formula) lifts the Sun
@@ -948,7 +971,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **162 tests** covering:
+`node tests/run-tests.js` runs **168 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine

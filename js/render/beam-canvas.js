@@ -30,6 +30,9 @@ import {
   traceBeam, singleColourSpectrum, createChamber, traceChamberBundle,
 } from '../physics/beam.js';
 import { createAtmosphere } from '../physics/atmosphere.js';
+import { CHAMBER_SAMPLE } from '../physics/mie.js';
+import { drawTestBench, drawWaveStrip } from './particle-strips.js';
+import { drawParticleView } from './particle-view.js';
 import { makeBlackbodySpectrum, RAY_BANDS, BAND_OF_BIN, WAVELENGTHS_NM, SPECTRUM_BINS } from '../physics/spectrum.js';
 
 /** The sun's temperature for the white beam, as in the rest of the simulator. */
@@ -59,6 +62,10 @@ export const DEFAULT_BEAM_STATE = {
   rayleighExponent: 4,
   selectedBand: null,
   selectedRay: null,
+  selectedEvent: null,
+  particleDiameterUm: 0.5,
+  particleBand: 1,
+  particleLog: false,
 };
 
 /** The bands a source actually contains. */
@@ -109,6 +116,38 @@ export function resolveSelection(state, model, bundle) {
   return { band, index, ray: rays[index], count: rays.length };
 }
 
+/**
+ * The collision the wave strip explains: the one asked for if it scattered the
+ * ray, otherwise the ray's first scattering; null if nothing scattered it.
+ */
+export function chosenScatterEvent(ray, wanted) {
+  const events = ray?.events ?? [];
+  if (Number.isInteger(wanted) && events[wanted]?.action === 'scatter') return { index: wanted, event: events[wanted] };
+  const index = events.findIndex((e) => e.action === 'scatter');
+  return index >= 0 ? { index, event: events[index] } : null;
+}
+
+/**
+ * How many times more strongly air molecules scatter band a than band b: the
+ * ratio of the air's own scattering coefficients, averaged over each band.
+ * This is the ratio of the molecules' targets in the chamber.
+ */
+export function rayleighBandRatio(model, a, b) {
+  const beta = model.atmosphere.rayleighBeta0;
+  const mean = (band) => {
+    let sum = 0, n = 0;
+    for (let i = 0; i < beta.length; i++) if (BAND_OF_BIN[i] === band) { sum += beta[i]; n++; }
+    return n ? sum / n : 0;
+  };
+  return mean(b) > 0 ? mean(a) / mean(b) : 0;
+}
+
+/** In white light, the colour set beside the chosen one: red, or blue for red itself. */
+export function contrastBand(model, band) {
+  if (model.bands.length < 2) return null;
+  return band === RAY_BANDS.length - 1 ? 1 : RAY_BANDS.length - 1;
+}
+
 /** A small deterministic generator, so the picture is the same on every redraw. */
 function hashRng(seed) {
   let s = (seed >>> 0) || 1;
@@ -123,6 +162,8 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
   let bundle = null;
   let selection = null;
   let chamberSize = { w: 0, h: 0 };
+  /** Where the chosen ray's numbered tags were drawn, in chamber coordinates. */
+  let tagSpots = [];
   const t = (key, params) => i18n.t(key, params);
 
   function resize() {
@@ -138,9 +179,23 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     return { w, h };
   }
 
-  function chamberRect(w, h) {
-    return { x: 70, y: 52, w: Math.max(120, w - 160), h: Math.max(100, h - 52 - 50) };
+  /**
+   * The collision view, top to bottom: the test bench, the chamber, the wave
+   * strip, and two lines of caption under each strip's title.
+   */
+  function microLayout(w, h) {
+    const x = 70, width = Math.max(120, w - 160);
+    const benchH = Math.round(Math.max(92, Math.min(132, h * 0.19)));
+    const waveH = Math.round(Math.max(128, Math.min(190, h * 0.26)));
+    const bench = { x, y: 22, w: width, h: benchH };
+    const chamberY = bench.y + benchH + 42;
+    const chamberH = Math.max(100, h - 40 - waveH - 22 - chamberY);
+    const chamberBox = { x, y: chamberY, w: width, h: chamberH };
+    const wave = { x, y: chamberY + chamberH + 22, w: width, h: waveH };
+    return { bench, chamber: chamberBox, wave };
   }
+
+  function chamberRect(w, h) { return microLayout(w, h).chamber; }
 
   function recompute() {
     model = buildBeamModel(state, { config, colorimetry });
@@ -185,17 +240,32 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     return best?.ray ?? null;
   }
 
+  /** A numbered collision tag under the pointer, if any. */
+  function tagNear(event) {
+    if (state.viewType !== 'micro') return null;
+    const box = canvas.getBoundingClientRect();
+    const rect = chamberRect(box.width, box.height);
+    const px = event.clientX - box.left - rect.x;
+    const py = event.clientY - box.top - rect.y;
+    return tagSpots.find((spot) => Math.hypot(spot.x - px, spot.y - py) <= 10) ?? null;
+  }
+
   canvas.addEventListener('pointerdown', (event) => {
+    const tag = tagNear(event);
+    if (tag) { onPick?.({ selectedEvent: tag.index }); return; }
     const ray = rayNear(event);
-    if (ray) onPick?.({ selectedBand: ray.band, selectedRay: ray.index });
+    if (ray) onPick?.({ selectedBand: ray.band, selectedRay: ray.index, selectedEvent: null });
   });
   canvas.addEventListener('pointermove', (event) => {
-    canvas.style.cursor = rayNear(event) ? 'pointer' : '';
+    canvas.style.cursor = tagNear(event) || rayNear(event) ? 'pointer' : '';
   });
 
-  window.addEventListener('resize', () => { if (model) { recompute(); draw(); } });
+  // A new size makes a new chamber, so the panel describing its rays is redone too.
+  window.addEventListener('resize', () => { if (model) { recompute(); draw(); onPick?.({}); } });
 
   function draw() {
+    // The collision view needs more height for its strips.
+    canvas.parentElement?.classList.toggle('is-micro', state.viewType === 'micro');
     if (!model) recompute();
     const { w, h } = resize();
     if (Math.abs(chamberRect(w, h).w - chamberSize.w) > 1 || Math.abs(chamberRect(w, h).h - chamberSize.h) > 1) {
@@ -204,7 +274,13 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     selection = resolveSelection(state, model, bundle);
     ctx.fillStyle = '#05070d';
     ctx.fillRect(0, 0, w, h);
-    if (state.viewType === 'micro') drawMicro(w, h); else drawMacro(w, h);
+    if (state.viewType === 'micro') drawMicro(w, h);
+    else if (state.viewType === 'particle') {
+      drawParticleView(ctx, {
+        w, h, t, lang: i18n.getLanguage?.() ?? 'en',
+        diameterUm: state.particleDiameterUm, band: state.particleBand, log: state.particleLog,
+      });
+    } else drawMacro(w, h);
   }
 
   /* ---------------------------------------------------------------- */
@@ -720,6 +796,43 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     ctx.restore();
 
     drawMicroCaption(w, h, chosen);
+    drawStrips(w, h, chosen);
+  }
+
+  /** The test bench above the chamber and the wave strip below it. */
+  function drawStrips(w, h, chosen) {
+    const layout = microLayout(w, h);
+    const lang = i18n.getLanguage?.() ?? 'en';
+    const band = selection.band;
+    const contrast = contrastBand(model, band);
+    const picked = chosenScatterEvent(chosen, state.selectedEvent);
+    const particle = picked ? CHAMBER_SAMPLE[picked.event.kind] : 'molecule';
+    const molRatio = contrast !== null ? rayleighBandRatio(model, band, contrast) : null;
+
+    ctx.save();
+    ctx.font = '10.5px system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'alphabetic';
+    ctx.fillText(contrast !== null
+      ? t('beam.bench.title', { nm: Math.round(RAY_BANDS[band].centreNm), nmC: Math.round(RAY_BANDS[contrast].centreNm) })
+      : t('beam.bench.titleOne', { nm: Math.round(RAY_BANDS[band].centreNm) }), layout.bench.x, 15);
+    ctx.fillText(picked
+      ? t('beam.wave.title', { n: picked.index + 1 })
+      : t('beam.wave.titleNone'), layout.wave.x, layout.wave.y - 7);
+    ctx.restore();
+
+    drawTestBench(ctx, {
+      rect: layout.bench, t, lang, band, contrast,
+      highlight: picked ? particle : null,
+      inChamber: Object.values(CHAMBER_SAMPLE),
+      moleculeRatio: molRatio,
+    });
+    const other = particle === 'molecule' ? 'haze' : 'molecule';
+    const panels = contrast !== null
+      ? [{ particle, band, chosen: true }, { particle, band: contrast, chosen: false }]
+      : [{ particle, band, chosen: true }, { particle: other, band, chosen: false }];
+    drawWaveStrip(ctx, { rect: layout.wave, t, lang, panels });
   }
 
   function drawTarget(kind, at, b, strong) {
@@ -786,6 +899,8 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
 
   /** The chosen ray's collisions, numbered as in the readout panel, and how it ended. */
   function drawChosenMarks(ray, rect) {
+    tagSpots = [];
+    const picked = chosenScatterEvent(ray, state.selectedEvent);
     ctx.save();
     ctx.font = 'bold 10px system-ui, sans-serif';
     ctx.textAlign = 'center';
@@ -805,10 +920,17 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
       ctx.strokeStyle = 'rgba(255,255,255,0.6)';
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(tx, ty); ctx.stroke();
+      // The collision the wave strip explains is ringed.
       ctx.fillStyle = '#ffffff';
       ctx.beginPath(); ctx.arc(tx, ty, 8, 0, Math.PI * 2); ctx.fill();
+      if (picked?.index === k) {
+        ctx.strokeStyle = RAY_BANDS[ray.band].css;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath(); ctx.arc(tx, ty, 11, 0, Math.PI * 2); ctx.stroke();
+      }
       ctx.fillStyle = '#05070d';
       ctx.fillText(String(k + 1), tx, ty + 0.5);
+      if (e.action === 'scatter') tagSpots.push({ x: tx, y: ty, index: k });
     });
     const endPoint = ray.points[ray.points.length - 1];
     if (ray.fate === 'direct') {
@@ -832,7 +954,8 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     }), 70, h - 28);
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
     ctx.fillText(state.bundleMode === 'single' ? t('beam.micro.singleHint') : t('beam.micro.bundleHint'), 70, h - 12);
-    ctx.fillText(t('beam.micro.scaleNote', { elev: Number(state.elevationDeg).toFixed(state.elevationDeg % 1 ? 1 : 0) }), 70, 18);
+    const above = chamberRect(w, h).y;
+    ctx.fillText(t('beam.micro.scaleNote', { elev: Number(state.elevationDeg).toFixed(state.elevationDeg % 1 ? 1 : 0) }), 70, above - 24);
 
     // A key to the particles.
     const keys = [
@@ -842,7 +965,7 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
       ['aerosolAbsorb', t('beam.micro.key.aerosolAbsorb')],
     ];
     let x = 70;
-    const y = 36;
+    const y = above - 9;
     ctx.font = '10px system-ui, sans-serif';
     ctx.textBaseline = 'middle';
     for (const [kind, label] of keys) {

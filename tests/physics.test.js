@@ -52,7 +52,8 @@ import {
   traceBeam, airRefractivity, refractionArcmin, singleColourSpectrum,
   createChamber, traceChamberBundle,
 } from '../js/physics/beam.js';
-import { resolveSelection } from '../js/render/beam-canvas.js';
+import { resolveSelection, chosenScatterEvent } from '../js/render/beam-canvas.js';
+import { mie, particlePattern, dropletPattern, phasorChain, sampleTurnDeg, sizeRegime } from '../js/physics/mie.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
 
@@ -2586,6 +2587,75 @@ export function registerTests({ group, test, assert }, config) {
         const vertical = beamAt(90).points.at(-1).airColumn;
         assert.close(cols.at(-1) / vertical, beam.airMass, 0.01, `${elevation} degrees`);
       }
+    });
+
+    test('Mie scattering: the Rayleigh limit, the Bohren-Huffman example, and extinction 2 for large drops', () => {
+      for (const x of [0.01, 0.05]) {
+        const rayleigh = (8 / 3) * x ** 4 * ((1.33 ** 2 - 1) / (1.33 ** 2 + 2)) ** 2;
+        assert.close(mie(x, 1.33).qsca, rayleigh, 0.002, `x = ${x}`);
+      }
+      // Bohren and Huffman (1983), appendix A: m = 1.55, x = 5.213.
+      const bh = mie(5.213, 1.55);
+      assert.close(bh.qsca, 3.1054, 0.001);
+      assert.close(bh.g, 0.6331, 0.002);
+      // A non-absorbing sphere scatters all it removes; a large one removes twice its area.
+      assert.close(mie(3, 1.33).qext, mie(3, 1.33).qsca, 1e-9);
+      assert.close(mie(200, 1.33).qext, 2, 0.05);
+    });
+
+    test('size against wavelength: a molecule turns every colour alike, a haze droplet turns blue further forward', () => {
+      const blue = (id) => particlePattern(id, 448), red = (id) => particlePattern(id, 693);
+      assert.close(blue('molecule').medianTurnDeg, red('molecule').medianTurnDeg, 1e-9);
+      assert.close(blue('molecule').crossSection / red('molecule').crossSection, (693 / 448) ** 4, 1e-9);
+      assert.less(blue('haze').medianTurnDeg, red('haze').medianTurnDeg - 4);
+      assert.greater(blue('haze').forwardShare, 0.9);
+      assert.between(blue('haze').crossSection / red('haze').crossSection, 1.5, 3.5);
+      // A cloud droplet: a narrow forward cone and much the same target for every colour.
+      assert.less(blue('cloud').medianTurnDeg, 3);
+      assert.between(blue('cloud').crossSection / red('cloud').crossSection, 0.8, 1.2);
+    });
+
+    test('the waves from a particle: in step forwards, cancelling elsewhere once it is as large as the wavelength', () => {
+      for (const d of [0.0003, 0.5, 10]) assert.close(phasorChain(d, 448, 0).resultant, 1, 1e-9);
+      assert.close(phasorChain(0.0003, 448, 180).resultant, 1, 1e-9);
+      assert.less(phasorChain(0.5, 448, 180).resultant, 0.05);
+      assert.less(phasorChain(10, 448, 90).resultant, 0.05);
+      // The same droplet cancels less for red, whose wavelength is longer.
+      assert.greater(phasorChain(0.5, 693, 90).resultant, phasorChain(0.5, 448, 90).resultant);
+    });
+
+    test('in the chamber haze turns blue rays less than red ones, molecules turn both alike', () => {
+      let seed = 11;
+      const rng = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+      const median = (id, nm) => {
+        const turns = Array.from({ length: 4000 }, () => Math.abs(sampleTurnDeg(particlePattern(id, nm), rng))).sort((a, b) => a - b);
+        return turns[2000];
+      };
+      assert.less(median('haze', 448), median('haze', 693) - 3);
+      assert.less(Math.abs(median('molecule', 448) - median('molecule', 693)), 6);
+    });
+
+    test('one particle of any size: from the pattern of a molecule to the cone of a cloud droplet', () => {
+      // A droplet the size of a molecule scatters exactly as a molecule does.
+      const tiny = dropletPattern(0.0003, 448), molecule = particlePattern('molecule', 448);
+      for (const j of [0, 180, 360, 540, 720]) assert.close(tiny.pattern[j], molecule.pattern[j], 1e-4);
+      assert.close(dropletPattern(0.0003, 448).crossSection / dropletPattern(0.0003, 693).crossSection, (693 / 448) ** 4, 0.01);
+      // The slider's droplets agree with the test bench's.
+      assert.close(dropletPattern(0.5, 448).medianTurnDeg, particlePattern('haze', 448).medianTurnDeg, 1e-9);
+      // Growing the droplet turns the light ever further forward.
+      const medians = [0.01, 0.1, 0.3, 1, 3, 10].map((d) => dropletPattern(d, 543).medianTurnDeg);
+      for (let i = 1; i < medians.length; i++) assert.less(medians[i], medians[i - 1]);
+      assert.equal(sizeRegime(dropletPattern(0.0003, 543).sizeParameter), 'small');
+      assert.equal(sizeRegime(dropletPattern(0.5, 543).sizeParameter), 'comparable');
+      assert.equal(sizeRegime(dropletPattern(10, 543).sizeParameter), 'large');
+    });
+
+    test('the wave strip explains the collision asked for, or else the first scattering', () => {
+      const ray = { events: [{ action: 'absorb' }, { action: 'scatter' }, { action: 'scatter' }] };
+      assert.equal(chosenScatterEvent(ray, 2).index, 2);
+      assert.equal(chosenScatterEvent(ray, 0).index, 1, 'an absorption is not explained by waves');
+      assert.equal(chosenScatterEvent(ray, null).index, 1);
+      assert.equal(chosenScatterEvent({ events: [] }, null), null);
     });
 
     test('the chosen ray: blue by default, one that meets something, kept when the colour changes', () => {

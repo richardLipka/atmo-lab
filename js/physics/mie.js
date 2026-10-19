@@ -1,0 +1,268 @@
+/**
+ * How a single particle scatters light, by size and wavelength.
+ *
+ * Mie theory for a sphere (the BHMIE algorithm of Bohren and Huffman, 1983,
+ * appendix A), used for droplets; the Rayleigh limit for molecules. It gives
+ * two things the collision view needs:
+ *
+ *   - how likely a hit is: the scattering cross-section, which for a molecule
+ *     goes as 1/lambda^4 and for a large droplet hardly depends on colour;
+ *   - where the light goes: the angular pattern (phase function), which for a
+ *     molecule is 1 + cos^2(theta) whatever the colour, but for a particle
+ *     about as large as the wavelength turns forward, and more so the shorter
+ *     the wavelength.
+ *
+ * The chamber is two-dimensional, so a turn is drawn in the plane with a
+ * probability proportional to the pattern at that angle; the same pattern is
+ * what the test bench and the wave strip draw.
+ *
+ * The wave picture (phasorChain) is the Rayleigh-Gans view of the same thing:
+ * every small part of the particle re-radiates the wave that reaches it, and
+ * the parts' waves are added with the phase differences their positions give.
+ * In the forward direction they always arrive in step; in other directions
+ * they arrive in step only if the particle is small compared with the
+ * wavelength.
+ */
+
+/** Water droplets: real refractive index, no absorption. */
+export const WATER_INDEX = 1.33;
+
+/**
+ * The particles the collision view shows. The molecule and the haze droplet
+ * are the two kinds that scatter in the chamber.
+ */
+export const SAMPLE_PARTICLES = [
+  { id: 'molecule', diameterUm: 0.0003 },
+  { id: 'fine', diameterUm: 0.1, index: WATER_INDEX },
+  { id: 'haze', diameterUm: 0.5, index: WATER_INDEX },
+  { id: 'cloud', diameterUm: 10, index: WATER_INDEX },
+];
+
+/** The chamber's particle kinds and the sample each one stands for. */
+export const CHAMBER_SAMPLE = { rayleigh: 'molecule', aerosolScatter: 'haze' };
+
+/** Angular resolution of the tables: quarter-degree steps from 0 to 180 degrees. */
+const HALF_ANGLES = 361;
+
+/**
+ * Mie scattering by a sphere of real refractive index m.
+ * @param {number} x size parameter 2*pi*r/lambda
+ * @param {number} m refractive index (real)
+ * @param {number} nang angles from 0 to 90 degrees inclusive; the result has 2*nang-1 from 0 to 180
+ * @returns {{qsca:number, qext:number, g:number, s11:Float64Array}} s11 = (|S1|^2+|S2|^2)/2
+ */
+export function mie(x, m, nang = HALF_ANGLES) {
+  const y = x * m;
+  const xstop = x + 4 * Math.cbrt(x) + 2;
+  const nstop = Math.round(xstop);
+  const nmx = Math.round(Math.max(xstop, Math.abs(y))) + 15;
+  const dang = (Math.PI / 2) / (nang - 1);
+  const amu = new Float64Array(nang);
+  for (let j = 0; j < nang; j++) amu[j] = Math.cos(j * dang);
+  const pi0 = new Float64Array(nang);
+  const pi1 = new Float64Array(nang).fill(1);
+  const pi = new Float64Array(nang);
+  const tau = new Float64Array(nang);
+  const nn = 2 * nang - 1;
+  const s1r = new Float64Array(nn), s1i = new Float64Array(nn);
+  const s2r = new Float64Array(nn), s2i = new Float64Array(nn);
+
+  // Logarithmic derivative D_n(mx), by downward recurrence (real for real m).
+  const d = new Float64Array(nmx + 1);
+  for (let n = 1; n < nmx; n++) {
+    const en = nmx - n + 1;
+    d[nmx - n] = en / y - 1 / (d[nmx - n + 1] + en / y);
+  }
+
+  let psi0 = Math.cos(x), psi1 = Math.sin(x);
+  let chi0 = -Math.sin(x), chi1 = Math.cos(x);
+  let qsca = 0, gsca = 0;
+  let p = -1;
+  let anR1 = 0, anI1 = 0, bnR1 = 0, bnI1 = 0;
+  for (let n = 1; n <= nstop; n++) {
+    const fn = (2 * n + 1) / (n * (n + 1));
+    const psi = (2 * n - 1) * psi1 / x - psi0;
+    const chi = (2 * n - 1) * chi1 / x - chi0;
+    // xi = psi - i chi, xi1 = psi1 - i chi1
+    const fa = d[n] / m + n / x;
+    const fb = m * d[n] + n / x;
+    const [anR, anI] = cdiv(fa * psi - psi1, 0, fa * psi - psi1, -(fa * chi - chi1));
+    const [bnR, bnI] = cdiv(fb * psi - psi1, 0, fb * psi - psi1, -(fb * chi - chi1));
+    qsca += (2 * n + 1) * (anR * anR + anI * anI + bnR * bnR + bnI * bnI);
+    gsca += fn * (anR * bnR + anI * bnI);
+    if (n > 1) {
+      gsca += ((n - 1) * (n + 1) / n) * (anR1 * anR + anI1 * anI + bnR1 * bnR + bnI1 * bnI);
+    }
+    for (let j = 0; j < nang; j++) {
+      pi[j] = pi1[j];
+      tau[j] = n * amu[j] * pi[j] - (n + 1) * pi0[j];
+      s1r[j] += fn * (anR * pi[j] + bnR * tau[j]);
+      s1i[j] += fn * (anI * pi[j] + bnI * tau[j]);
+      s2r[j] += fn * (anR * tau[j] + bnR * pi[j]);
+      s2i[j] += fn * (anI * tau[j] + bnI * pi[j]);
+    }
+    p = -p;
+    for (let j = 0; j < nang - 1; j++) {
+      const jj = nn - 1 - j;
+      s1r[jj] += fn * p * (anR * pi[j] - bnR * tau[j]);
+      s1i[jj] += fn * p * (anI * pi[j] - bnI * tau[j]);
+      s2r[jj] += fn * p * (bnR * pi[j] - anR * tau[j]);
+      s2i[jj] += fn * p * (bnI * pi[j] - anI * tau[j]);
+    }
+    psi0 = psi1; psi1 = psi;
+    chi0 = chi1; chi1 = chi;
+    for (let j = 0; j < nang; j++) {
+      pi1[j] = ((2 * n + 1) * amu[j] * pi[j] - (n + 1) * pi0[j]) / n;
+      pi0[j] = pi[j];
+    }
+    anR1 = anR; anI1 = anI; bnR1 = bnR; bnI1 = bnI;
+  }
+  const g = 2 * gsca / qsca;
+  qsca *= 2 / (x * x);
+  const qext = (4 / (x * x)) * s1r[0];
+  const s11 = new Float64Array(nn);
+  for (let j = 0; j < nn; j++) {
+    s11[j] = 0.5 * (s1r[j] * s1r[j] + s1i[j] * s1i[j] + s2r[j] * s2r[j] + s2i[j] * s2i[j]);
+  }
+  return { qsca, qext, g, s11 };
+}
+
+/** (a + ib) / (c + id) */
+function cdiv(a, b, c, dd) {
+  const den = c * c + dd * dd;
+  return [(a * c + b * dd) / den, (b * c - a * dd) / den];
+}
+
+const patternCache = new Map();
+
+/**
+ * One particle's scattering at one wavelength, ready to draw and to sample.
+ * @returns {{
+ *   id:string, diameterUm:number, lambdaNm:number, sizeParameter:number,
+ *   thetaDeg:Float64Array, pattern:Float64Array,   // pattern normalised to its maximum
+ *   cdf:Float64Array,                                // planar: probability of turning by at most theta
+ *   crossSection:number,                             // um^2; for the molecule, relative (lambda^-4)
+ *   medianTurnDeg:number, forwardShare:number,       // forwardShare: turned by less than 90 degrees
+ * }}
+ */
+export function particlePattern(id, lambdaNm) {
+  const particle = SAMPLE_PARTICLES.find((p) => p.id === id);
+  if (!particle) throw new Error(`unknown particle ${id}`);
+  return buildPattern(id, particle.diameterUm, particle.index, lambdaNm);
+}
+
+/**
+ * The same for a water sphere of any diameter: the single-particle view's
+ * slider. The diameter is rounded to four significant figures for the cache.
+ */
+export function dropletPattern(diameterUm, lambdaNm, index = WATER_INDEX) {
+  const d = Number(diameterUm.toPrecision(4));
+  return buildPattern(`d${d}`, d, index, lambdaNm);
+}
+
+function buildPattern(id, diameterUm, index, lambdaNm) {
+  const key = `${id}@${lambdaNm.toFixed(2)}`;
+  const cached = patternCache.get(key);
+  if (cached) return cached;
+  const particle = { diameterUm, index };
+  const lambdaUm = lambdaNm / 1000;
+  const r = particle.diameterUm / 2;
+  const sizeParameter = 2 * Math.PI * r / lambdaUm;
+  const nn = 2 * HALF_ANGLES - 1;
+  const thetaDeg = new Float64Array(nn);
+  for (let j = 0; j < nn; j++) thetaDeg[j] = (180 * j) / (nn - 1);
+
+  let raw, crossSection;
+  if (id === 'molecule') {
+    raw = thetaDeg.map((t) => 1 + Math.cos(t * Math.PI / 180) ** 2);
+    crossSection = (550 / lambdaNm) ** 4;   // relative; only ratios between colours are used
+  } else {
+    const result = mie(sizeParameter, particle.index);
+    raw = result.s11;
+    crossSection = result.qsca * Math.PI * r * r;
+  }
+  let max = 0;
+  for (const v of raw) max = Math.max(max, v);
+  const pattern = raw.map((v) => v / max);
+  // Planar turn: probability proportional to the pattern at that angle.
+  const cdf = new Float64Array(nn);
+  for (let j = 1; j < nn; j++) cdf[j] = cdf[j - 1] + 0.5 * (pattern[j] + pattern[j - 1]);
+  const total = cdf[nn - 1];
+  for (let j = 0; j < nn; j++) cdf[j] /= total;
+  const at = (q) => {
+    let j = 1;
+    while (j < nn - 1 && cdf[j] < q) j++;
+    const f = (q - cdf[j - 1]) / Math.max(1e-300, cdf[j] - cdf[j - 1]);
+    return thetaDeg[j - 1] + f * (thetaDeg[j] - thetaDeg[j - 1]);
+  };
+  const half = cdf[(nn - 1) / 2];
+  const out = {
+    id, diameterUm: particle.diameterUm, lambdaNm, sizeParameter,
+    thetaDeg, pattern, cdf, crossSection,
+    medianTurnDeg: at(0.5), forwardShare: half,
+    turnAt: at,
+  };
+  if (patternCache.size > 4000) patternCache.clear();
+  patternCache.set(key, out);
+  return out;
+}
+
+/** A turn drawn from the particle's pattern: degrees, with a random side. */
+export function sampleTurnDeg(pattern, rng) {
+  const theta = pattern.turnAt(rng());
+  return rng() < 0.5 ? theta : -theta;
+}
+
+/**
+ * Size regime of a particle at a wavelength, for the words that go with it:
+ * 'small' (much smaller than the wavelength), 'comparable', or 'large'.
+ */
+export function sizeRegime(sizeParameter) {
+  if (sizeParameter < 0.3) return 'small';
+  if (sizeParameter < 15) return 'comparable';
+  return 'large';
+}
+
+/**
+ * The waves from the parts of a particle, added for one direction. The
+ * particle is the disc it cuts from the plane of the picture, filled with
+ * small emitters a fraction of a wavelength apart; the light arrives along +x.
+ * An emitter at (x, y) is reached with phase k*x and its wave leaves towards
+ * direction theta with an extra path of -(x cos theta + y sin theta).
+ *
+ * @returns {{ chain: Array<{x:number, y:number}>, resultant:number }}
+ *   chain: the running sum of the emitters' unit waves, scaled so that waves
+ *   all in step reach length 1; resultant: the length of the sum (0..1).
+ */
+export function phasorChain(diameterUm, lambdaNm, thetaDeg, maxEmitters = 6000) {
+  const r = diameterUm / 2;
+  const lambdaUm = lambdaNm / 1000;
+  const k = 2 * Math.PI / lambdaUm;
+  // Spacing: well under the wavelength, and no more emitters than needed.
+  let spacing = Math.min(lambdaUm / 6, r / 4);
+  if (Math.PI * (r / spacing) ** 2 > maxEmitters) spacing = r * Math.sqrt(Math.PI / maxEmitters);
+  const points = [];
+  if (r < lambdaUm / 50) {
+    points.push([0, 0]);
+  } else {
+    for (let gx = -r; gx <= r; gx += spacing) {
+      for (let gy = -r; gy <= r; gy += spacing) {
+        if (gx * gx + gy * gy <= r * r) points.push([gx, gy]);
+      }
+    }
+  }
+  const th = thetaDeg * Math.PI / 180;
+  const c = Math.cos(th), s = Math.sin(th);
+  const n = points.length;
+  // Order the emitters by phase so the chain is drawn as a smooth curve.
+  const phases = points.map(([px, py]) => k * (px - (px * c + py * s)));
+  phases.sort((a, b) => a - b);
+  const chain = [{ x: 0, y: 0 }];
+  let sx = 0, sy = 0;
+  for (const ph of phases) {
+    sx += Math.cos(ph) / n;
+    sy += Math.sin(ph) / n;
+    chain.push({ x: sx, y: sy });
+  }
+  return { chain, resultant: Math.hypot(sx, sy), emitters: n };
+}

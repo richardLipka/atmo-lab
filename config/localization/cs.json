@@ -398,7 +398,9 @@
       "aerosolHelp": "Násobí množství prachu a kapiček zvoleného druhu.",
       "exponent": "Exponent vlnové délky n",
       "exponentHelp": "Rozptyl na molekulách je úměrný 1/λⁿ; n = 4 odpovídá skutečnému vzduchu. Při n = 0 molekuly rozptylují všechny barvy stejně.",
-      "bundleHelp": "Každá barva vyšle stejný počet paprsků ve stejných výškách. Kliknutím na paprsek ho vybereš; panel vpravo popíše každou jeho srážku."
+      "bundleHelp": "Každá barva vyšle stejný počet paprsků ve stejných výškách. Kliknutím na paprsek ho vybereš; panel vpravo popíše každou jeho srážku.",
+      "viewParticle": "Jedna částice",
+      "viewParticleHelp": "Jedna částice libovolné velikosti, od molekuly vzduchu po kapku mraku, osvětlená zleva: kam odchází rozptýlené světlo a jak často se jednotlivé barvy vůbec rozptýlí."
     },
     "panel": {
       "arrivesTitle": "Co dorazí k pozorovateli",
@@ -456,7 +458,9 @@
       "ozone": "Serdyuchenko a kol. 2014 (ozon)",
       "ciddor": "Ciddor 1996 (index lomu vzduchu)",
       "refraction": "Atmosférický lom (Wikipedie)",
-      "greenFlash": "Zelený záblesk (Wikipedie)"
+      "greenFlash": "Zelený záblesk (Wikipedie)",
+      "mie": "Mieův rozptyl",
+      "bohren": "Bohren a Huffman 1983"
     },
     "chosen": {
       "title": "Vybraný paprsek",
@@ -492,7 +496,99 @@
         }
       },
       "compare": "Při změně barvy zůstává stejný paprsek, vstupující ve stejné výšce: míjí stejné částice, ale jejich terče jsou pro něj jinak velké. Modré paprsky narazí mnohem častěji než červené.",
-      "target": "Pro {nm} nm je terč molekuly {ratio}× širší než pro červenou ({red} nm), protože molekuly tuto barvu rozptylují {ratio}× silněji."
+      "pickHint": "Klikni na rozptyl v seznamu (nebo na jeho číslo v obrázku): pás pod komorou ukáže, proč se paprsek stočil právě tak.",
+      "moleculeColour": "Směr stočení na barvě nezávisí; barva mění jen to, jak často ke srážce dojde.",
+      "hazeColour": "Na takové kapce se světlo {nmS} nm stočí typicky o {mS}°, světlo {nmL} nm o {mL}°: tady barva mění i směr."
+    },
+    "bench": {
+      "title": "Zkušební částice: kam odchází rozptýlené světlo (světlo přichází zleva). Plně: {nm} nm, čárkovaně: {nmC} nm.",
+      "titleOne": "Zkušební částice: kam odchází rozptýlené světlo (světlo přichází zleva), pro {nm} nm.",
+      "name": {
+        "molecule": "molekula N₂, O₂ (0,3 nm)",
+        "fine": "kapička 0,1 µm",
+        "haze": "kapka oparu 0,5 µm",
+        "cloud": "kapka mraku 10 µm"
+      },
+      "turn": "typické stočení",
+      "target": "terč",
+      "inChamber": "v komoře"
+    },
+    "wave": {
+      "title": "Srážka {n}: proč se paprsek stočil právě tak. Kruhy: součet vln ze všech částí částice; dlouhá šipka = tím směrem jde hodně světla.",
+      "titleNone": "Tento paprsek se nerozptýlil. Ukázka pro molekulu vzduchu: součet vln ze všech částí částice ve třech směrech.",
+      "headerMolecule": "molekula · {nm} nm · {times}× menší než vlnová délka (ne v měřítku)",
+      "headerDroplet": "{name} · {nm} nm · průměr = {ratio} vlnové délky",
+      "crests": "čáry: hřebeny vln",
+      "dir": {
+        "forward": "dopředu",
+        "side": "do strany",
+        "back": "dozadu"
+      }
+    },
+    "size": {
+      "title": "Velikost částice rozhoduje",
+      "intro": "Zkušební částice nad komorou ukazují, kam rozptýlené světlo odchází; pás pod komorou ukazuje proč. Rozhoduje velikost částice ve srovnání s vlnovou délkou.",
+      "small": {
+        "lead": "Mnohem menší než vlnová délka (molekula).",
+        "text": "Všechny její části kmitají současně, takže se jejich vlny sečtou v každém směru: světlo odchází dopředu i dozadu a tento tvar je pro všechny barvy stejný (typické stočení {mS}° pro {nmS} nm i {mL}° pro {nmL} nm). Barva mění jen to, jak často k rozptylu dojde: terč je pro {nmS} nm {ratio}× širší než pro {nmL} nm."
+      },
+      "comparable": {
+        "lead": "Velká zhruba jako vlnová délka (kapka oparu 0,5 µm).",
+        "text": "Vlny z její přední a zadní části se do stran a dozadu z velké části zruší a sečtou se dopředu. Pro kratší vlnovou délku je kapka „větší“, rušení je silnější a světlo jde víc dopředu: {nmS} nm se stočí typicky o {mS}°, {nmL} nm o {mL}°. Tady barva mění i směr a terč je pro {nmS} nm jen {ratio}× větší."
+      },
+      "large": {
+        "lead": "Mnohem větší než vlnová délka (kapka mraku 10 µm).",
+        "text": "Mimo úzký kužel dopředu se vlny téměř úplně zruší: světlo se stočí jen asi o {mS}° ({nmS} nm) či {mL}° ({nmL} nm) a terč je pro všechny barvy prakticky stejný ({ratio}×). Proto jsou mraky bílé."
+      }
+    },
+    "particle": {
+      "controlsTitle": "Částice",
+      "size": "Průměr",
+      "sizeHelp": "Vodní kapka tohoto průměru (logaritmická stupnice); u nejmenších velikostí rozptyluje přesně jako molekula vzduchu.",
+      "stop": {
+        "molecule": "molekula",
+        "fine": "0,1 µm",
+        "haze": "opar 0,5 µm",
+        "dust": "2 µm",
+        "cloud": "mrak 10 µm"
+      },
+      "colour": "Barva světla (nm)",
+      "colourHelp": "Kreslí se plně; pro srovnání se vedle ní čárkovaně kreslí červená (modrá, pokud zvolíš červenou).",
+      "log": "Logaritmická stupnice",
+      "logHelp": "Velké kapky pošlou skoro všechno do úzkého kužele dopředu; v logaritmické stupnici je vidět i slabé světlo do ostatních směrů.",
+      "header": "Průměr {d} · {regime}",
+      "sizeAgainst": "{nm} nm: průměr = {ratio} vlnové délky (x = {x})",
+      "regime": {
+        "small": "mnohem menší než vlnová délka",
+        "comparable": "velká zhruba jako vlnová délka",
+        "large": "mnohem větší než vlnová délka"
+      },
+      "legend": "Plně: {nm} nm, čárkovaně: {nmC} nm. Tenké čáry: {n} paprsků {nm} nm, každý nese stejný díl rozptýleného světla.",
+      "scaleLinear": "Vzdálenost od středu = kolik světla jde tím směrem (nejsilnější směr sahá k vnější kružnici).",
+      "scaleLog": "Logaritmická stupnice: každá kružnice znamená desetkrát méně světla než ta vnější.",
+      "targetTitle": "Jak velký terč, podle barvy",
+      "targetNote": "Jak často se světlo vůbec rozptýlí. {nm} nm proti {nmC} nm: {ratio}×.",
+      "turnTitle": "Typické stočení, podle barvy",
+      "turnNote": "Polovina rozptýleného světla se stočí méně než o tolik.",
+      "panelTitle": "Částice proti vlnové délce",
+      "row": {
+        "x": "parametr velikosti x = πd/λ",
+        "turn": "typické stočení",
+        "forward": "rozptýleno dopředu (pod 90°)",
+        "target": "terč proti delší vlnové délce"
+      },
+      "tableNote": "Parametr velikosti porovnává částici s vlnovou délkou. Na něm, ne na samotné velikosti, závisí, kam světlo odchází a jak často se rozptýlí.",
+      "explain": {
+        "small": "Částice ({d}) je tak malá, že všechny její části kmitají současně a jejich vlny se sečtou v každém směru. Světlo odchází dopředu i dozadu a tvar je pro všechny barvy stejný: typické stočení je {mS}° pro {nmS} nm i {mL}° pro {nmL} nm. Barva mění jen to, jak často k rozptylu dojde, a to jako 1/λ⁴: terč je pro {nmS} nm {ratio}× větší. Takhle molekuly vzduchu barví oblohu do modra.",
+        "comparable": "Částice ({d}) je velká zhruba jako vlnová délka. Vlny z její přední a zadní části se do stran a dozadu ruší a sečtou se dopředu: dopředu jde {fS} světla {nmS} nm a {fL} světla {nmL} nm. Pro kratší vlnovou délku je částice „větší“, a proto světlo stočí méně: typicky o {mS}° proti {mL}°. Terč na barvě ještě závisí, ale mnohem méně než u molekuly ({ratio}×). Takový je opar a kouř: bělavá obloha a jasná záře kolem Slunce.",
+        "large": "Částice ({d}) je mnohokrát větší než vlnová délka. Mimo úzký kužel dopředu se vlny ruší: světlo se stočí jen asi o {mS}° ({nmS} nm) či {mL}° ({nmL} nm) a terč je pro všechny barvy prakticky stejný ({ratio}×). Všechny barvy se rozptylují stejně, proto jsou mraky a mlha bílé."
+      },
+      "tryTitle": "Vyzkoušej",
+      "try": {
+        "one": "Posuň velikost od molekuly ke kapce mraku a sleduj tvar: z „dopředu i dozadu“ se stane úzký kužel dopředu.",
+        "two": "Sleduj sloupce terče: u molekuly prudce klesají (modrá daleko před červenou), pak se srovnávají a u kapky mraku jsou stejné.",
+        "three": "Kolem 0,3–1 µm se plný a čárkovaný tvar liší nejvíc: tady barva mění nejen to, jak často se světlo rozptýlí, ale i kam odejde."
+      }
     }
   }
 }
