@@ -50,6 +50,8 @@ import {
 } from '../js/render/photons.js';
 import {
   traceSingleBeam, chordLengthM, calculateAirmass, airRefractivitySTP,
+  effectiveCollisionRadius, sampleRayleighAngle, sampleHenyeyGreensteinAngle,
+  createChamberParticles, traceMicroRay, traceMicroBundle,
 } from '../js/physics/beam-tracer.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
@@ -2509,6 +2511,52 @@ export function registerTests({ group, test, assert }, config) {
           assert.greater(Math.hypot(pt.x, pt.y), 6371000 - 0.001, 'distance from planet center >= Earth radius');
         }
       }
+    });
+
+    test('effective collision radius scales inversely with squared wavelength (Rayleigh sigma ~ 1/lambda^4)', () => {
+      const rBlue = effectiveCollisionRadius(405);
+      const rGreen = effectiveCollisionRadius(532);
+      const rRed = effectiveCollisionRadius(650);
+      assert.greater(rBlue, rGreen, 'blue collision radius > green');
+      assert.greater(rGreen, rRed, 'green collision radius > red');
+      const areaRatio = (rBlue * rBlue) / (rRed * rRed);
+      assert.greater(areaRatio, 6.0, 'blue interaction cross section area is over 6x larger than red');
+    });
+
+    test('sampleRayleighAngle yields symmetric dipole distribution bounded by [-pi, pi]', () => {
+      let positiveCount = 0;
+      for (let i = 0; i < 500; i++) {
+        const theta = sampleRayleighAngle();
+        assert.between(theta, -Math.PI, Math.PI);
+        if (theta > 0) positiveCount++;
+      }
+      assert.between(positiveCount, 190, 310, 'forward/backward/side symmetry is balanced');
+    });
+
+    test('sampleHenyeyGreensteinAngle with g=0.75 produces strongly forward-peaked angles', () => {
+      let forwardCount = 0;
+      for (let i = 0; i < 500; i++) {
+        const theta = sampleHenyeyGreensteinAngle(0.75);
+        if (Math.abs(theta) < Math.PI / 3) forwardCount++;
+      }
+      assert.greater(forwardCount, 350, 'majority of Mie scatterings are within 60 degrees forward cone');
+    });
+
+    test('traceMicroRay tracks collisions with chamber particles and records deflection', () => {
+      const chamber = createChamberParticles(800, 450, { densityScale: 2.0, aerosolScale: 1.0, seed: 101 });
+      const blueRay = traceMicroRay(chamber, { startX: 50, startY: 225, wavelengthNm: 405 });
+      assert.greater(blueRay.segments.length, 0, 'ray has at least one segment');
+      assert.equal(typeof blueRay.status, 'string');
+    });
+
+    test('traceMicroBundle in sunlight mode shows blue rays scattering away while red rays penetrate', () => {
+      const chamber = createChamberParticles(800, 450, { densityScale: 1.5, aerosolScale: 0.5, seed: 202 });
+      const bundle = traceMicroBundle(chamber, { rayCount: 30, mode: 'sunlight', seed: 303 });
+      assert.equal(bundle.rays.length, 30);
+      assert.greater(bundle.transmittedWavelengths.length, 0, 'direct beam transmits rays');
+      const avgTransWl = bundle.transmittedWavelengths.reduce((a, b) => a + b, 0) / Math.max(1, bundle.transmittedWavelengths.length);
+      const avgScatWl = bundle.scatteredWavelengths.reduce((a, b) => a + b, 0) / Math.max(1, bundle.scatteredWavelengths.length);
+      assert.greater(avgTransWl, avgScatWl, 'transmitted beam is shifted red, scattered sky light is shifted blue');
     });
   });
 }

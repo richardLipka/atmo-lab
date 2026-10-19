@@ -367,3 +367,384 @@ export function traceSingleBeam(options = {}) {
     deflectionArcmin: (totalDeflectionRad * 180 * 60) / Math.PI,
   };
 }
+
+/**
+ * Wavelength-dependent effective collision radius for Rayleigh scattering on gas molecules.
+ * Follows sigma proportional to lambda^(-4), meaning collision radius r_eff = sqrt(sigma / pi) proportional to lambda^(-2).
+ */
+export function effectiveCollisionRadius(wavelengthNm, baseRadiusPx = 5.5) {
+  const clampedWl = Math.max(380, Math.min(750, wavelengthNm));
+  const ratio = 550 / clampedWl;
+  // Area scales as ratio^4 -> radius scales as ratio^2
+  return baseRadiusPx * (ratio * ratio);
+}
+
+/**
+ * Sample deflection angle theta according to Rayleigh dipole phase function:
+ * P(theta) ~ (1 + cos^2 theta)
+ * Returns theta in radians [-PI, PI].
+ */
+export function sampleRayleighAngle(randomFn = Math.random) {
+  for (let iter = 0; iter < 100; iter++) {
+    const theta = (randomFn() * 2 - 1) * Math.PI;
+    const cosT = Math.cos(theta);
+    const prob = (1 + cosT * cosT) / 2; // in [0.5, 1.0]
+    if (randomFn() <= prob) {
+      return theta;
+    }
+  }
+  return 0;
+}
+
+/**
+ * Sample deflection angle theta according to Henyey-Greenstein phase function:
+ * P(cos theta, g) = (1 - g^2) / (1 + g^2 - 2g cos theta)^(3/2)
+ * Returns theta in radians [-PI, PI].
+ */
+export function sampleHenyeyGreensteinAngle(g = 0.75, randomFn = Math.random) {
+  const gClamped = Math.max(0, Math.min(0.98, g));
+  if (gClamped < 1e-4) {
+    return (randomFn() * 2 - 1) * Math.PI;
+  }
+  const u = randomFn();
+  const term = (1 - gClamped * gClamped) / (1 - gClamped + 2 * gClamped * u);
+  const cosTheta = (1 + gClamped * gClamped - term * term) / (2 * gClamped);
+  const clampedCos = Math.max(-1, Math.min(1, cosTheta));
+  const theta = Math.acos(clampedCos);
+  const sign = randomFn() < 0.5 ? 1 : -1;
+  return sign * theta;
+}
+
+/**
+ * Create a discrete field of gas molecules (N2/O2) and aerosols in an interaction chamber.
+ */
+export function createChamberParticles(width = 800, height = 450, options = {}) {
+  const {
+    densityScale = 1.0,
+    aerosolScale = 1.0,
+    aerosolAlbedo = 1.0,
+    asymmetryFactor = 0.75,
+    seed = 12345,
+  } = options;
+
+  let rngState = seed;
+  function random() {
+    rngState = (rngState * 1664525 + 1013904223) >>> 0;
+    return rngState / 4294967296;
+  }
+
+  const padX = 60;
+  const padY = 30;
+  const usableW = Math.max(100, width - padX * 2);
+  const usableH = Math.max(100, height - padY * 2);
+
+  // Molecule count scales with densityScale: base 90 at density 1.0
+  const gasCount = Math.round(90 * Math.max(0.1, densityScale));
+  // Aerosol count scales with aerosolScale: base 14 at aerosolScale 1.0
+  const aeroCount = Math.round(14 * Math.max(0, aerosolScale));
+
+  const particles = [];
+  let id = 1;
+
+  // Distribute gas molecules
+  for (let i = 0; i < gasCount; i++) {
+    particles.push({
+      id: id++,
+      type: 'gas',
+      x: padX + random() * usableW,
+      y: padY + random() * usableH,
+      vx: (random() - 0.5) * 4,
+      vy: (random() - 0.5) * 4,
+      baseRadius: 5.0,
+      bondAngle: random() * Math.PI * 2,
+      rotationSpeed: (random() - 0.5) * 1.5,
+      lastHitTime: -100,
+      hitCount: 0,
+    });
+  }
+
+  // Distribute aerosols
+  for (let j = 0; j < aeroCount; j++) {
+    particles.push({
+      id: id++,
+      type: 'aerosol',
+      x: padX + random() * usableW,
+      y: padY + random() * usableH,
+      vx: (random() - 0.5) * 1.5,
+      vy: (random() - 0.5) * 1.5,
+      radius: 9.0 + random() * 6.0,
+      albedo: aerosolAlbedo,
+      g: asymmetryFactor,
+      lastHitTime: -100,
+      hitCount: 0,
+    });
+  }
+
+  return {
+    width,
+    height,
+    particles,
+    options,
+  };
+}
+
+/**
+ * Trace a single micro-ray through the chamber of particles.
+ */
+export function traceMicroRay(chamber, rayOptions = {}) {
+  const {
+    startX = 50,
+    startY = chamber.height / 2,
+    angleRad = 0,
+    wavelengthNm = 532,
+    maxBounces = 3,
+    aerosolAlbedo = 1.0,
+    asymmetryFactor = 0.75,
+    randomFn = Math.random,
+  } = rayOptions;
+
+  const segments = [];
+  const collisions = [];
+
+  let curX = startX;
+  let curY = startY;
+  let curAngle = angleRad;
+  let bounces = 0;
+  let absorbed = false;
+  let status = 'in_flight';
+
+  const minX = 0;
+  const maxX = chamber.width;
+  const minY = 0;
+  const maxY = chamber.height;
+  const detectorX = chamber.width - 50;
+
+  const visitedParticleIds = new Set();
+
+  while (bounces <= maxBounces && !absorbed) {
+    const dirX = Math.cos(curAngle);
+    const dirY = Math.sin(curAngle);
+
+    let closestDist = Infinity;
+    let hitParticle = null;
+    let hitPoint = null;
+
+    for (const p of chamber.particles) {
+      if (visitedParticleIds.has(p.id)) continue;
+
+      let rColl = 0;
+      if (p.type === 'gas') {
+        rColl = effectiveCollisionRadius(wavelengthNm, p.baseRadius);
+      } else {
+        rColl = p.radius;
+      }
+
+      const dx = p.x - curX;
+      const dy = p.y - curY;
+
+      const proj = dx * dirX + dy * dirY;
+      if (proj <= 1.0) continue;
+
+      const perpSq = (dx * dx + dy * dy) - proj * proj;
+      if (perpSq <= rColl * rColl) {
+        const halfChord = Math.sqrt(Math.max(0, rColl * rColl - perpSq));
+        const dist = proj - halfChord;
+        if (dist > 1.0 && dist < closestDist) {
+          closestDist = dist;
+          hitParticle = p;
+          hitPoint = {
+            x: curX + dirX * dist,
+            y: curY + dirY * dist,
+          };
+        }
+      }
+    }
+
+    let boundaryDist = Infinity;
+    if (dirX > 1e-6) {
+      boundaryDist = Math.min(boundaryDist, (maxX - curX) / dirX);
+    } else if (dirX < -1e-6) {
+      boundaryDist = Math.min(boundaryDist, (minX - curX) / dirX);
+    }
+    if (dirY > 1e-6) {
+      boundaryDist = Math.min(boundaryDist, (maxY - curY) / dirY);
+    } else if (dirY < -1e-6) {
+      boundaryDist = Math.min(boundaryDist, (minY - curY) / dirY);
+    }
+
+    if (hitParticle && closestDist < boundaryDist) {
+      visitedParticleIds.add(hitParticle.id);
+      segments.push({
+        x1: curX,
+        y1: curY,
+        x2: hitPoint.x,
+        y2: hitPoint.y,
+        wavelengthNm,
+      });
+
+      curX = hitPoint.x;
+      curY = hitPoint.y;
+
+      if (hitParticle.type === 'gas') {
+        const scAngle = sampleRayleighAngle(randomFn);
+        curAngle += scAngle;
+        bounces++;
+        collisions.push({
+          x: curX,
+          y: curY,
+          particleId: hitParticle.id,
+          type: 'rayleigh',
+          scatterAngleDeg: (scAngle * 180) / Math.PI,
+          wavelengthNm,
+        });
+      } else {
+        const albedo = hitParticle.albedo ?? aerosolAlbedo;
+        if (randomFn() > albedo) {
+          absorbed = true;
+          status = 'absorbed';
+          collisions.push({
+            x: curX,
+            y: curY,
+            particleId: hitParticle.id,
+            type: 'absorbed',
+            scatterAngleDeg: 0,
+            wavelengthNm,
+          });
+          break;
+        } else {
+          const scAngle = sampleHenyeyGreensteinAngle(hitParticle.g ?? asymmetryFactor, randomFn);
+          curAngle += scAngle;
+          bounces++;
+          collisions.push({
+            x: curX,
+            y: curY,
+            particleId: hitParticle.id,
+            type: 'mie',
+            scatterAngleDeg: (scAngle * 180) / Math.PI,
+            wavelengthNm,
+          });
+        }
+      }
+    } else {
+      const endX = curX + dirX * Math.min(boundaryDist, 1200);
+      const endY = curY + dirY * Math.min(boundaryDist, 1200);
+      segments.push({
+        x1: curX,
+        y1: curY,
+        x2: endX,
+        y2: endY,
+        wavelengthNm,
+      });
+      curX = endX;
+      curY = endY;
+
+      if (endX >= detectorX - 15 && endY >= chamber.height * 0.25 && endY <= chamber.height * 0.75 && Math.abs(curAngle) < 0.35) {
+        status = 'transmitted';
+      } else {
+        status = 'scattered_away';
+      }
+      break;
+    }
+  }
+
+  return {
+    segments,
+    collisions,
+    bounces,
+    absorbed,
+    status,
+    finalX: curX,
+    finalY: curY,
+    finalAngle: curAngle,
+    wavelengthNm,
+  };
+}
+
+/**
+ * Trace a bundle of rays through the chamber.
+ * Directly demonstrates how the macroscopic beam emerges from individual ray collisions.
+ */
+export function traceMicroBundle(chamber, bundleOptions = {}) {
+  const {
+    rayCount = 30,
+    beamHeight = 70,
+    startY = chamber.height / 2,
+    mode = 'sunlight',
+    wavelengthNm = 532,
+    aerosolAlbedo = 1.0,
+    asymmetryFactor = 0.75,
+    seed = 42,
+  } = bundleOptions;
+
+  let rngState = seed;
+  function random() {
+    rngState = (rngState * 1664525 + 1013904223) >>> 0;
+    return rngState / 4294967296;
+  }
+
+  const rays = [];
+  const halfH = beamHeight / 2;
+
+  let directTransmittedCount = 0;
+  let scatteredAwayCount = 0;
+  let absorbedCount = 0;
+  let rayleighHitCount = 0;
+  let aerosolHitCount = 0;
+
+  const transmittedWls = [];
+  const scatteredWls = [];
+
+  for (let i = 0; i < rayCount; i++) {
+    const offsetFrac = rayCount > 1 ? (i / (rayCount - 1)) * 2 - 1 : 0;
+    const y0 = startY + offsetFrac * halfH;
+
+    let wl = wavelengthNm;
+    if (mode === 'sunlight') {
+      const wlFrac = i / Math.max(1, rayCount - 1);
+      wl = Math.round(410 + wlFrac * 260); // 410 to 670 nm
+    }
+
+    const res = traceMicroRay(chamber, {
+      startX: 50,
+      startY: y0,
+      angleRad: 0,
+      wavelengthNm: wl,
+      aerosolAlbedo,
+      asymmetryFactor,
+      randomFn: random,
+    });
+
+    rays.push(res);
+
+    for (const c of res.collisions) {
+      if (c.type === 'rayleigh') rayleighHitCount++;
+      else if (c.type === 'mie') aerosolHitCount++;
+      else if (c.type === 'absorbed') absorbedCount++;
+    }
+
+    if (res.status === 'transmitted') {
+      directTransmittedCount++;
+      transmittedWls.push(wl);
+    } else if (res.status === 'absorbed') {
+      absorbedCount++;
+    } else {
+      scatteredAwayCount++;
+      scatteredWls.push(wl);
+    }
+  }
+
+  return {
+    rays,
+    rayCount,
+    directTransmittedCount,
+    scatteredAwayCount,
+    absorbedCount,
+    rayleighHitCount,
+    aerosolHitCount,
+    transmittedRatio: directTransmittedCount / rayCount,
+    scatteredRatio: scatteredAwayCount / rayCount,
+    absorbedRatio: absorbedCount / rayCount,
+    transmittedWavelengths: transmittedWls,
+    scatteredWavelengths: scatteredWls,
+  };
+}

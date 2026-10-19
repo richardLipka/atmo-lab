@@ -1,8 +1,9 @@
 /**
- * UI Controls and Telemetry Panels for the Single Beam View.
+ * UI Controls and Telemetry Panels for the Single Beam & Particle Micro View.
  *
  * Populates:
- *   - The left panel with beam angle, wavelength, spectral laser presets,
+ *   - The left panel with view mode (Micro-Chamber vs Macro-Atmosphere), beam mode
+ *     (Single Ray vs Beam Bundle), wavelength, spectral laser presets,
  *     atmospheric gas sliders, and aerosol (OPAC) parameters.
  *   - The right panel with optical telemetry, wavelength survival bars,
  *     color swatches, and pedagogical explanations.
@@ -17,13 +18,16 @@ export function createBeamUI({
   onSwitchToScattering,
 }) {
   let currentState = {
+    viewType: 'micro',
+    bundleMode: 'bundle',
     elevationDeg: 25,
     mode: 'sunlight',
     wavelengthNm: 532,
     densityScale: 1,
-    gasScaleHeightM: 8400,
+    gasScaleHeightM: 8500,
     rayleighExponent: 4,
     aerosolScale: 1,
+    aerosolScaleHeightM: 1200,
     angstromExponent: 1.0,
     aerosolAlbedo: 1.0,
     asymmetryFactor: 0.75,
@@ -39,11 +43,33 @@ export function createBeamUI({
 
     leftContainer.innerHTML = `
       <div class="panel-section">
+        <h2>${isCs ? 'Pohled a složení paprsku' : 'View & Beam Mode'}</h2>
+        
+        <div class="segmented" id="beam-view-toggle" style="margin-bottom:8px;display:flex;width:100%;">
+          <button type="button" style="flex:1;" class="${currentState.viewType === 'micro' ? 'is-active' : ''}" data-view="micro">
+            ${isCs ? '🔬 Mikrosimulace' : '🔬 Particle Micro'}
+          </button>
+          <button type="button" style="flex:1;" class="${currentState.viewType === 'macro' ? 'is-active' : ''}" data-view="macro">
+            ${isCs ? '🌍 Atmosféra Země' : '🌍 Earth Macro'}
+          </button>
+        </div>
+
+        <div class="segmented" id="beam-bundle-toggle" style="display:flex;width:100%;">
+          <button type="button" style="flex:1;" class="${currentState.bundleMode === 'single' ? 'is-active' : ''}" data-bundle="single">
+            ${isCs ? '⚡ 1 Paprsek' : '⚡ Single Ray'}
+          </button>
+          <button type="button" style="flex:1;" class="${currentState.bundleMode === 'bundle' ? 'is-active' : ''}" data-bundle="bundle">
+            ${isCs ? '🔦 Svazek paprsků' : '🔦 Beam Bundle'}
+          </button>
+        </div>
+      </div>
+
+      <div class="panel-section">
         <h2>${isCs ? 'Poloha a směr paprsku' : 'Beam Direction & Sun'}</h2>
         
         <div class="control-row">
           <label for="beam-elevation">
-            <span>${isCs ? 'Výška nad obzorem' : 'Elevation angle'}</span>
+            <span>${isCs ? 'Výška nad obzorem (délka dráhy)' : 'Elevation angle (path length)'}</span>
             <span class="value" id="val-beam-elevation">${currentState.elevationDeg.toFixed(1)}°</span>
           </label>
           <input type="range" id="beam-elevation" min="0" max="90" step="0.5" value="${currentState.elevationDeg}">
@@ -99,53 +125,42 @@ export function createBeamUI({
       </div>
 
       <div class="panel-section">
-        <h2>${isCs ? 'Vlastnosti plynu a atmosféry' : 'Atmosphere Gas Properties'}</h2>
+        <h2>${isCs ? 'Molekuly plynu (Rayleigh)' : 'Gas Molecules (Rayleigh)'}</h2>
 
         <div class="control-row">
           <label for="beam-density">
-            <span>${isCs ? 'Hustota plynu (molekul)' : 'Gas density'}</span>
+            <span>${isCs ? 'Hustota plynu (počet molekul)' : 'Gas Density (Molecule Count)'}</span>
             <span class="value" id="val-beam-density">${currentState.densityScale.toFixed(1)}×</span>
           </label>
-          <input type="range" id="beam-density" min="0" max="2.5" step="0.1" value="${currentState.densityScale}">
+          <input type="range" id="beam-density" min="0.1" max="3.0" step="0.1" value="${currentState.densityScale}">
         </div>
 
         <div class="control-row">
           <label for="beam-rayleigh-exponent">
-            <span>${isCs ? 'Rayleighův exponent (1/λⁿ)' : 'Rayleigh exponent (1/λⁿ)'}</span>
+            <span>${isCs ? 'Exponent rozptylu (závislost na λ)' : 'Wavelength Exponent'}</span>
             <span class="value" id="val-beam-exponent">n = ${currentState.rayleighExponent.toFixed(1)}</span>
           </label>
-          <input type="range" id="beam-rayleigh-exponent" min="0" max="4.5" step="0.2" value="${currentState.rayleighExponent}">
-        </div>
-        <p class="field-note" style="margin-top:2px;font-size:11px;color:var(--text-faint);">
-          ${isCs ? 'Při n = 4 se modrá rozptyluje 7× silněji než červená. Při n = 0 rozptylují molekuly všechny barvy stejně.' : 'At n = 4 blue scatters 7× stronger than red. At n = 0 all colours scatter equally.'}
-        </p>
-
-        <div class="control-row" style="margin-top:8px;">
-          <label for="beam-gas-scale-height">
-            <span>${isCs ? 'Škálová výška plynu (H)' : 'Gas scale height (H)'}</span>
-            <span class="value" id="val-beam-scale-height">${(currentState.gasScaleHeightM / 1000).toFixed(1)} km</span>
-          </label>
-          <input type="range" id="beam-gas-scale-height" min="4000" max="16000" step="500" value="${currentState.gasScaleHeightM}">
+          <input type="range" id="beam-rayleigh-exponent" min="0" max="4.5" step="0.5" value="${currentState.rayleighExponent}">
         </div>
       </div>
 
       <div class="panel-section">
-        <h2>${isCs ? 'Aerosoly, prach a kapičky (Mie)' : 'Aerosols & Particles (Mie)'}</h2>
+        <h2>${isCs ? 'Aerosoly a prach (Mie)' : 'Aerosols & Dust (Mie)'}</h2>
 
         <div class="control-row">
           <label for="beam-aerosol">
-            <span>${isCs ? 'Množství aerosolu' : 'Aerosol turbidity'}</span>
+            <span>${isCs ? 'Množství aerosolových částic' : 'Aerosol Particle Count'}</span>
             <span class="value" id="val-beam-aerosol">${currentState.aerosolScale.toFixed(1)}×</span>
           </label>
-          <input type="range" id="beam-aerosol" min="0" max="4" step="0.2" value="${currentState.aerosolScale}">
+          <input type="range" id="beam-aerosol" min="0" max="3.0" step="0.1" value="${currentState.aerosolScale}">
         </div>
 
         <div class="control-row">
           <label for="beam-angstrom">
-            <span>${isCs ? 'Ångströmův exponent (α)' : 'Ångström exponent (α)'}</span>
+            <span>${isCs ? 'Ångströmův exponent (velikost částic)' : 'Ångström exponent (size)'}</span>
             <span class="value" id="val-beam-angstrom">α = ${currentState.angstromExponent.toFixed(1)}</span>
           </label>
-          <input type="range" id="beam-angstrom" min="0" max="2" step="0.1" value="${currentState.angstromExponent}">
+          <input type="range" id="beam-angstrom" min="0" max="2.0" step="0.1" value="${currentState.angstromExponent}">
         </div>
 
         <div class="control-row">
@@ -188,7 +203,24 @@ export function createBeamUI({
       </div>
     `;
 
-    // Hook event listeners
+    // Hook view toggle
+    leftContainer.querySelectorAll('#beam-view-toggle button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentState.viewType = btn.dataset.view;
+        renderLeftPanel();
+        if (onStateChange) onStateChange(currentState);
+      });
+    });
+
+    // Hook bundle toggle
+    leftContainer.querySelectorAll('#beam-bundle-toggle button').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        currentState.bundleMode = btn.dataset.bundle;
+        renderLeftPanel();
+        if (onStateChange) onStateChange(currentState);
+      });
+    });
+
     const elevSlider = leftContainer.querySelector('#beam-elevation');
     elevSlider.addEventListener('input', (e) => {
       const val = parseFloat(e.target.value);
@@ -244,13 +276,6 @@ export function createBeamUI({
       if (onStateChange) onStateChange(currentState);
     });
 
-    const gasScaleHSlider = leftContainer.querySelector('#beam-gas-scale-height');
-    gasScaleHSlider.addEventListener('input', (e) => {
-      currentState.gasScaleHeightM = parseInt(e.target.value, 10);
-      leftContainer.querySelector('#val-beam-scale-height').textContent = `${(currentState.gasScaleHeightM / 1000).toFixed(1)} km`;
-      if (onStateChange) onStateChange(currentState);
-    });
-
     const aerosolSlider = leftContainer.querySelector('#beam-aerosol');
     aerosolSlider.addEventListener('input', (e) => {
       currentState.aerosolScale = parseFloat(e.target.value);
@@ -292,7 +317,7 @@ export function createBeamUI({
         } else if (p === 'urban') {
           currentState.aerosolScale = 1.5;
           currentState.angstromExponent = 1.1;
-          currentState.aerosolAlbedo = 0.72; // strong soot absorption
+          currentState.aerosolAlbedo = 0.72;
           currentState.asymmetryFactor = 0.68;
         } else if (p === 'dust') {
           currentState.aerosolScale = 1.8;
@@ -301,7 +326,7 @@ export function createBeamUI({
           currentState.asymmetryFactor = 0.75;
         } else if (p === 'fog') {
           currentState.aerosolScale = 2.5;
-          currentState.angstromExponent = 0.0; // wavelength neutral
+          currentState.angstromExponent = 0.0;
           currentState.aerosolAlbedo = 1.0;
           currentState.asymmetryFactor = 0.85;
         }
@@ -340,7 +365,7 @@ export function createBeamUI({
 
     rightContainer.innerHTML = `
       <section class="panel-section">
-        <h2>${isCs ? 'Světlo dopadající k pozorovateli' : 'Light Reaching Observer'}</h2>
+        <h2>${isCs ? 'Světlo dopadající k detektoru' : 'Light Reaching Detector'}</h2>
         
         <div class="swatches">
           <div class="swatch" style="display:flex;align-items:center;gap:12px;padding:10px;background:var(--bg-input);border-radius:var(--radius-sm);">
@@ -390,16 +415,20 @@ export function createBeamUI({
       </section>
 
       <section class="panel-section">
-        <h2>${isCs ? 'Optická telemetrie paprsku' : 'Optical Beam Telemetry'}</h2>
+        <h2>${isCs ? 'Mikro-fyzika srážek a rozptylu' : 'Micro-Physics & Collisions'}</h2>
         <table class="data-table">
           <tbody>
             <tr>
-              <td>${isCs ? 'Délka dráhy atmosférou' : 'Path length in air'}</td>
-              <td><strong>${traceResult.totalChordLengthKm.toFixed(0)} km</strong></td>
+              <td>${isCs ? 'Účinný průřez modré vs červené' : 'Blue vs Red cross-section'}</td>
+              <td><strong style="color:#5aa9ff;">σ(405) ≈ 6.6× σ(650)</strong></td>
             </tr>
             <tr>
-              <td>${isCs ? 'Vzdušná hmota (Airmass)' : 'Airmass'}</td>
-              <td><strong>${traceResult.airmass.toFixed(1)}×</strong></td>
+              <td>${isCs ? 'Zákon rozptylu na molekulách' : 'Molecular scattering law'}</td>
+              <td><strong>σ ∝ 1 / λ⁴</strong> (Rayleigh)</td>
+            </tr>
+            <tr>
+              <td>${isCs ? 'Rozptyl na aerosolech' : 'Aerosol scattering'}</td>
+              <td><strong>σ ∝ 1 / λᵅ</strong> (Mie, α ≈ 1.3)</td>
             </tr>
             <tr>
               <td>${isCs ? 'Srážky s molekulami (Rayleigh)' : 'Molecular collisions'}</td>
@@ -414,8 +443,8 @@ export function createBeamUI({
               <td><span style="color:#ff6b6b;">${traceResult.counts.absorbed || 0}</span></td>
             </tr>
             <tr>
-              <td>${isCs ? 'Stočení refrakcí' : 'Refraction deflection'}</td>
-              <td>${traceResult.deflectionArcmin.toFixed(1)}'</td>
+              <td>${isCs ? 'Vzdušná hmota (Airmass)' : 'Airmass'}</td>
+              <td><strong>${traceResult.airmass.toFixed(1)}×</strong></td>
             </tr>
           </tbody>
         </table>
@@ -423,18 +452,12 @@ export function createBeamUI({
 
       <section class="panel-section" style="background:var(--bg-panel-2);border-radius:var(--radius-sm);padding:12px;border:1px solid var(--line);">
         <h3 style="font-size:13px;color:var(--accent-warm);margin-bottom:6px;">
-          ${isSunset
-            ? (isCs ? '💡 Proč je západ Slunce červený?' : '💡 Why is Sunset Red?')
-            : (isCs ? '💡 Proč je obloha v poledne modrá?' : '💡 Why is Midday Sky Blue?')}
+          ${isCs ? '🔬 Jak ze srážek paprsků vzniká barva oblohy?' : '🔬 How Beam Collisions Build Sky Colour'}
         </h3>
         <p style="font-size:12px;color:var(--text-dim);margin:0;line-height:1.5;">
-          ${isSunset
-            ? (isCs
-              ? 'Při nízkém Slunci prolétá paprsek tětivou atmosféry dlouhou stovky kilometrů. Krátké modré vlnové délky jsou rozptýleny molekulami do stran téměř ze 100 %. K oku doletí pouze dlouhé červené světlo!'
-              : 'At low Sun angles, the beam crosses hundreds of kilometres of curved atmosphere. Short blue wavelengths are scattered away nearly 100%. Only long red wavelengths survive to reach your eyes!')
-            : (isCs
-              ? 'V poledne je dráha paprsku atmosférou krátká (~15 km). Modré světlo se rozptyluje do stran a osvětluje oblohu, ale přímý svazek si zachovává všechny barvy a zůstává oslnivě bílý.'
-              : 'At midday, the beam crosses a short atmospheric column (~15 km). Blue light scatters sideways to illuminate the whole sky, while the direct beam retains all colors and appears bright white.')}
+          ${isCs
+            ? 'V mikrosimulaci naráží paprsek na konkrétní molekuly a aerosoly. Modré světlo má velký účinný průřez (~6.6× větší než červené), proto naráží na molekuly velmi často a je odraženo do stran (modrá obloha). Červené světlo má malý průřez, prochází mezerami bez srážky a dopadá přímo na detektor (červený západ Slunce).'
+            : 'In the microsimulation, the ray directly collides with discrete molecules and aerosols. Blue light has a much larger cross-section (~6.6× larger than red), so it collides frequently and scatters outward (blue sky). Red light has a small cross-section, easily slips through gaps without collision, and reaches the detector (red sunset).'}
         </p>
 
         <button type="button" id="btn-switch-to-scattering" class="primary-button" style="width:100%;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
