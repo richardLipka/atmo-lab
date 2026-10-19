@@ -52,6 +52,7 @@ import {
   traceBeam, airRefractivity, refractionArcmin, singleColourSpectrum,
   createChamber, traceChamberBundle,
 } from '../js/physics/beam.js';
+import { resolveSelection } from '../js/render/beam-canvas.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
 
@@ -2535,6 +2536,61 @@ export function registerTests({ group, test, assert }, config) {
       const law = beam.tauByKind.rayleigh[1] / beam.tauByKind.rayleigh[7];
       assert.close(ratio, law, 1e-9);
       assert.between(ratio, 3, 7);
+    });
+
+    test('each collision records the particle met, where, and how far a scatter turned the ray', () => {
+      const beam = beamAt(5);
+      const chamber = createChamber({ width: 600, height: 360, tauByKind: beam.tauByKind });
+      const { rays } = traceChamberBundle(chamber, { bands: [1, 7], raysPerBand: 60 });
+      let events = 0;
+      for (const ray of rays) {
+        for (const e of ray.events) {
+          events++;
+          // The ray stops on the rim of the particle's target for its colour.
+          const b = chamber.halfWidths[e.kind][ray.band];
+          assert.close(Math.hypot(e.x - e.at.x, e.y - e.at.y), b, 1e-6);
+          assert.equal(chamber.particles[e.particle].kind, e.kind);
+          if (e.action === 'scatter') assert.between(e.turnDeg, 0, 180);
+        }
+        const last = ray.points[ray.points.length - 1];
+        if (ray.fate === 'direct') {
+          assert.equal(ray.exit, 'detector');
+          assert.equal(ray.points.length, 2);
+        }
+        if (ray.fate === 'absorbed') {
+          assert.equal(ray.exit, null);
+          assert.equal(ray.events[ray.events.length - 1].action, 'absorb');
+          assert.close(last.x, ray.events[ray.events.length - 1].x, 1e-9);
+        }
+      }
+      assert.greater(events, 30);
+    });
+
+    test('the air crossed grows along the path and adds up to the air mass', () => {
+      for (const elevation of [60, 5]) {
+        const beam = beamAt(elevation);
+        const cols = beam.points.map((p) => p.airColumn);
+        for (let i = 1; i < cols.length; i++) assert.ok(cols[i] > cols[i - 1]);
+        const vertical = beamAt(90).points.at(-1).airColumn;
+        assert.close(cols.at(-1) / vertical, beam.airMass, 0.01, `${elevation} degrees`);
+      }
+    });
+
+    test('the chosen ray: blue by default, one that meets something, kept when the colour changes', () => {
+      const beam = beamAt(20);
+      const model = { bands: RAY_BANDS.map((_, b) => b) };
+      const chamber = createChamber({ width: 600, height: 360, tauByKind: beam.tauByKind });
+      const bundle = traceChamberBundle(chamber, { bands: model.bands, raysPerBand: 24 });
+      const auto = resolveSelection({ selectedBand: null, selectedRay: null }, model, bundle);
+      assert.equal(auto.band, 1);
+      assert.greater(auto.ray.events.length, 0);
+      const red = resolveSelection({ selectedBand: 7, selectedRay: auto.index }, model, bundle);
+      assert.equal(red.index, auto.index);
+      assert.equal(red.ray.points[0].y, auto.ray.points[0].y);   // same entry height
+      const one = resolveSelection({ selectedBand: 1, selectedRay: 99 }, { bands: [4] },
+        traceChamberBundle(chamber, { bands: [4], raysPerBand: 10 }));
+      assert.equal(one.band, 4);
+      assert.between(one.index, 0, 9);
     });
   });
 }

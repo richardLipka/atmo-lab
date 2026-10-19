@@ -336,26 +336,40 @@
   },
   "beam": {
     "canvas": {
-      "entry": "Slunce: vstup do atmosféry",
+      "entry": "Sluneční světlo z vesmíru: ještě bílé",
+      "entryColour": "Světlo z vesmíru: jen {nm} nm",
       "observer": "pozorovatel",
-      "pathInfo": "Cesta vzduchem {km} km · vzdušná hmota {airmass} · svisle zvětšeno {exaggeration}×",
-      "legendStrands": "Proužky = barvy paprsku; tloušťka = kolik světla té barvy ještě zbývá",
-      "legendSparks": "tečky = světlo rozptýlené do stran (obloha)",
+      "pathInfo": "Cesta vzduchem {km} km · vzdušná hmota {airmass}",
       "refractionTitle": "Lom: Slunce, jak ho vidíš",
       "refractionLift": "zvednuto o {arcmin}′",
       "refractionSpread": "modrá výš o {arcsec}″",
-      "refractionMagnified": "rozdíl barev zvětšen {m}×"
+      "refractionMagnified": "rozdíl barev zvětšen {m}×",
+      "top": "horní hranice atmosféry ({km} km)",
+      "ground": "Země",
+      "scaleTrue": "výšky a vzdálenosti ve stejném měřítku",
+      "scaleStretched": "výšky ×{m}, celý obraz roztažen rovnoměrně: paprsek zůstává přímý",
+      "legend": "Barva paprsku = světlo, které v něm zbývá, šířka = kolik ho zbývá · krátké čárky = světlo rozptýlené z paprsku (obloha) · A–D = kolik zbývá z každé barvy",
+      "flagWhere": "po {km} km, ve výšce {alt} km",
+      "chartTitle": "Kolik z každé barvy v paprsku zbývá",
+      "chartAxis": "podíl vzduchu celé cesty, kterým už světlo prošlo"
     },
     "micro": {
       "source": "ZDROJ",
       "detector": "DETEKTOR",
-      "singleCaption": "Paprsek {nm} nm: {fate}. Klikni pro další barvu.",
-      "bundleCaption": "Svazek: z každé barvy stejný počet paprsků. Přímo na detektor dojdou jen ty bez srážky.",
       "scaleNote": "Komora má stejnou optickou tloušťku jako celá cesta paprsku. Částice nejsou kreslené v měřítku.",
       "fate": {
         "direct": "prošel bez srážky",
         "scattered": "rozptýlen",
         "absorbed": "pohlcen"
+      },
+      "chosenCaption": "Vybraný paprsek: {nm} nm, č. {n} z {count}: {fate}.",
+      "bundleHint": "Kliknutím vybereš kterýkoli paprsek. Panel vpravo vysvětluje každou očíslovanou srážku.",
+      "singleHint": "Čárkované kroužky: terč každé částice pro tuto barvu. Jiný paprsek vybereš v panelu vpravo.",
+      "key": {
+        "rayleigh": "molekula vzduchu N₂, O₂ (rozptyluje)",
+        "ozone": "ozon O₃ (pohlcuje)",
+        "aerosolScatter": "kapička oparu, prach (rozptyluje)",
+        "aerosolAbsorb": "saze, tmavý prach (pohlcuje)"
       }
     },
     "controls": {
@@ -364,9 +378,9 @@
       "viewMicro": "Srážky zblízka",
       "viewMacroHelp": "Celá cesta slunečního paprsku od horní hranice atmosféry (100 km) k pozorovateli na zemi.",
       "viewMicroHelp": "Zvětšený kousek vzduchu. Terče částic jsou pro každou barvu tak velké, aby komora propouštěla každou barvu ve stejném poměru jako celá cesta paprsku.",
-      "bundle": "Svazek paprsků",
-      "single": "Jeden paprsek",
-      "singleHelp": "Kliknutím do komory vystřelíš další paprsek, barvy se střídají. Čárkované kroužky ukazují, jak velký terč má každá částice pro tuto barvu.",
+      "bundle": "Všechny paprsky",
+      "single": "Jen vybraný paprsek",
+      "singleHelp": "Jen vybraný paprsek; čárkované kroužky ukazují, jak velký terč má každá částice pro jeho barvu. Paprsek vybereš v panelu vpravo.",
       "sunTitle": "Slunce",
       "elevation": "Výška nad obzorem",
       "elevationHelp": "Čím níž je Slunce, tím delší cestou vzduchem jde jeho světlo.",
@@ -383,8 +397,7 @@
       "aerosolHelp": "Násobí množství prachu a kapiček zvoleného druhu.",
       "exponent": "Exponent vlnové délky n",
       "exponentHelp": "Rozptyl na molekulách je úměrný 1/λⁿ; n = 4 odpovídá skutečnému vzduchu. Při n = 0 molekuly rozptylují všechny barvy stejně.",
-      "displayTitle": "Zobrazení",
-      "animate": "Animovat"
+      "bundleHelp": "Každá barva vyšle stejný počet paprsků ve stejných výškách. Kliknutím na paprsek ho vybereš; panel vpravo popíše každou jeho srážku."
     },
     "panel": {
       "arrivesTitle": "Co dorazí k pozorovateli",
@@ -419,6 +432,41 @@
       "ciddor": "Ciddor 1996 (index lomu vzduchu)",
       "refraction": "Atmosférický lom (Wikipedie)",
       "greenFlash": "Zelený záblesk (Wikipedie)"
+    },
+    "chosen": {
+      "title": "Vybraný paprsek",
+      "which": "paprsek {n} z {count} · {nm} nm",
+      "previous": "Předchozí paprsek",
+      "next": "Další paprsek",
+      "kind": {
+        "rayleigh": "Molekula vzduchu (N₂ nebo O₂).",
+        "aerosolScatter": "Kapička oparu nebo zrnko prachu.",
+        "aerosolAbsorb": "Zrnko sazí nebo tmavého prachu.",
+        "ozone": "Molekula ozonu (O₃)."
+      },
+      "does": {
+        "rayleigh": "Světlo rozkmitá elektrony molekuly a molekula ho vyzáří do nového směru; tady se paprsek stočil o {deg}°. Světlo se neztratí, jen už nemíří k pozorovateli. Modré světlo takto molekuly odklánějí několikrát častěji než červené (1/λ⁴); při pohledu ze strany je toto světlo modrá obloha.",
+        "aerosolScatter": "Zrnko světlo také rozptýlí, ale hlavně dopředu: tady se paprsek stočil o {deg}°. Zrnka jsou mnohem větší než molekuly a rozptylují všechny barvy přibližně stejně, proto opar oblohu zbělí a kolem Slunce vytvoří jasnou záři.",
+        "aerosolAbsorb": "Zrnko světlo pohltí: jeho energie ohřeje zrnko a okolní vzduch a paprsek tu končí. Tmavá zrnka pohlcují všechny barvy přibližně stejně.",
+        "ozone": "Ozon světlo pohltí, nejsilněji žluté a oranžové (Chappuisův pás): jeho energie ohřeje vzduch a paprsek tu končí. Modré světlo ozon téměř nepohlcuje."
+      },
+      "again": {
+        "rayleigh": "Další molekula ho znovu rozptýlí; tady se paprsek stočil o {deg}°.",
+        "aerosolScatter": "Další zrnko ho znovu rozptýlí; tady se paprsek stočil o {deg}°."
+      },
+      "endTitle": "Konec:",
+      "end": {
+        "direct": "Nenarazil na nic a dorazil k detektoru v původním směru. Patří k přímému slunečnímu světlu: ke světlu samotného slunečního kotouče.",
+        "absorbed": "Jeho energie zůstala ve vzduchu; světlo zaniklo.",
+        "scattered": {
+          "detector": "Dorazil k protější stěně, ale z jiného směru, než je Slunce. Ke slunečnímu kotouči už nepatří: pozorovatel ho vidí jako světlo oblohy.",
+          "top": "Opustil paprsek do strany, horní stěnou komory. Takto rozptýlené světlo vidí pozorovatel, který se na tento kousek vzduchu dívá ze strany: je to obloha.",
+          "bottom": "Opustil paprsek do strany, spodní stěnou komory. Takto rozptýlené světlo vidí pozorovatel, který se na tento kousek vzduchu dívá ze strany: je to obloha.",
+          "back": "Stočil se zpět ke Slunci. Část takto zpětně rozptýleného světla Zemi zase opouští; i proto vypadá Země z vesmíru modře.",
+          "inside": "Po {n} srážkách ho přestáváme sledovat; k přímému paprsku už nepatří."
+        }
+      },
+      "compare": "Při změně barvy zůstává stejný paprsek, vstupující ve stejné výšce: míjí stejné částice, ale jejich terče jsou pro něj jinak velké. Modré paprsky narazí mnohem častěji než červené."
     }
   }
 }

@@ -120,13 +120,16 @@ export function traceBeam({ atmosphere, source, elevationDeg, steps = 160 }) {
   };
 
   let previous = pointAt(0);
-  points.push({ ...previous, bands: bandTotals(intensity), shed: new Float64Array(RAY_BANDS.length) });
+  // airColumn: the molecules crossed so far (m, at sea-level density).
+  let airColumn = 0;
+  points.push({ ...previous, airColumn, bands: bandTotals(intensity), spectrum: Float64Array.from(intensity), shed: new Float64Array(RAY_BANDS.length) });
   const ds = length / steps;
   for (let k = 1; k <= steps; k++) {
     const here = pointAt(k * ds);
     // Exact for the exponential layers between the two ends of the step.
     const col = atmosphere.segmentColumns(previous.altitude, here.altitude, ds);
     const shed = new Float64Array(RAY_BANDS.length);
+    airColumn += col.r;
     for (let i = 0; i < SPECTRUM_BINS; i++) {
       const parts = {
         rayleigh: betaR[i] * col.r,
@@ -143,7 +146,7 @@ export function traceBeam({ atmosphere, source, elevationDeg, steps = 160 }) {
       shed[BAND_OF_BIN[i]] += loss * (parts.rayleigh + parts.aerosolScatter) / dTau;
       intensity[i] -= loss;
     }
-    points.push({ ...here, bands: bandTotals(intensity), shed });
+    points.push({ ...here, airColumn, bands: bandTotals(intensity), spectrum: Float64Array.from(intensity), shed });
     previous = here;
   }
 
@@ -269,7 +272,10 @@ function deflection(kind, rng) {
 /**
  * One ray of one colour band across the chamber from the left wall.
  * Returns its polyline, what it met, and how it ended: 'direct' (crossed
- * without meeting anything), 'scattered' or 'absorbed'.
+ * without meeting anything), 'scattered' or 'absorbed'. Each event names the
+ * particle met and where it stood (`at`, which for a hit near the top or bottom
+ * is its periodic image), and for a scatter how far the ray was turned
+ * (`turnDeg`). `exit` is the wall the ray left by, or null if it ended inside.
  */
 export function traceChamberRay(chamber, { band, y0, rng, maxEvents = 3 }) {
   const { width, height, particles, halfWidths } = chamber;
@@ -293,7 +299,7 @@ export function traceChamberRay(chamber, { band, y0, rng, maxEvents = 3 }) {
         const perp2 = px * px + py * py - along * along;
         if (perp2 > b * b) continue;
         const dist = along - Math.sqrt(b * b - perp2);
-        if (dist > 0.5 && (!best || dist < best.dist)) best = { i, dist, kind: p.kind };
+        if (dist > 0.5 && (!best || dist < best.dist)) best = { i, dist, kind: p.kind, shift };
       }
     }
     // Distance to the walls.
@@ -306,19 +312,25 @@ export function traceChamberRay(chamber, { band, y0, rng, maxEvents = 3 }) {
     if (!best || best.dist >= wall) {
       x += dx * wall; y += dy * wall;
       points.push({ x, y });
-      return { band, points, events, fate: events.length === 0 ? 'direct' : 'scattered' };
+      const exit = x >= width - 1e-6 ? 'detector' : x <= 1e-6 ? 'back' : y <= 1e-6 ? 'top' : 'bottom';
+      return { band, points, events, exit, fate: events.length === 0 ? 'direct' : 'scattered' };
     }
     x += dx * best.dist; y += dy * best.dist;
     points.push({ x, y });
     met.add(best.i);
     const action = CHAMBER_KINDS[best.kind].action;
-    events.push({ x, y, kind: best.kind, action });
-    if (action === 'absorb') return { band, points, events, fate: 'absorbed' };
-    angle += deflection(best.kind, rng);
+    const p = particles[best.i];
+    // Which particle, and where its copy stood if it was one of the images.
+    events.push({ x, y, kind: best.kind, action, particle: best.i, at: { x: p.x, y: p.y + best.shift } });
+    if (action === 'absorb') return { band, points, events, exit: null, fate: 'absorbed' };
+    const turn = deflection(best.kind, rng);
+    events[events.length - 1].turnDeg = Math.abs(turn) * 180 / Math.PI;
+    angle += turn;
     // Wrap a scattered ray back into the chamber vertically only while it is
     // still inside; leaving through the top or bottom ends it at the wall.
   }
-  return { band, points, events, fate: 'scattered' };
+  // Followed for maxEvents + 1 collisions; it is still in the chamber.
+  return { band, points, events, exit: null, fate: 'scattered' };
 }
 
 /**

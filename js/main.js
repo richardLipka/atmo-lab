@@ -128,7 +128,15 @@ async function start() {
   }
 
   if (beamCanvasEl) {
-    beamCanvas = createBeamCanvas(beamCanvasEl, { i18n, colorimetry, config });
+    beamCanvas = createBeamCanvas(beamCanvasEl, {
+      i18n, colorimetry, config,
+      // A ray chosen by clicking the picture: the same path as the panel's buttons.
+      onPick: (patch) => {
+        Object.assign(beamState, patch);
+        beamCanvas.update(beamState);
+        beamUI.update(beamState, beamCanvas.getTraceResult());
+      },
+    });
 
     beamUI = createBeamUI({
       leftContainer: document.getElementById('beam-controls-root'),

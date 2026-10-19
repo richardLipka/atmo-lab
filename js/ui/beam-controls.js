@@ -106,7 +106,7 @@ export function createBeamUI({
     if (state.viewType === 'micro') {
       view.append(segmented([['bundle', 'beam.controls.bundle'], ['single', 'beam.controls.single']],
         state.bundleMode, (v) => { emit({ bundleMode: v }); renderLeft(); }));
-      if (state.bundleMode === 'single') view.append(el('p', { className: 'field-help', text: t('beam.controls.singleHelp') }));
+      view.append(el('p', { className: 'field-help', text: t(state.bundleMode === 'single' ? 'beam.controls.singleHelp' : 'beam.controls.bundleHelp') }));
     }
 
     const sun = section('beam.controls.sunTitle',
@@ -160,13 +160,7 @@ export function createBeamUI({
         onInput: (v) => emit({ rayleighExponent: v }),
       }));
 
-    const animate = el('input', { type: 'checkbox', id: 'beam-animate', checked: state.animate });
-    animate.addEventListener('change', () => emit({ animate: animate.checked }));
-    const display = section('beam.controls.displayTitle',
-      el('div', { className: 'field field-check' }, [animate,
-        el('label', { className: 'field-label', for: 'beam-animate', text: t('beam.controls.animate') })]));
-
-    leftContainer.append(view, sun, light, air, display);
+    leftContainer.append(view, sun, light, air);
   }
 
   /* ---------------------------------------------------------------- */
@@ -237,6 +231,9 @@ export function createBeamUI({
       el('p', { className: 'note', text: t('beam.panel.budgetNote') }),
     ]));
 
+    // The chosen ray, collision by collision.
+    if (result.state.viewType === 'micro' && result.selection) rightContainer.append(chosenRaySection(result));
+
     // The chamber's own count, beside what the path says.
     if (result.state.viewType === 'micro' && bundle) {
       const counted = trace.budget.filter((b) => b.present).map((b) => {
@@ -283,6 +280,60 @@ export function createBeamUI({
       el('p', { className: 'note', text: t('beam.panel.whyRefraction') }),
       sources, go,
     ]));
+  }
+
+  /**
+   * What happened to the chosen ray: one line per collision, in the order the
+   * picture numbers them, then how it ended. Switching colour keeps the same
+   * ray - the same entry height - so the colours can be compared.
+   */
+  function chosenRaySection(result) {
+    const { model, selection } = result;
+    const { ray, band, index, count } = selection;
+    const nm = Math.round(RAY_BANDS[band].centreNm);
+
+    const colours = el('div', { className: 'beam-quick' }, model.bands.map((b) => {
+      const button = el('button', {
+        type: 'button', className: `ghost-button small${b === band ? ' is-active' : ''}`,
+        text: `${Math.round(RAY_BANDS[b].centreNm)} nm`, style: { borderLeft: `3px solid ${RAY_BANDS[b].css}` },
+      });
+      button.addEventListener('click', () => emit({ selectedBand: b, selectedRay: index }));
+      return button;
+    }));
+    const step = (delta, text, labelKey) => {
+      const button = el('button', { type: 'button', className: 'ghost-button small', text, 'aria-label': t(labelKey) });
+      button.addEventListener('click', () => emit({ selectedBand: band, selectedRay: (index + delta + count) % count }));
+      return button;
+    };
+    const stepper = el('div', { className: 'beam-stepper' }, [
+      step(-1, '◀', 'beam.chosen.previous'),
+      el('span', { text: t('beam.chosen.which', { n: index + 1, count, nm }) }),
+      step(1, '▶', 'beam.chosen.next'),
+    ]);
+
+    // A kind met before gets a short line; its full explanation is above.
+    const items = ray.events.map((e, k) => {
+      const repeat = ray.events.slice(0, k).some((o) => o.kind === e.kind);
+      return el('li', {}, [
+        el('strong', { text: `${k + 1}. ${t(`beam.chosen.kind.${e.kind}`)}` }),
+        el('span', { text: ` ${t(`beam.chosen.${repeat ? 'again' : 'does'}.${e.kind}`, { deg: Math.round(e.turnDeg ?? 0) })}` }),
+      ]);
+    });
+    let endKey;
+    if (ray.fate === 'direct') endKey = 'direct';
+    else if (ray.fate === 'absorbed') endKey = 'absorbed';
+    else endKey = ray.exit ? `scattered.${ray.exit}` : 'scattered.inside';
+    items.push(el('li', { className: 'beam-chosen-end' }, [
+      el('strong', { text: t('beam.chosen.endTitle') }),
+      el('span', { text: ` ${t(`beam.chosen.end.${endKey}`, { n: ray.events.length })}` }),
+    ]));
+
+    return el('section', { className: 'panel-section' }, [
+      el('h2', { text: t('beam.chosen.title') }),
+      colours, stepper,
+      el('ol', { className: 'beam-chosen-list' }, items),
+      el('p', { className: 'note', text: t('beam.chosen.compare') }),
+    ]);
   }
 
   /**

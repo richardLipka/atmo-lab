@@ -39,17 +39,27 @@ every colour's losses as scattered by molecules, scattered by haze, absorbed by 
 absorbed by ozone — for every colour these and the transmitted share sum to one, and the
 light that arrives is the direct beam the sky model computes, to 0.2 %.
 
-- *Beam through the air* draws the path as eight coloured strands, each as thick as the
-  share of its colour still in the beam; the light a strand loses to scattering leaves it
-  sideways as dots of its own colour — that light is the sky. With the Sun 5° up the
-  molecules take 86 % of the blue (430–465 nm) and 28 % of the red; ozone takes a quarter of
-  the yellow-orange.
-- *Collisions up close* is a magnified piece of air. In two dimensions a ray meets a particle
-  if it passes within its half-width b, so the hit rate is n·2b; each kind of particle's b is
-  set, colour by colour, so the chamber has the optical depth of the real path. Blue's
-  targets are larger than red's by exactly the scattering law, and the share of each colour
-  that crosses untouched is e^−τ — counted, and set beside the calculation. Every colour
-  enters at the same heights, so colours differ by physics and not by chance.
+- *Beam through the air* draws the path in the planet's own coordinates, so the beam is a
+  straight line from the Sun and the ground curves away beneath it. When a low Sun needs the
+  heights stretched to fit, the whole picture is stretched evenly, which keeps the beam
+  straight, and the factor is printed. The beam is drawn in the colour of the light still in
+  it and as wide as how much is left; short lines of each colour leave it where that colour
+  is scattered out — that light is the sky. Four spectrum flags (A–D, the entry, the
+  observer and the points where a third and two thirds of the loss has happened) show what is
+  left of each colour, and a chart below plots each colour's remaining share against the
+  share of the path's air crossed, where each colour fades steadily and blue fastest. With
+  the Sun 5° up the molecules take 86 % of the blue (430–465 nm) and 28 % of the red; ozone
+  takes a quarter of the yellow-orange.
+- *Collisions up close* is a magnified, still piece of air. In two dimensions a ray meets a
+  particle if it passes within its half-width b, so the hit rate is n·2b; each kind of
+  particle's b is set, colour by colour, so the chamber has the optical depth of the real
+  path. Blue's targets are larger than red's by exactly the scattering law, and the share of
+  each colour that crosses untouched is e^−τ — counted, and set beside the calculation.
+  Every colour enters at the same heights, so colours differ by physics and not by chance.
+  Click a ray (or step through them in the panel) to follow it: its collisions are numbered
+  in the picture, and the panel says for each what was hit — a molecule, a haze droplet, a
+  soot grain or ozone — what it did (scattered, and by how many degrees, or absorbed) and how
+  the ray ended. Switching colour keeps the same ray, entering at the same height.
 
 **Refraction depends only weakly on colour.** The refractive index of air is about 1.5 %
 larger for blue than for red (Ciddor 1996). Refraction (Sæmundsson's formula) lifts the Sun
@@ -932,7 +942,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **157 tests** covering:
+`node tests/run-tests.js` runs **161 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine

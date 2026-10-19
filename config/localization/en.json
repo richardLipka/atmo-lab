@@ -336,26 +336,40 @@
   },
   "beam": {
     "canvas": {
-      "entry": "The Sun: entering the atmosphere",
+      "entry": "Sunlight from space: still white",
+      "entryColour": "Light from space: only {nm} nm",
       "observer": "observer",
-      "pathInfo": "Path through the air {km} km · air mass {airmass} · vertical exaggeration {exaggeration}×",
-      "legendStrands": "Strands = the colours of the beam; thickness = how much light of that colour is left",
-      "legendSparks": "dots = light scattered sideways (the sky)",
+      "pathInfo": "Path through the air {km} km · air mass {airmass}",
       "refractionTitle": "Refraction: the Sun as you see it",
       "refractionLift": "lifted by {arcmin}′",
       "refractionSpread": "blue higher by {arcsec}″",
-      "refractionMagnified": "colour difference magnified {m}×"
+      "refractionMagnified": "colour difference magnified {m}×",
+      "top": "top of the atmosphere ({km} km)",
+      "ground": "Earth",
+      "scaleTrue": "heights and distances at the same scale",
+      "scaleStretched": "heights ×{m}, the whole picture stretched evenly: the beam stays straight",
+      "legend": "Beam colour = the light still in it, width = how much is left · short lines = light scattered out (the sky) · A–D = what is left of each colour",
+      "flagWhere": "{km} km in, {alt} km up",
+      "chartTitle": "How much of each colour is still in the beam",
+      "chartAxis": "share of the path's air the light has crossed"
     },
     "micro": {
       "source": "SOURCE",
       "detector": "DETECTOR",
-      "singleCaption": "Ray at {nm} nm: {fate}. Click for the next colour.",
-      "bundleCaption": "Bundle: the same number of rays of every colour. Only rays that meet nothing reach the detector directly.",
       "scaleNote": "The chamber has the same optical depth as the beam’s whole path. The particles are not drawn to scale.",
       "fate": {
         "direct": "crossed without a collision",
         "scattered": "scattered",
         "absorbed": "absorbed"
+      },
+      "chosenCaption": "Chosen ray: {nm} nm, no. {n} of {count}: {fate}.",
+      "bundleHint": "Click any ray to choose it. The panel on the right explains each numbered collision.",
+      "singleHint": "Dashed rings: each particle's target for this colour. Choose another ray in the panel on the right.",
+      "key": {
+        "rayleigh": "air molecule N₂, O₂ (scatters)",
+        "ozone": "ozone O₃ (absorbs)",
+        "aerosolScatter": "haze droplet, dust (scatters)",
+        "aerosolAbsorb": "soot, dark dust (absorbs)"
       }
     },
     "controls": {
@@ -364,9 +378,9 @@
       "viewMicro": "Collisions up close",
       "viewMacroHelp": "The whole path of a sunbeam from the top of the atmosphere (100 km) to an observer on the ground.",
       "viewMicroHelp": "A magnified piece of air. The particles’ targets are sized for each colour so the chamber lets each colour through in the same proportion as the beam’s whole path.",
-      "bundle": "Bundle of rays",
-      "single": "Single ray",
-      "singleHelp": "Click in the chamber to fire the next ray; the colours take turns. The dashed rings show how big a target each particle is for this colour.",
+      "bundle": "All rays",
+      "single": "Only the chosen ray",
+      "singleHelp": "Only the chosen ray, with dashed rings showing how big a target each particle is for its colour. Choose the ray in the panel on the right.",
       "sunTitle": "The Sun",
       "elevation": "Elevation above the horizon",
       "elevationHelp": "The lower the Sun, the longer the path its light takes through the air.",
@@ -383,8 +397,7 @@
       "aerosolHelp": "Multiplies the amount of dust and droplets of the chosen kind.",
       "exponent": "Wavelength exponent n",
       "exponentHelp": "Scattering on molecules goes as 1/λⁿ; n = 4 is real air. At n = 0 the molecules scatter every colour equally.",
-      "displayTitle": "Display",
-      "animate": "Animate"
+      "bundleHelp": "Every colour sends the same number of rays at the same heights. Click a ray to follow it; the panel on the right explains each of its collisions."
     },
     "panel": {
       "arrivesTitle": "What reaches the observer",
@@ -419,6 +432,41 @@
       "ciddor": "Ciddor 1996 (refractive index of air)",
       "refraction": "Atmospheric refraction (Wikipedia)",
       "greenFlash": "Green flash (Wikipedia)"
+    },
+    "chosen": {
+      "title": "The chosen ray",
+      "which": "ray {n} of {count} · {nm} nm",
+      "previous": "Previous ray",
+      "next": "Next ray",
+      "kind": {
+        "rayleigh": "Air molecule (N₂ or O₂).",
+        "aerosolScatter": "Haze droplet or dust grain.",
+        "aerosolAbsorb": "Soot or dark dust grain.",
+        "ozone": "Ozone molecule (O₃)."
+      },
+      "does": {
+        "rayleigh": "The light sets the molecule's electrons oscillating, and the molecule sends it out again in a new direction; here the ray is turned by {deg}°. No light is lost, but it no longer travels towards the observer. Molecules do this to blue light several times as often as to red (1/λ⁴); seen from the side, this light is the blue sky.",
+        "aerosolScatter": "The grain scatters the light too, but mostly forwards; here the ray is turned by {deg}°. Grains are much larger than molecules and scatter all colours about equally, so haze whitens the sky and makes a bright glow round the Sun.",
+        "aerosolAbsorb": "The grain absorbs the light: its energy warms the grain and the air around it, and the ray ends here. Dark grains absorb all colours about equally.",
+        "ozone": "Ozone absorbs the light, most strongly yellow and orange (the Chappuis band): its energy warms the air and the ray ends here. Ozone hardly absorbs blue light."
+      },
+      "again": {
+        "rayleigh": "Another molecule scatters it again; here the ray is turned by {deg}°.",
+        "aerosolScatter": "Another grain scatters it again; here the ray is turned by {deg}°."
+      },
+      "endTitle": "End:",
+      "end": {
+        "direct": "It met nothing and reached the detector in its original direction. It is part of the direct sunlight: the light of the Sun's disc itself.",
+        "absorbed": "Its energy stayed in the air; the light is gone.",
+        "scattered": {
+          "detector": "It reached the far wall, but from a different direction than the Sun's. It no longer belongs to the Sun's disc: an observer sees it as light from the sky.",
+          "top": "It left the beam sideways, through the top of the chamber. Light scattered like this is what an observer looking at this piece of air from the side sees: the sky.",
+          "bottom": "It left the beam sideways, through the bottom of the chamber. Light scattered like this is what an observer looking at this piece of air from the side sees: the sky.",
+          "back": "It was turned back towards the Sun. Part of the light scattered back like this leaves the Earth again; it is one reason the Earth looks blue from space.",
+          "inside": "We stop following it after {n} collisions; it no longer belongs to the direct beam."
+        }
+      },
+      "compare": "Switching colour keeps the same ray, entering at the same height: it passes the same particles, but their targets are a different size for it. Blue rays hit something far more often than red ones."
     }
   }
 }
