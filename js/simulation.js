@@ -25,7 +25,7 @@ import {
 } from './physics/well.js';
 import {
   overheadStarIlluminance, starContrastAgainstSky, starIlluminanceRelativeToSun,
-  OVERHEAD_STAR, VENUS_BRIGHTEST_MAGNITUDE,
+  OVERHEAD_STAR, VENUS_BRIGHTEST_MAGNITUDE, groundLuminance, eyeResolutionSolidAngle,
 } from './physics/starlight.js';
 
 const REFERENCE_LAMBDAS = [450, 550, 650];
@@ -173,6 +173,20 @@ export function createSimulation({ config, colorimetry }) {
     const zenithSkyLuminance = colorimetry.luminance(zenith.scattered);
     const starIlluminance = overheadStarIlluminance(zenith.transmittance, colorimetry);
     const starContrast = starContrastAgainstSky({ starIlluminance, skyLuminance: zenithSkyLuminance });
+    // What the eye is adapted to. An eye adjusts to the brightest thing in
+    // view, and by day on open ground that is the sunlit ground around you (and
+    // the Sun itself). A faint star then has to beat that level too, compared
+    // on the same one-arcminute patch. At the bottom of a shaft you are in
+    // shadow and see neither - the case that, on the Moon, lets the stars out.
+    const groundInView = !scene.wellActive;
+    const albedo = colorimetry.luminance(source) > 0
+      ? colorimetry.luminance(Float64Array.from(source, (v, i) => v * atmosphere.groundReflectance[i]))
+        / colorimetry.luminance(source)
+      : atmosphere.groundAlbedo;
+    const groundLum = groundLuminance(albedo, illumination.totalOpen);
+    const patch = eyeResolutionSolidAngle();
+    const competing = Math.max(zenithSkyLuminance, groundInView ? groundLum : 0) * patch;
+    const adaptedContrast = competing > 0 ? starIlluminance / competing : Infinity;
     const venusFactor = starIlluminanceRelativeToSun(VENUS_BRIGHTEST_MAGNITUDE)
       / starIlluminanceRelativeToSun(OVERHEAD_STAR.magnitude);
 
@@ -209,6 +223,11 @@ export function createSimulation({ config, colorimetry }) {
           zenithSkyLuminance,
           contrast: starContrast,
           venusContrast: starContrast * venusFactor,
+          groundLuminance: groundLum,
+          groundInView,
+          // Against everything the eye has to cope with: the sky behind the
+          // star, and the sunlit ground if it is in view.
+          adaptedContrast,
         },
         peakWavelength: wienPeakNm(sim.star.temperatureK),
         scatteringAngleDeg: Math.acos(Math.max(-1, Math.min(1,

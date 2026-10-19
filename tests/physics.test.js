@@ -2262,12 +2262,33 @@ export function registerTests({ group, test, assert }, config) {
       assert.ok(/astronomycafe/.test(urls(2)), 'Aristotle, Hynek and Winsor');
       assert.ok(/ga\.gov\.au/.test(urls(3)), 'civil twilight');
       assert.ok(/nasa\.gov/.test(urls(4)), 'Armstrong');
+      assert.ok(/wiki\/Moon/.test(urls(4)), 'the albedo of the Moon');
+      assert.ok(/universetoday/.test(urls(5)) && /Adaptation/.test(urls(5)), 'the Lunar Module shadow, dark adaptation');
+    });
+
+    test('stars on the Moon: lost in the glare of the sunlit ground, seen from a shadow', () => {
+      const day = replay('stars-by-day', 4).a.metrics.overheadStar;
+      const shadow = replay('stars-by-day', 5).a.metrics.overheadStar;
+      const earth = replay('stars-by-day', 0).a.metrics.overheadStar;
+      // The black sky does not hide the star...
+      assert.greater(day.contrast, 1e6);
+      // ...but the sunlit ground, as bright as Earth's blue sky or brighter, does.
+      assert.ok(day.groundInView);
+      assert.between(day.groundLuminance / earth.zenithSkyLuminance, 1, 2.5);
+      assert.close(day.adaptedContrast, 0.01, 0.15, 'about 1 % against the sunlit ground');
+      // In the shadow of the pit neither is in view.
+      assert.equal(shadow.groundInView, false);
+      assert.greater(shadow.adaptedContrast, 1e6);
+      // And the Sun does not shine into the pit: 35 degrees off against a 1.7 degree opening.
+      assert.equal(replay('stars-by-day', 5).a.beam.visible, false);
     });
 
     test('stars by day: a well changes nothing behind the star; dusk and the Moon do', () => {
       const contrast = (i) => replay('stars-by-day', i).a.metrics.overheadStar.contrast;
       const day = contrast(0), well = contrast(1), shaft = contrast(2);
       const dusk = contrast(3), moon = contrast(4);
+      // At dusk the twilit ground is no rival either.
+      assert.greater(replay('stars-by-day', 3).a.metrics.overheadStar.adaptedContrast, 1);
       assert.close(day, 0.014, 0.1, 'about 1.4 % on open ground at noon');
       assert.close(well, day, 1e-9, 'the same at the bottom of a 50 m well');
       assert.close(shaft, day, 1e-9, 'and of a 10 km shaft');

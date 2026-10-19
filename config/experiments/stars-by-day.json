@@ -11,8 +11,8 @@
     "en": "Aristotle already claimed that stars can be seen by day from the bottom of a deep well. We test it: we compare a star with the sky right around it on the surface, at the bottom of a well, at dusk and on the Moon."
   },
   "goal": {
-    "cs": "Vysvětlit, že hvězda je vidět, jen když je jasnější než kousek oblohy těsně kolem ní, který od ní oko nerozliší. Studna ten kousek oblohy neztmaví, a proto ve dne nepomůže. Hvězdy jsou vidět tam, kde je obloha za nimi tmavá: za soumraku, v noci a na Měsíci, kde není vzduch.",
-    "en": "Explain that a star can be seen only when it is brighter than the patch of sky right around it, which the eye cannot tell apart from it. A well does not darken that patch, so by day it does not help. Stars can be seen where the sky behind them is dark: at dusk, at night, and on the Moon, which has no air."
+    "cs": "Vysvětlit, že hvězda je vidět, jen když je jasnější než světlo, se kterým soupeří: kousek oblohy těsně kolem ní, který od ní oko nerozliší, a jas okolí, na který je oko přivyklé. Na Zemi ve dne vyhrává obloha, a studna proto nepomůže. Na Měsíci je obloha černá a hvězdy zakrývá jen oslnění od osvětleného povrchu a Slunce, takže ze stínu jsou vidět.",
+    "en": "Explain that a star can be seen only when it is brighter than the light it competes with: the patch of sky right around it, which the eye cannot tell apart from it, and the brightness of the surroundings the eye has adjusted to. On Earth by day the sky wins, so a well does not help. On the Moon the sky is black and only glare from the sunlit ground and the Sun hides the stars, so from a shadow they can be seen."
   },
   "steps": [
     {
@@ -170,16 +170,16 @@
         "en": "Daytime on the Moon"
       },
       "text": {
-        "cs": "Přesunuli jsme se na Měsíc a Slunce jsme vrátili 55° nad obzor. Je plný den, ale nad tebou není žádný vzduch, a tak obloha nesvítí (to ukázal už poslední krok průvodce „Let do vesmíru“).",
-        "en": "We have moved to the Moon and returned the Sun to 55° above the horizon. It is full daylight, but there is no air above you, so the sky does not glow (as the last step of the “Flight into space” guide showed)."
+        "cs": "Přesunuli jsme se na Měsíc a Slunce jsme vrátili 55° nad obzor. Je plný den, ale nad tebou není žádný vzduch, a tak obloha nesvítí (to ukázal už poslední krok průvodce „Let do vesmíru“). Ve vložce v rohu obrázku přibyl řádek „osvětlený povrch kolem tebe“: oko se přizpůsobí nejjasnějšímu, co vidí, a hvězda musí být jasnější i než to.",
+        "en": "We have moved to the Moon and returned the Sun to 55° above the horizon. It is full daylight, but there is no air above you, so the sky does not glow (as the last step of the “Flight into space” guide showed). The inset in the corner of the picture has gained a row, “sunlit ground around you”: the eye adjusts to the brightest thing it sees, and the star has to be brighter than that too."
       },
       "observe": {
-        "cs": "Kousek oblohy za hvězdou je černý a hvězda je jasnější než on mnohomilionkrát. Přesto astronauti Apolla z osvětleného povrchu Měsíce hvězdy pouhým okem neviděli; Neil Armstrong uvedl, že je viděli jen přes navigační optiku lodi. Oslňoval je jasně osvětlený povrch a Slunce: oko přivyklé takovému jasu slabé hvězdy nezachytí.",
-        "en": "The patch of sky behind the star is black, and the star is millions of times brighter than it. Yet the Apollo astronauts did not see stars by eye from the sunlit lunar surface; Neil Armstrong said they saw them only through the spacecraft's navigation optics. They were dazzled by the brightly lit ground and the Sun: an eye adjusted to such brightness does not catch faint stars."
+        "cs": "Kousek oblohy za hvězdou je černý, takže obloha hvězdu nezakryje. Osvětlený povrch Měsíce, odrazivý zhruba jako asfalt, je ale stejně jasný jako modrá denní obloha na Zemi, nebo i jasnější. Proti němu má hvězda jen asi 1 %, tedy podobně jako proti obloze na Zemi, a oko přivyklé jeho jasu a jasu Slunce ji nezachytí. Proto astronauti Apolla z osvětleného povrchu hvězdy pouhým okem neviděli; Neil Armstrong uvedl, že je viděli jen přes navigační optiku lodi. Na fotografiích z Měsíce hvězdy nejsou ze stejného důvodu: expozice byly nastavené na jasný povrch.",
+        "en": "The patch of sky behind the star is black, so the sky will not hide it. But the Moon’s sunlit ground, about as reflective as asphalt, is as bright as Earth’s blue daytime sky, or brighter. Against it the star has only about 1 %, much as against the sky on Earth, and an eye adjusted to that brightness and to the Sun will not catch it. That is why the Apollo astronauts did not see stars by eye from the sunlit surface; Neil Armstrong said they saw them only through the spacecraft’s navigation optics. Photographs from the Moon show no stars for the same reason: the exposures were set for the bright ground."
       },
       "question": {
-        "cs": "Proč by studna na Měsíci pomohla, kdežto na Zemi ne?",
-        "en": "Why would a well help on the Moon, but not on Earth?"
+        "cs": "Co musí pozorovatel na Měsíci udělat, aby hvězdy uviděl?",
+        "en": "What must an observer on the Moon do to see the stars?"
       },
       "state": {
         "star": {
@@ -200,8 +200,67 @@
         },
         {
           "label": {
-            "cs": "S. Odenwald: Can you see stars from the bottom of a well? (Aristotelés, pokus Hynka a Winsora, Měsíc)",
-            "en": "S. Odenwald: Can you see stars from the bottom of a well? (Aristotle, Hynek and Winsor, the Moon)"
+            "cs": "N. Atkinson: Can Astronauts See Stars? Hvězdy ve stínu lunárního modulu, expozice fotografií (Universe Today)",
+            "en": "N. Atkinson: Can astronauts see stars? Stars from the Lunar Module’s shadow, photo exposures (Universe Today)"
+          },
+          "url": "https://www.universetoday.com/articles/can-astronauts-see-stars-space-station"
+        },
+        {
+          "label": {
+            "cs": "Měsíc: albedo 0,136, odrazivost podobná asfaltu (Wikipedie, Moon)",
+            "en": "The Moon: albedo 0.136, reflectance like asphalt (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Moon"
+        }
+      ]
+    },
+    {
+      "title": {
+        "cs": "Ve stínu na Měsíci",
+        "en": "In shadow on the Moon"
+      },
+      "text": {
+        "cs": "Pozorovatele jsme posadili na dno jámy hluboké 50 m o poloměru 1,5 m. Slunce je 35° od svislice a do jámy nesvítí. Ze dna nevidíš Slunce ani osvětlenou krajinu, jen kotouček černé oblohy a nanejvýš úzký osvětlený proužek stěny u ústí.",
+        "en": "We have put the observer at the bottom of a pit 50 m deep and 1.5 m in radius. The Sun is 35° from the vertical and does not shine into the pit. From the bottom you see neither the Sun nor the sunlit landscape, only a disc of black sky and at most a thin sunlit strip of wall at the rim."
+      },
+      "observe": {
+        "cs": "Řádek osvětleného povrchu z vložky zmizel a hvězda je mnohomilionkrát jasnější než vše, co s ní soupeří. Oko si ve stínu přivykne tmě; trvá to 20 až 30 minut a jeho citlivost přitom vzroste desetitisíckrát až milionkrát. Pak hvězdy uvidí. Na Měsíci tedy studna pomáhá. Astronauti Apolla to potvrdili: jasnější hvězdy viděli, když stáli ve stínu lunárního modulu.",
+        "en": "The sunlit-ground row has gone from the inset, and the star is millions of times brighter than anything competing with it. In the shadow the eye adapts to the dark; that takes 20 to 30 minutes, and its sensitivity rises ten thousand to a million times. Then it sees the stars. On the Moon, then, a well does help. The Apollo astronauts confirmed it: they could see the brighter stars when they stood in the shadow of the Lunar Module."
+      },
+      "question": {
+        "cs": "Proč stejná studna na Zemi nepomohla?",
+        "en": "Why did the same well not help on Earth?"
+      },
+      "state": {
+        "observer": {
+          "z": -50,
+          "well": {
+            "enabled": true,
+            "radius_m": 1.5,
+            "depth_m": 50
+          }
+        }
+      },
+      "highlight": "ctl-well",
+      "sources": [
+        {
+          "label": {
+            "cs": "N. Atkinson: Can Astronauts See Stars? Hvězdy ve stínu lunárního modulu, expozice fotografií (Universe Today)",
+            "en": "N. Atkinson: Can astronauts see stars? Stars from the Lunar Module’s shadow, photo exposures (Universe Today)"
+          },
+          "url": "https://www.universetoday.com/articles/can-astronauts-see-stars-space-station"
+        },
+        {
+          "label": {
+            "cs": "Adaptace oka na tmu: 20–30 minut, citlivost 10⁴–10⁶× vyšší (Wikipedie, Adaptation (eye))",
+            "en": "Dark adaptation: 20–30 minutes, 10⁴–10⁶ times more sensitive (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Adaptation_(eye)"
+        },
+        {
+          "label": {
+            "cs": "S. Odenwald: Can you see stars from the bottom of a well? (K. Tapping: zastínit Slunce a odlesky od povrchu)",
+            "en": "S. Odenwald: Can you see stars from the bottom of a well? (K. Tapping: shade out the Sun and the ground glare)"
           },
           "url": "https://sten.astronomycafe.net/can-you-see-stars-from-the-bottom-of-a-well/"
         }
@@ -213,8 +272,8 @@
         "en": "Summary"
       },
       "text": {
-        "cs": "Hvězdu zakrývá světlo, které přichází ze stejného místa oblohy jako ona. Na Zemi je to ve dne rozptýlené sluneční světlo vzduchu za hvězdou; studna ho nezmenší, protože zakrývá jen oblohu jinde. Za soumraku a v noci obloha ztmavne a hvězdy se objeví. Na Měsíci je obloha černá i ve dne a hvězdy přehlušuje jen oslnění od osvětleného povrchu a Slunce; to by studna nebo stínítko odstranily.",
-        "en": "A star is hidden by the light that comes from the same place in the sky as the star itself. On Earth by day that is sunlight scattered by the air behind the star; a well does not reduce it, because it only hides the sky elsewhere. At dusk and at night the sky darkens and the stars appear. On the Moon the sky is black even by day, and the only thing drowning the stars is glare from the sunlit ground and the Sun, which a well or a shade would remove."
+        "cs": "Hvězdu zakrývá světlo, se kterým soupeří: světlo oblohy přímo za ní a jas všeho, na co si oko zvyklo. Na Zemi ve dne je to rozptýlené sluneční světlo vzduchu za hvězdou; studna ho nezmenší, protože zakrývá jen oblohu jinde. Za soumraku a v noci obloha ztmavne a hvězdy se objeví. Na Měsíci je obloha černá i ve dne a hvězdy přehlušuje jen oslnění od osvětleného povrchu a Slunce. Ze stínu, kam oslnění nedosáhne, jsou proto vidět.",
+        "en": "A star is hidden by the light it competes with: the sky’s light right behind it, and the brightness of everything the eye has adjusted to. On Earth by day that is sunlight scattered by the air behind the star; a well does not reduce it, because it only hides the sky elsewhere. At dusk and at night the sky darkens and the stars appear. On the Moon the sky is black even by day, and the only thing drowning the stars is glare from the sunlit ground and the Sun. From a shadow, which the glare does not reach, they can be seen."
       }
     }
   ]
