@@ -25,12 +25,12 @@ import {
 } from './scattering.js';
 
 export const EARTH_RADIUS_M = 6371000;
-export const TOA_ALTITUDE_M = 80000; // Top of atmosphere: 80 km
-export const GAS_SCALE_HEIGHT_M = 8400; // Gas scale height (m)
+export const TOA_ALTITUDE_M = 100000; // Top of atmosphere: 100 km (consistent with earth.json)
+export const GAS_SCALE_HEIGHT_M = 8500; // Gas scale height (m) (Bodhaine et al. 1999, identical to earth.json)
 export const AEROSOL_SCALE_HEIGHT_M = 1200; // Aerosol layer scale height (m)
 
 // Standard sea-level volume scattering coefficients (m^-1) at 550 nm
-export const SEA_LEVEL_RAYLEIGH_BETA_550 = 1.25e-5;
+export const SEA_LEVEL_RAYLEIGH_BETA_550 = 1.142e-5; // Bodhaine et al. (1999) Eq. 30, identical to earth.json
 export const SEA_LEVEL_AEROSOL_BETA_550 = 3.5e-5;
 
 /**

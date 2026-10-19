@@ -7368,12 +7368,12 @@ function createBeamHistogram(canvas, { i18n }) {
 
 
 const EARTH_RADIUS_M = 6371000;
-const TOA_ALTITUDE_M = 80000; // Top of atmosphere: 80 km
-const GAS_SCALE_HEIGHT_M = 8400; // Gas scale height (m)
+const TOA_ALTITUDE_M = 100000; // Top of atmosphere: 100 km (consistent with earth.json)
+const GAS_SCALE_HEIGHT_M = 8500; // Gas scale height (m) (Bodhaine et al. 1999, identical to earth.json)
 const AEROSOL_SCALE_HEIGHT_M = 1200; // Aerosol layer scale height (m)
 
 // Standard sea-level volume scattering coefficients (m^-1) at 550 nm
-const SEA_LEVEL_RAYLEIGH_BETA_550 = 1.25e-5;
+const SEA_LEVEL_RAYLEIGH_BETA_550 = 1.142e-5; // Bodhaine et al. (1999) Eq. 30, identical to earth.json
 const SEA_LEVEL_AEROSOL_BETA_550 = 3.5e-5;
 
 /**
