@@ -1,0 +1,108 @@
+{
+  "id": "clouds",
+  "order": 8,
+  "icon": "cloud",
+  "title": {
+    "cs": "Proč jsou mraky bílé a někdy šedé?",
+    "en": "Why are clouds white, and sometimes grey?"
+  },
+  "summary": {
+    "cs": "Kapky v mracích rozptylují všechny barvy stejně, proto jsou mraky bílé. Silný mrak ale většinu světla pošle zpátky nahoru, a zespodu je šedý. Ukážeme také, kde simulace končí.",
+    "en": "Cloud droplets scatter all colours alike, so clouds are white. But a thick cloud sends most of the light back upwards and looks grey from below. We also show where the simulation stops."
+  },
+  "goal": {
+    "cs": "Vysvětlit, že velké kapky rozptylují všechny barvy stejně (bílá) a že v silném mraku se světlo rozptýlí mnohokrát, takže zespodu projde málo světla (šedá); a ukázat, že tohle simulace s jedním rozptylem nepočítá.",
+    "en": "Explain that large droplets scatter all colours alike (white) and that in a thick cloud light is scattered many times, so little gets through to the bottom (grey); and show that the single-scattering simulation does not cover this."
+  },
+  "steps": [
+    {
+      "title": {
+        "cs": "Kapka mraku",
+        "en": "A cloud droplet"
+      },
+      "text": {
+        "cs": "Záložka Jeden paprsek, obrázek 1: kapka mraku velká 10 µm, mnohokrát větší než vlnová délka.",
+        "en": "Single beam tab, picture 1: a cloud droplet 10 µm across, many times the wavelength."
+      },
+      "observe": {
+        "cs": "Sloupce terče jsou pro všechny barvy stejně vysoké: kapka rozptýlí všechny barvy stejně. Bílé sluneční světlo proto zůstane bílé.",
+        "en": "The target bars are equally high for every colour: the droplet scatters all colours alike. So white sunlight stays white."
+      },
+      "tab": "beam",
+      "beam": {
+        "viewType": "particle",
+        "particleDiameterUm": 10,
+        "particlePolar": false,
+        "particleLog": false
+      }
+    },
+    {
+      "title": {
+        "cs": "Kam světlo z kapky letí",
+        "en": "Where the light from a droplet goes"
+      },
+      "text": {
+        "cs": "Zapnuli jsme logaritmickou stupnici, aby bylo vidět i slabé světlo do stran.",
+        "en": "We have switched on the logarithmic scale, so the weak light sideways shows too."
+      },
+      "observe": {
+        "cs": "Většina světla jde v úzkém kuželu dopředu. Proto okraje mraků, které máš mezi sebou a Sluncem, jasně září: to je stříbrný lem mraků.",
+        "en": "Most light goes in a narrow forward cone. That is why the edges of clouds between you and the Sun glow brightly: the silver lining of clouds."
+      },
+      "tab": "beam",
+      "beam": {
+        "particleLog": true
+      }
+    },
+    {
+      "title": {
+        "cs": "Mnoho rozptylů",
+        "en": "Many scatterings"
+      },
+      "text": {
+        "cs": "Mrak je hustý: světlo se v něm rozptýlí desítkykrát, než z něj vyjde. Každý rozptyl zachází se všemi barvami stejně.",
+        "en": "A cloud is dense: light is scattered tens of times in it before it comes out. Each scattering treats all colours alike."
+      },
+      "observe": {
+        "cs": "Mrak proto zůstane bílý, ať se světlo rozptýlí kolikrát chce. Tohle simulace nepočítá: každý paprsek se v ní rozptýlí jen jednou (v obrázku 3 nejvýš několikrát).",
+        "en": "So the cloud stays white however many times the light is scattered. The simulation does not cover this: each ray is scattered only once (in picture 3 at most a few times)."
+      },
+      "tab": "beam"
+    },
+    {
+      "title": {
+        "cs": "Proč je spodek šedý",
+        "en": "Why the bottom is grey"
+      },
+      "text": {
+        "cs": "Silný mrak pošle většinu světla zpátky nahoru a do stran a zespodu ho projde jen málo.",
+        "en": "A thick cloud sends most of the light back upwards and sideways, and only a little gets through to the bottom."
+      },
+      "observe": {
+        "cs": "Spodek silného mraku proto vidíme šedý až tmavý. Je to pořád bílé světlo, jen slabé. Z letadla nad mraky jsou tytéž mraky zářivě bílé.",
+        "en": "So we see the bottom of a thick cloud grey to dark. It is still white light, only faint. From an aircraft above them the same clouds are brilliant white."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "C. F. Bohren: Clouds in a Glass of Beer (1987), kapitoly o barvě mraků",
+            "en": "C. F. Bohren: Clouds in a Glass of Beer (1987), on the colour of clouds"
+          },
+          "url": "https://en.wikipedia.org/wiki/Cloud#Colors"
+        }
+      ],
+      "tab": "beam"
+    },
+    {
+      "title": {
+        "cs": "Shrnutí: jak to vysvětlit",
+        "en": "Summary: how to explain it"
+      },
+      "text": {
+        "cs": "1) Kapky v mracích jsou mnohokrát větší než vlnová délka a rozptylují všechny barvy stejně: mraky jsou bílé. 2) Většinu světla rozptýlí dopředu, proto září okraje mraků proti Slunci. 3) V silném mraku se světlo rozptýlí mnohokrát a většina se vrátí nahoru; zespodu projde málo a mrak je šedý. 4) Simulace počítá jen jeden rozptyl, a mraky proto neukazuje.",
+        "en": "1) Cloud droplets are many times larger than the wavelength and scatter all colours alike: clouds are white. 2) They scatter most light forwards, so cloud edges against the Sun glow. 3) In a thick cloud light is scattered many times and most returns upwards; little gets through below and the cloud is grey. 4) The simulation counts only one scattering, so it does not show clouds."
+      },
+      "tab": "beam"
+    }
+  ]
+}

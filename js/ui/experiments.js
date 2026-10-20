@@ -17,10 +17,18 @@
  * state before and after the step, named with the controls' own labels, so a
  * reader always knows which slider moved and to what - and the list cannot
  * drift from what the step really does, because it is not written by hand.
+ *
+ * A step can also take place in the Single beam tab: it says "tab": "beam" and
+ * sets that tab's pictures with a "beam" patch, rebuilt the same way from the
+ * tab's defaults and every step up to it. A step that names no tab stays in
+ * the tab of the step before; "tab": "scattering" goes back.
  */
 
 import { DEFAULT_STATE } from '../state.js';
 import { formatAltitude } from '../render/scene-renderer.js';
+import { DEFAULT_BEAM_STATE } from '../render/beam-canvas.js';
+import { diameterText } from '../render/particle-view.js';
+import { RAY_BANDS } from '../physics/spectrum.js';
 
 const copyOf = (value) => JSON.parse(JSON.stringify(value));
 const isPlainRecord = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -69,6 +77,35 @@ export function guideSituation(experiment, index, level = 'basic') {
 }
 
 /**
+ * The tab a step takes place in: 'beam' or 'scattering'. A step that does not
+ * say stays in the tab of the step before it; a guide starts in the Light
+ * scattering tab.
+ */
+export function guideTab(experiment, index) {
+  for (let i = index; i >= 0; i--) {
+    const tab = experiment.steps[i]?.tab;
+    if (tab === 'beam' || tab === 'scattering') return tab;
+  }
+  return 'scattering';
+}
+
+/** The Single beam tab's settings at a step: its defaults plus every beam patch up to it. */
+export function guideBeamSituation(experiment, index) {
+  let beam = copyOf(DEFAULT_BEAM_STATE);
+  for (let i = 0; i <= index; i++) {
+    const patch = experiment.steps[i]?.beam;
+    if (patch) beam = mergedOver(beam, patch);
+  }
+  return beam;
+}
+
+/** Every Single beam setting a guide may change; each has a named control. */
+export const BEAM_DESCRIBED_PATHS = [
+  'viewType', 'particleDiameterUm', 'particleBand', 'particlePolar', 'particleLog', 'rayleighExponent',
+  'crowdSize', 'elevationDeg', 'sightViewDeg', 'sightHillKm', 'densityScale', 'aerosolScale', 'aerosolPresetId',
+];
+
+/**
  * Every state path a guide may change. Each is named in the "Changed" line
  * with the label of the control that shows it; a guide changing anything else
  * would be changing something the reader cannot find.
@@ -82,7 +119,7 @@ export const DESCRIBED_PATHS = [
   'compare.enabled', 'compare.active', 'rays.brightness',
 ];
 
-export function createExperiments(root, { i18n, store, config, onHighlight }) {
+export function createExperiments(root, { i18n, store, config, onHighlight, onTab }) {
   const titleEl = root.querySelector('#experiment-title');
   const stepEl = root.querySelector('#experiment-step');
   const bodyEl = root.querySelector('#experiment-body');
@@ -137,6 +174,30 @@ export function createExperiments(root, { i18n, store, config, onHighlight }) {
     ['rays.brightness', 'controls.rays.brightness', times],
   ];
   const SIMULATION_PATHS = DESCRIBED.filter(([p]) => /^(star|atmosphere|observer)\./.test(p));
+
+  /** The Single beam tab's settings, under the names its controls give them. */
+  const num = (v, digits) => (i18n.getLanguage() === 'cs' ? Number(v).toFixed(digits).replace('.', ',') : Number(v).toFixed(digits));
+  const BEAM_DESCRIBED = [
+    ['viewType', 'beam.controls.viewTitle', (v) => i18n.t(`beam.controls.view.${v}`)],
+    ['particleDiameterUm', 'beam.particle.size', (v) => diameterText(v, i18n.getLanguage())],
+    ['particleBand', 'beam.particle.colour', (v) => `${Math.round(RAY_BANDS[v].centreNm)} nm`],
+    ['particlePolar', 'beam.particle.polar', onOff],
+    ['particleLog', 'beam.particle.log', onOff],
+    ['rayleighExponent', 'beam.controls.exponent', (v) => `n = ${num(v, 1)}`],
+    ['crowdSize', 'beam.crowd.count', (v) => `N = ${(4 * v) ** 2}`],
+    ['elevationDeg', 'beam.controls.elevation', (v) => `${v}°`],
+    ['sightViewDeg', 'beam.sight.view', (v) => (Math.abs(v) < 1 ? i18n.t('beam.sight.zenithShort')
+      : i18n.t(v < 0 ? 'beam.sight.towardsShort' : 'beam.sight.awayShort', { deg: Math.round(90 - Math.abs(v)) }))],
+    ['sightHillKm', 'beam.sight.hill', (v) => (v == null ? onOff(false) : `${v} km`)],
+    ['densityScale', 'beam.controls.density', times],
+    ['aerosolScale', 'beam.controls.aerosol', times],
+    ['aerosolPresetId', 'beam.controls.aerosolType', (v) => (v
+      ? i18n.localized(config.scattering.get('aerosols')?.presets?.[v]?.name, v)
+      : i18n.t('beam.controls.aerosolEarth'))],
+  ];
+  if (BEAM_DESCRIBED.some(([p], i) => p !== BEAM_DESCRIBED_PATHS[i]) || BEAM_DESCRIBED.length !== BEAM_DESCRIBED_PATHS.length) {
+    throw new Error('experiments: BEAM_DESCRIBED and BEAM_DESCRIBED_PATHS disagree');
+  }
   if (DESCRIBED.length !== DESCRIBED_PATHS.length
     || DESCRIBED.some(([p], i) => p !== DESCRIBED_PATHS[i])) {
     throw new Error('experiments: DESCRIBED and DESCRIBED_PATHS disagree');
@@ -154,9 +215,18 @@ export function createExperiments(root, { i18n, store, config, onHighlight }) {
   /** The settings this step changed, as "label → value" lines. */
   function changesAt(experiment, index) {
     if (index === 0) return [];
+    const lines = [];
+    const tabBefore = guideTab(experiment, index - 1), tabAfter = guideTab(experiment, index);
+    if (tabBefore !== tabAfter) lines.push(i18n.t(tabAfter === 'beam' ? 'experiment.toBeamTab' : 'experiment.toScatteringTab'));
+    if (tabAfter === 'beam') {
+      const was = guideBeamSituation(experiment, index - 1), now = guideBeamSituation(experiment, index);
+      for (const [path, labelKey, format] of BEAM_DESCRIBED) {
+        if (JSON.stringify(was[path]) !== JSON.stringify(now[path])) lines.push(`${i18n.t(labelKey)} → ${format(now[path])}`);
+      }
+      return lines;
+    }
     const before = situationAt(experiment, index - 1);
     const after = situationAt(experiment, index);
-    const lines = [];
     const two = after.compare?.enabled || before.compare?.enabled;
     const describe = (path, labelKey, format, prefix = '') => {
       const a = readGuidePath(before, path), b = readGuidePath(after, path);
@@ -202,6 +272,8 @@ export function createExperiments(root, { i18n, store, config, onHighlight }) {
     const step = experiment.steps[index];
     if (!step) return;
     store.patch(situationAt(experiment, index));
+    const tab = guideTab(experiment, index);
+    onTab?.(tab, tab === 'beam' ? guideBeamSituation(experiment, index) : null);
     onHighlight(step.highlight ?? null);
     render();
   }

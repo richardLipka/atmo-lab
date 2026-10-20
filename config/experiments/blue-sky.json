@@ -48,8 +48,8 @@
         "en": "Light is an electromagnetic wave. Its electric field sets the electrons in a molecule oscillating at the light's frequency, and the oscillating electrons themselves radiate light of the same frequency in all directions: most forwards and backwards, half as much sideways. The light is not lost; it only changes direction. The molecule is set oscillating about equally by every visible colour, but the power it radiates grows as the fourth power of the frequency. That is why scattering by particles much smaller than the wavelength grows as 1/λ⁴ (Rayleigh scattering)."
       },
       "observe": {
-        "cs": "V grafu Spektrum nemá světlo oblohy žádnou vlnovou délku, kterou by nemělo sluneční světlo: rozptyl nové barvy nevytváří, jen mění poměr těch, které už ve světle jsou. Jak paprsek naráží do jednotlivých molekul, ukazuje záložka Jeden paprsek, obrázky 1 (jedna částice) a 2 (srážky zblízka).",
-        "en": "In the Spectrum chart, the sky light has no wavelength that sunlight lacks: scattering makes no new colours, it only changes the proportions of those already in the light. How a ray meets single molecules is shown in the Single beam tab, pictures 1 (one particle) and 2 (collisions up close)."
+        "cs": "V grafu Spektrum nemá světlo oblohy žádnou vlnovou délku, kterou by nemělo sluneční světlo: rozptyl nové barvy nevytváří, jen mění poměr těch, které už ve světle jsou. Jak paprsek naráží do jednotlivých molekul, ukazuje záložka Jeden paprsek, obrázky 1 (jedna částice), 2 (mnoho molekul) a 3 (srážky zblízka).",
+        "en": "In the Spectrum chart, the sky light has no wavelength that sunlight lacks: scattering makes no new colours, it only changes the proportions of those already in the light. How a ray meets single molecules is shown in the Single beam tab, pictures 1 (one particle), 2 (many molecules) and 3 (collisions up close)."
       },
       "sources": [
         {
@@ -88,13 +88,29 @@
     {
       "title": { "cs": "Zpět na n = 4", "en": "Back to n = 4" },
       "text": {
-        "cs": "Vrátili jsme n = 4. Podle 1/λ⁴ se světlo 450 nm rozptyluje (650/450)⁴ ≈ 4,4× silněji než světlo 650 nm; skutečný vzduch to dělá ještě o trochu víc, asi 4,5×. Zapni v legendě grafu znovu „Přímý svazek (po průchodu vzduchem)“.",
-        "en": "We have put n back to 4. By 1/λ⁴, 450 nm light is scattered (650/450)⁴ ≈ 4.4 times more strongly than 650 nm light; real air does a little more, about 4.5 times. Switch “Direct beam (after the air)” back on in the chart legend."
+        "cs": "Vrátili jsme n = 4. Tato hodnota plyne z teorie: kmitající elektrony vyzařují výkon úměrný čtvrté mocnině frekvence, a frekvence je nepřímo úměrná vlnové délce, takže rozptyl roste jako 1/λ⁴ (Rayleigh, 1871). Podle toho se světlo 450 nm rozptyluje (650/450)⁴ ≈ 4,4× silněji než světlo 650 nm. Měření skutečného vzduchu dávají o trochu víc, asi 4,5× (exponent asi 4,09), protože index lomu vzduchu k modré mírně roste; simulace tuto opravu obsahuje vždy. Zapni v legendě grafu znovu „Přímý svazek (po průchodu vzduchem)“.",
+        "en": "We have put n back to 4. This value comes from theory: oscillating electrons radiate power proportional to the fourth power of the frequency, and the frequency is inversely proportional to the wavelength, so scattering grows as 1/λ⁴ (Rayleigh, 1871). By this law, 450 nm light is scattered (650/450)⁴ ≈ 4.4 times more strongly than 650 nm light. Measurements on real air give a little more, about 4.5 times (an exponent of about 4.09), because the refractive index of air rises slightly towards blue; the simulation always includes this correction. Switch “Direct beam (after the air)” back on in the chart legend."
       },
       "observe": {
         "cs": "Přímý svazek ztratil víc modré než červené: propustnost (jaká část světla projde) je asi 77 % při 450 nm a 92 % při 650 nm. Chybějící modrá se rozptýlila do stran. Totéž se děje ve všech slunečních paprscích nad tebou a část jejich rozptýleného světla míří k tobě: to je modrá obloha.",
         "en": "The direct beam has lost more blue than red: the transmission (the share of light that gets through) is about 77 % at 450 nm and 92 % at 650 nm. The missing blue was scattered sideways. The same happens in every sunbeam above you, and part of their scattered light heads towards you: that is the blue sky."
       },
+      "sources": [
+        {
+          "label": {
+            "cs": "Rayleighův rozptyl: odvození zákona 1/λ⁴ (Wikipedie, Rayleigh scattering)",
+            "en": "Rayleigh scattering: where the 1/λ⁴ law comes from (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Rayleigh_scattering"
+        },
+        {
+          "label": {
+            "cs": "B. A. Bodhaine a kol. (1999): rozptyl ve skutečném vzduchu, exponent asi 4,09",
+            "en": "B. A. Bodhaine et al. (1999): scattering in real air, an exponent of about 4.09"
+          },
+          "url": "https://doi.org/10.1175/1520-0426(1999)016%3C1854:ORODC%3E2.0.CO;2"
+        }
+      ],
       "state": { "atmosphere": { "rayleighExponent": 4 } },
       "highlight": "ctl-exponent"
     },

@@ -1,0 +1,129 @@
+{
+  "id": "polarization",
+  "order": 4,
+  "icon": "polarizer",
+  "title": {
+    "cs": "Proč je světlo oblohy polarizované?",
+    "en": "Why is skylight polarised?"
+  },
+  "summary": {
+    "cs": "Rozptýlené světlo nekmitá všemi směry stejně. Ukážeme proč, kde na obloze je polarizace největší a jak ji uvidíš polarizačními brýlemi.",
+    "en": "Scattered light does not oscillate equally in every direction. We show why, where in the sky the polarisation is strongest, and how to see it through polarising sunglasses."
+  },
+  "goal": {
+    "cs": "Vysvětlit, že molekula nevyzařuje ve směru svého kmitu, a proto je světlo rozptýlené o 90° skoro úplně polarizované; na obloze je nejvíc polarizované světlo 90° od Slunce.",
+    "en": "Explain that a molecule does not radiate along the direction it oscillates in, so light scattered by 90° is almost completely polarised; in the sky, light 90° from the Sun is polarised most."
+  },
+  "steps": [
+    {
+      "title": {
+        "cs": "Dvě části rozptýleného světla",
+        "en": "Two parts of scattered light"
+      },
+      "text": {
+        "cs": "Obrázek 1 v záložce Jeden paprsek, molekula vzduchu, zapnutá polarizace. Světlo kmitá napříč směrem letu. Graf jasu se rozložil na světlo kmitající kolmo k rovině rozptylu (plná bílá) a v ní (tečkovaně).",
+        "en": "Picture 1 in the Single beam tab, an air molecule, polarisation switched on. Light oscillates across its direction of travel. The brightness graph has split into light oscillating across the scattering plane (solid white) and in it (dotted)."
+      },
+      "observe": {
+        "cs": "Kolmá část je kruh: jde do všech směrů stejně. Část v rovině je osmička: při 90° je nulová, protože tam by molekula musela vyzařovat ve směru svého kmitu, a to neumí. Součet obou je známý tvar grafu.",
+        "en": "The perpendicular part is a circle: it goes equally in every direction. The part in the plane is a figure of eight: at 90° it is zero, because there the molecule would have to radiate along the direction it oscillates in, and it cannot. The two add up to the familiar shape."
+      },
+      "tab": "beam",
+      "beam": {
+        "viewType": "particle",
+        "particleDiameterUm": 0.0003,
+        "particlePolar": true,
+        "particleBand": 1,
+        "rayleighExponent": 4
+      }
+    },
+    {
+      "title": {
+        "cs": "Jak moc je světlo polarizované",
+        "en": "How strongly the light is polarised"
+      },
+      "text": {
+        "cs": "Graf vpravo dole ukazuje, jaká část světla kmitá jedním směrem, podle úhlu rozptylu.",
+        "en": "The graph at the bottom right shows what share of the light oscillates in one direction, by the scattering angle."
+      },
+      "observe": {
+        "cs": "Dopředu a dozadu je světlo nepolarizované, při 90° je polarizované asi z 95 %. Do 100 % chybí kousek, protože molekuly vzduchu nejsou úplně kulaté.",
+        "en": "Forwards and backwards the light is unpolarised; at 90° it is about 95 % polarised. It falls a little short of 100 % because air molecules are not quite round."
+      }
+    },
+    {
+      "title": {
+        "cs": "Na obloze",
+        "en": "In the sky"
+      },
+      "text": {
+        "cs": "Obrázek 5: Slunce je 5° nad obzorem a díváš se do zenitu, asi 85° od Slunce.",
+        "en": "Picture 5: the Sun is 5° above the horizon and you look at the zenith, about 85° from the Sun."
+      },
+      "observe": {
+        "cs": "Světlo ze zenitu je polarizované asi z 83 %. Simulace počítá jen jeden rozptyl; skutečná obloha dosahuje kolem 75 %, protože se přidá světlo rozptýlené víckrát, od země a z oparu. Táhni pohled ke Slunci: polarizace klesá k nule.",
+        "en": "Light from the zenith is about 83 % polarised. The simulation counts only one scattering; the real sky reaches about 75 %, because light scattered more than once, from the ground and from haze is added. Drag the view towards the Sun: the polarisation falls to zero."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "Polarizace světla oblohy (Wikipedie, Rayleigh sky model)",
+            "en": "Polarisation of skylight (Wikipedia, Rayleigh sky model)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Rayleigh_sky_model"
+        }
+      ],
+      "tab": "beam",
+      "beam": {
+        "viewType": "sightline",
+        "elevationDeg": 5,
+        "sightViewDeg": 0,
+        "sightHillKm": null
+      }
+    },
+    {
+      "title": {
+        "cs": "Vyzkoušej doma",
+        "en": "Try it yourself"
+      },
+      "text": {
+        "cs": "Vezmi polarizační sluneční brýle a dívej se na modrou oblohu asi 90° od Slunce, nejlépe ráno nebo večer přímo nahoru. Pomalu jimi otáčej.",
+        "en": "Take polarising sunglasses and look at the blue sky about 90° from the Sun, best straight up in the morning or evening. Turn them slowly."
+      },
+      "observe": {
+        "cs": "Obloha bude střídavě tmavnout a světlat. Blízko Slunce se nestane skoro nic. Podle polarizace oblohy se orientují včely i jiný hmyz.",
+        "en": "The sky will darken and brighten in turn. Near the Sun almost nothing happens. Bees and other insects find their way by the polarisation of the sky."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "Včely a polarizace oblohy (Wikipedie, Polarized light navigation)",
+            "en": "Bees and the polarisation of the sky (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Polarized_light_navigation"
+        }
+      ],
+      "tab": "beam"
+    },
+    {
+      "title": {
+        "cs": "Shrnutí: jak to vysvětlit",
+        "en": "Summary: how to explain it"
+      },
+      "text": {
+        "cs": "1) Světlo kmitá napříč směrem letu. 2) Molekula rozkmitaná světlem vyzařuje nejvíc kolmo ke směru kmitu a ve směru kmitu nic. 3) Proto světlo rozptýlené o 90° kmitá jen jedním směrem: je polarizované. 4) Na obloze je nejvíc polarizované světlo 90° od Slunce (teoreticky asi 95 %, ve skutečnosti kolem 75 %). 5) Opar a mraky polarizují málo.",
+        "en": "1) Light oscillates across its direction of travel. 2) A molecule set oscillating by light radiates most at right angles to its oscillation and nothing along it. 3) So light scattered by 90° oscillates in one direction only: it is polarised. 4) In the sky light 90° from the Sun is polarised most (about 95 % in theory, about 75 % in reality). 5) Haze and clouds polarise little."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "R. Feynman: Feynmanovy přednášky z fyziky I, kap. 32: rozptyl světla a proč je obloha modrá",
+            "en": "R. Feynman: The Feynman Lectures on Physics I, ch. 32: light scattering and why the sky is blue"
+          },
+          "url": "https://www.feynmanlectures.caltech.edu/I_32.html"
+        }
+      ],
+      "tab": "beam"
+    }
+  ]
+}

@@ -29,7 +29,7 @@
  * wavelength.
  */
 
-import { rayleighPhase, bodhaineAirShape } from './scattering.js';
+import { bodhaineAirShape } from './scattering.js';
 
 /** The depolarisation ratio of air (Young 1980), as the sky simulation uses it. */
 export const AIR_DEPOLARIZATION = 0.0279;
@@ -62,7 +62,9 @@ const HALF_ANGLES = 361;
  * @param {number} x size parameter 2*pi*r/lambda
  * @param {number} m refractive index (real)
  * @param {number} nang angles from 0 to 90 degrees inclusive; the result has 2*nang-1 from 0 to 180
- * @returns {{qsca:number, qext:number, g:number, s11:Float64Array}} s11 = (|S1|^2+|S2|^2)/2
+ * @returns {{qsca:number, qext:number, g:number, s11:Float64Array, perp:Float64Array, par:Float64Array}}
+ *   s11 = (|S1|^2+|S2|^2)/2; perp = |S1|^2 (light polarised across the
+ *   scattering plane), par = |S2|^2 (polarised in it)
  */
 export function mie(x, m, nang = HALF_ANGLES) {
   const y = x * m;
@@ -134,10 +136,14 @@ export function mie(x, m, nang = HALF_ANGLES) {
   qsca *= 2 / (x * x);
   const qext = (4 / (x * x)) * s1r[0];
   const s11 = new Float64Array(nn);
+  const perp = new Float64Array(nn);
+  const par = new Float64Array(nn);
   for (let j = 0; j < nn; j++) {
-    s11[j] = 0.5 * (s1r[j] * s1r[j] + s1i[j] * s1i[j] + s2r[j] * s2r[j] + s2i[j] * s2i[j]);
+    perp[j] = s1r[j] * s1r[j] + s1i[j] * s1i[j];
+    par[j] = s2r[j] * s2r[j] + s2i[j] * s2i[j];
+    s11[j] = 0.5 * (perp[j] + par[j]);
   }
-  return { qsca, qext, g, s11 };
+  return { qsca, qext, g, s11, perp, par };
 }
 
 /** (a + ib) / (c + id) */
@@ -187,22 +193,42 @@ function buildPattern(id, diameterUm, index, lambdaNm) {
   const thetaDeg = new Float64Array(nn);
   for (let j = 0; j < nn; j++) thetaDeg[j] = (180 * j) / (nn - 1);
 
-  let raw, crossSection;
+  let raw, crossSection, perpRaw, parRaw;
   if (id === 'molecule') {
     // Rayleigh with the depolarisation of real air (Chandrasekhar; Hansen &
     // Travis 1974), and the cross-section of real air (Bodhaine et al. 1999),
     // exactly as the sky simulation uses them. Relative units: only ratios
     // between colours are used.
-    raw = thetaDeg.map((t) => rayleighPhase(Math.cos(t * Math.PI / 180), AIR_DEPOLARIZATION));
-    crossSection = bodhaineAirShape(lambdaNm) / bodhaineAirShape(550);
+    crossSection = moleculeCrossSection(lambdaNm);
+    // The two polarisations: across the scattering plane the same in every
+    // direction, in the plane as cos^2 - with the small depolarisation of air
+    // (gamma = rho / (2 - rho)) filling the dip at 90 degrees a little.
+    const gamma = AIR_DEPOLARIZATION / (2 - AIR_DEPOLARIZATION);
+    perpRaw = thetaDeg.map(() => 1 + gamma);
+    parRaw = thetaDeg.map((t) => 2 * gamma + (1 - gamma) * Math.cos(t * Math.PI / 180) ** 2);
+    // Their mean: the Rayleigh pattern of air, (1 + 3 gamma) + (1 - gamma) cos^2,
+    // the same shape as rayleighPhase() in scattering.js with the same depolarisation.
+    raw = thetaDeg.map((_, j) => 0.5 * (perpRaw[j] + parRaw[j]));
   } else {
     const result = mie(sizeParameter, particle.index);
     raw = result.s11;
+    perpRaw = result.perp;
+    parRaw = result.par;
     crossSection = result.qsca * Math.PI * r * r;
   }
   let max = 0;
   for (const v of raw) max = Math.max(max, v);
   const pattern = raw.map((v) => v / max);
+  // The two polarisations on the same scale (their mean is the pattern), and
+  // the degree of polarisation: how much more light is polarised across the
+  // scattering plane than in it, as a share of all of it.
+  const scale = 0.5 / max;
+  const perpendicular = Float64Array.from(perpRaw, (v) => v * scale);
+  const parallel = Float64Array.from(parRaw, (v) => v * scale);
+  const polarization = Float64Array.from(perpRaw, (v, j) => {
+    const sum = v + parRaw[j];
+    return sum > 0 ? (v - parRaw[j]) / sum : 0;
+  });
   // The turn: the scattering angle, distributed as p(theta) sin(theta).
   const weight = (j) => pattern[j] * Math.sin(thetaDeg[j] * Math.PI / 180);
   const cdf = new Float64Array(nn);
@@ -218,13 +244,23 @@ function buildPattern(id, diameterUm, index, lambdaNm) {
   const half = cdf[(nn - 1) / 2];
   const out = {
     id, diameterUm: particle.diameterUm, lambdaNm, sizeParameter,
-    thetaDeg, pattern, cdf, crossSection,
+    thetaDeg, pattern, cdf, crossSection, perpendicular, parallel, polarization,
     medianTurnDeg: at(0.5), forwardShare: half,
     turnAt: at,
   };
   if (patternCache.size > 4000) patternCache.clear();
   patternCache.set(key, out);
   return out;
+}
+
+/**
+ * How strongly an air molecule scatters at a wavelength, relative to 550 nm,
+ * for an exponent n: the measured law of real air (Bodhaine et al. 1999) with
+ * its ideal 1/lambda^4 part replaced by 1/lambda^n - exactly what the
+ * atmosphere does with its exponent slider, so n = 4 is real air.
+ */
+export function moleculeCrossSection(lambdaNm, exponent = 4) {
+  return (bodhaineAirShape(lambdaNm) / bodhaineAirShape(550)) * Math.pow(550 / lambdaNm, exponent - 4);
 }
 
 /** A turn drawn from the particle's pattern: degrees, with a random side. */

@@ -871,3 +871,8 @@ body[data-level="basic"] .explain-column.is-why { opacity: 0.78; }
   flex: 1;
   min-height: 0;
 }
+
+/* The how-a-spectrum-becomes-a-colour note, and the model's limits under the explanation. */
+.note-details { margin-top: 8px; }
+.note-details summary { cursor: pointer; font-size: 11.5px; color: var(--accent); }
+.explain-limits { grid-column: 1 / -1; margin: 6px 0 0; font-size: 11px; color: var(--text-faint); }

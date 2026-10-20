@@ -1,6 +1,6 @@
 {
   "id": "coloured-sun",
-  "order": 3,
+  "order": 6,
   "icon": "sun",
   "title": { "cs": "Může být polední Slunce zelené nebo červené?", "en": "Can the midday Sun be green or red?" },
   "summary": {

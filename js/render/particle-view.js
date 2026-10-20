@@ -8,7 +8,7 @@
  */
 
 import { RAY_BANDS } from '../physics/spectrum.js';
-import { dropletPattern, sizeRegime } from '../physics/mie.js';
+import { dropletPattern, sizeRegime, moleculeCrossSection, MOLECULE_LIMIT_UM } from '../physics/mie.js';
 import { drawKindTag, drawToScale } from './particle-strips.js';
 
 /** Decades shown on the logarithmic radial scale. */
@@ -39,18 +39,18 @@ function radiusOf(value, log) {
   return Math.max(0, (Math.log10(value) + LOG_DECADES) / LOG_DECADES);
 }
 
-function lobe(ctx, pattern, cx, cy, R, log) {
+function lobe(ctx, pattern, cx, cy, R, log, key = 'pattern') {
   const n = pattern.thetaDeg.length;
   ctx.beginPath();
   for (let j = 0; j < n; j++) {
     const th = pattern.thetaDeg[j] * Math.PI / 180;
-    const r = R * radiusOf(pattern.pattern[j], log);
+    const r = R * radiusOf(pattern[key][j], log);
     const x = cx + r * Math.cos(th), y = cy - r * Math.sin(th);
     if (j) ctx.lineTo(x, y); else ctx.moveTo(x, y);
   }
   for (let j = n - 1; j >= 0; j--) {
     const th = pattern.thetaDeg[j] * Math.PI / 180;
-    const r = R * radiusOf(pattern.pattern[j], log);
+    const r = R * radiusOf(pattern[key][j], log);
     ctx.lineTo(cx + r * Math.cos(th), cy + r * Math.sin(th));
   }
   ctx.closePath();
@@ -72,6 +72,9 @@ function lobe(ctx, pattern, cx, cy, R, log) {
  */
 export function drawParticleView(ctx, o) {
   const { w, h, t, lang, diameterUm, band, log } = o;
+  const exponent = o.exponent ?? 4;
+  const polar = !!o.polar;
+  const molecule = diameterUm < MOLECULE_LIMIT_UM;
   const contrast = particleContrast(band);
   const chosen = dropletPattern(diameterUm, RAY_BANDS[band].centreNm);
   const other = dropletPattern(diameterUm, RAY_BANDS[contrast].centreNm);
@@ -188,17 +191,30 @@ export function drawParticleView(ctx, o) {
   ctx.strokeStyle = RAY_BANDS[band].css;
   ctx.lineWidth = 2;
   ctx.stroke();
-  lobe(ctx, other, gcx, gcy, R, log);
-  ctx.setLineDash([5, 3]);
-  ctx.strokeStyle = RAY_BANDS[contrast].css;
-  ctx.lineWidth = 1.6;
-  ctx.stroke();
-  ctx.setLineDash([]);
+  if (polar) {
+    // The two polarisations, whose sum is the graph: across the scattering
+    // plane (solid) and in it (dotted).
+    lobe(ctx, chosen, gcx, gcy, R, log, 'perpendicular');
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.4;
+    ctx.stroke();
+    lobe(ctx, chosen, gcx, gcy, R, log, 'parallel');
+    ctx.setLineDash([2, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  } else {
+    lobe(ctx, other, gcx, gcy, R, log);
+    ctx.setLineDash([5, 3]);
+    ctx.strokeStyle = RAY_BANDS[contrast].css;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   ctx.font = '9.5px system-ui, sans-serif';
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
-  boxNote(ctx, t(log ? 'beam.particle.graphNoteLog' : 'beam.particle.graphNote'), graph);
+  boxNote(ctx, t(polar ? 'beam.particle.polarNote' : log ? 'beam.particle.graphNoteLog' : 'beam.particle.graphNote'), graph);
   drawKindTag(ctx, graph, 'graph', t);
 
   // Row 2: by colour band, the target and the typical turn - graphs too.
@@ -206,17 +222,24 @@ export function drawParticleView(ctx, o) {
   const row2H = h - legendH - row2Y;
   const half = (innerW - gap) / 2;
   const patterns = RAY_BANDS.map((b) => dropletPattern(diameterUm, b.centreNm));
-  const maxC = Math.max(...patterns.map((p) => p.crossSection));
-  const ratio = patterns[band].crossSection / patterns[contrast].crossSection;
+  // A molecule's target follows 1/lambda^n with the slider's n; its directions do not.
+  const targets = RAY_BANDS.map((b, k) => (molecule ? moleculeCrossSection(b.centreNm, exponent) : patterns[k].crossSection));
+  const maxC = Math.max(...targets);
+  const ratio = targets[band] / targets[contrast];
   const targetBox = { x: 14, y: row2Y, w: half, h: row2H };
   const turnBox = { x: 14 + half + gap, y: row2Y, w: half, h: row2H };
   bars(ctx, targetBox,
     t('beam.particle.targetTitle'),
-    t('beam.particle.targetNote', {
+    t(molecule ? 'beam.particle.targetNoteMolecule' : 'beam.particle.targetNote', {
       nm: Math.round(RAY_BANDS[band].centreNm), nmC: Math.round(RAY_BANDS[contrast].centreNm), ratio: viewNumber(ratio, ratio < 10 ? 2 : 1, lang),
+      n: viewNumber(exponent, 1, lang),
     }),
-    patterns.map((p) => p.crossSection / maxC), () => '', band);
+    targets.map((v) => v / maxC), () => '', band);
   drawKindTag(ctx, targetBox, 'graph', t);
+  if (polar) {
+    polarizationChart(ctx, turnBox, [[chosen, band], [other, contrast]], t, lang);
+    drawKindTag(ctx, turnBox, 'graph', t);
+  } else {
   const maxTurn = Math.max(90, ...patterns.map((p) => p.medianTurnDeg));
   bars(ctx, turnBox,
     t('beam.particle.turnTitle'),
@@ -227,6 +250,7 @@ export function drawParticleView(ctx, o) {
       return `${viewNumber(v, v < 10 ? 1 : 0, lang)}°`;
     }, band);
   drawKindTag(ctx, turnBox, 'graph', t);
+  }
 
   // What each kind of picture means.
   ctx.font = '10px system-ui, sans-serif';
@@ -255,6 +279,50 @@ function boxNote(ctx, text, box) {
   if (line) lines.push(line);
   lines.forEach((l, k) => ctx.fillText(l, box.x + 5, box.y + box.h - 4 - (lines.length - 1 - k) * 11));
   ctx.restore();
+}
+
+/**
+ * Degree of polarisation against the scattering angle, for two colours: the
+ * share of the scattered light polarised across the scattering plane minus
+ * the share polarised in it. Negative values mean polarised in the plane.
+ */
+function polarizationChart(ctx, box, curves, t, lang) {
+  ctx.fillStyle = 'rgba(8,11,20,0.95)';
+  ctx.fillRect(box.x, box.y, box.w, box.h);
+  ctx.strokeStyle = 'rgba(120,150,200,0.3)';
+  ctx.strokeRect(box.x + 0.5, box.y + 0.5, box.w - 1, box.h - 1);
+  ctx.font = 'bold 10.5px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  ctx.fillText(t('beam.particle.polarTitle'), box.x + 8, box.y + 6);
+  const [first] = curves;
+  const p90 = first[0].polarization[(first[0].thetaDeg.length - 1) / 2];
+  ctx.font = '9.5px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.fillText(t('beam.particle.polarNoteChart', { p: Math.round(p90 * 100) }), box.x + 8, box.y + 21);
+  const area = { x: box.x + 38, y: box.y + 40, w: box.w - 50, h: box.h - 62 };
+  const X = (deg) => area.x + (deg / 180) * area.w;
+  const Y = (v) => area.y + (1 - (v + 1) / 2) * area.h;
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  for (const v of [-1, 0, 1]) { ctx.beginPath(); ctx.moveTo(area.x, Y(v)); ctx.lineTo(area.x + area.w, Y(v)); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const v of [-1, 0, 1]) ctx.fillText(`${Math.round(v * 100)} %`, area.x - 4, Y(v));
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  for (const deg of [0, 45, 90, 135, 180]) ctx.fillText(`${deg}°`, X(deg), area.y + area.h + 3);
+  curves.forEach(([pattern, band], k) => {
+    ctx.strokeStyle = RAY_BANDS[band].css;
+    ctx.lineWidth = k ? 1.4 : 2;
+    ctx.setLineDash(k ? [5, 3] : []);
+    ctx.beginPath();
+    pattern.thetaDeg.forEach((deg, j) => (j ? ctx.lineTo(X(deg), Y(pattern.polarization[j])) : ctx.moveTo(X(deg), Y(pattern.polarization[j]))));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  });
+  ctx.textAlign = 'left';
 }
 
 function boxTitle(ctx, box, text) {

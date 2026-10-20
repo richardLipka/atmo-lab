@@ -77,7 +77,19 @@ async function start() {
     document.getElementById('explain-panel'), { i18n, store });
   const experiments = createExperiments(
     document.getElementById('experiment-panel'),
-    { i18n, store, config, onHighlight: (id) => id && controls.highlight(id) });
+    {
+      i18n, store, config, onHighlight: (id) => id && controls.highlight(id),
+      // A guide step in the Single beam tab sets that tab's pictures and shows it.
+      onTab: (tab, beam) => {
+        if (tab === 'beam' && beam) {
+          Object.assign(beamState, beam);
+          switchView('beam');   // redraws the picture and the readouts with these settings
+          beamUI?.renderLeft();
+        } else if (tab !== activeView) {
+          switchView(tab);
+        }
+      },
+    });
 
   /* ---- Single Beam Chamber View (Tab 1) ---- */
   let activeView = 'beam';
@@ -115,9 +127,8 @@ async function start() {
     // under the beam they described a different picture.
     const explainPanel = document.getElementById('explain-panel');
     if (explainPanel) explainPanel.hidden = isBeam;
-    const experimentPanel = document.getElementById('experiment-panel');
-    if (experimentPanel && isBeam) experimentPanel.hidden = true;
-    if (!isBeam) experiments.render();
+    // The guide bar stays with a guide in either tab.
+    experiments.render();
 
     if (isBeam && beamCanvas && beamUI) {
       beamCanvas.update(beamState);
@@ -419,7 +430,6 @@ async function start() {
   experimentSelect.addEventListener('change', () => {
     const value = experimentSelect.value;
     if (value) {
-      switchView('scattering');
       experiments.start(value);
     } else {
       experiments.exit();

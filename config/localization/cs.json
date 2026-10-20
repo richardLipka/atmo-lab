@@ -49,7 +49,7 @@
       "aerosolNative": "Podle zvoleného světa",
       "aerosolTypeHelp": "Nahradí částice ve vzduchu jiným druhem (smog, pouštní prach, sopečný popel) se stejným plynem. Hodnoty odpovídají typům aerosolu z databáze OPAC.",
       "exponent": "Exponent vlnové délky n",
-      "exponentHelp": "Rozptyl na molekulách je úměrný 1/λⁿ. Hodnota n = 4 odpovídá skutečnému vzduchu. Při n = 0 rozptylují molekuly všechny barvy stejně a obloha ztratí barvu.",
+      "exponentHelp": "Rozptyl na molekulách je úměrný 1/λⁿ. Hodnota 4 plyne z teorie: kmitající elektrony v molekule vyzařují výkon úměrný čtvrté mocnině frekvence (Rayleigh, 1871). Měření skutečného vzduchu dávají o málo víc, asi 4,09, protože index lomu vzduchu k modré mírně roste (Bodhaine a kol. 1999). Simulace tuto opravu počítá vždy, takže n = 4 je skutečný vzduch. Jiné hodnoty jsou myšlenkový pokus: při n = 0 rozptylují molekuly všechny barvy stejně a obloha ztratí barvu.",
       "surfacePressure": "Tlak u povrchu",
       "composition": "Složení",
       "presetHelp": "Vybere planetu nebo měsíc s jeho atmosférou. Hustotu, aerosol a exponent vrátí na hodnoty daného světa."
@@ -184,7 +184,10 @@
     "starVisible": "Nepřezáří ji ani obloha za ní, ani osvětlené okolí, takže je vidět.",
     "starBorderline": "Je na hranici viditelnosti: najde ji jen zkušený pozorovatel, který ví, kam se dívat.",
     "starLost": "Obloha za ní je mnohem jasnější, takže hvězda v ní zanikne.",
-    "starGlare": "Obloha za ní ji nezakryje, ale osvětlený povrch kolem tebe je jasnější: oko přivyklé jeho jasu a jasu Slunce ji nezachytí. Ze stínu, odkud osvětlený povrch ani Slunce nevidíš, by byla vidět."
+    "starGlare": "Obloha za ní ji nezakryje, ale osvětlený povrch kolem tebe je jasnější: oko přivyklé jeho jasu a jasu Slunce ji nezachytí. Ze stínu, odkud osvětlený povrch ani Slunce nevidíš, by byla vidět.",
+    "howTitle": "Jak se ze spektra stane barva",
+    "howEye": "Oko nerozezná jednotlivé vlnové délky. Má tři druhy čípků, citlivé hlavně na krátké, střední a dlouhé vlnové délky, a barvu určuje, jak silně světlo podráždí každý z nich. Simulace počítá barvu stejně, podle křivek citlivosti oka (CIE 1931).",
+    "howSky": "Proto má barva jiný „vrchol“ než spektrum: spektrum oblohy je nejvyšší ve fialové, ale fialové světlo dráždí čípky slabě a směs krátkých vlnových délek vidíme jako modrou. A proto může Slunce vypadat tmavě: políčko „Hvězda, jak ji vidíš“ ukazuje skutečný jas, takže zeslabené Slunce je tmavé, i když si svůj odstín drží."
   },
   "data": {
     "title": "Fyzikální veličiny",
@@ -290,7 +293,8 @@
         "see": "Slunce je i vysoko na obloze oranžové a slabší. Jeho světlo jde stejně dlouhou cestou jako obvykle, ale potká na ní mnohem víc molekul plynu.",
         "why": "Podél cesty je optická tloušťka τ = {tau450} při 450 nm, ale jen {tau650} při 650 nm, takže podle T = e^(−τ) modrá ubývá mnohem rychleji než červená. Barvu změnilo množství plynu, ne jiný druh rozptylu: molekuly pořád rozptylují podle 1/λ⁴. Všechny barvy přitom letí stejnou cestou; liší se jen tím, kolik z nich cestou ubude."
       }
-    }
+    },
+    "limits": "Hranice modelu: každý paprsek se tu rozptýlí nejvýš jednou. Pro jasnou oblohu to stačí; v mracích, mlze a za soumraku se světlo rozptýlí mnohokrát a skutečnost je jasnější a bělejší."
   },
   "experiment": {
     "step": "Krok {n} z {total}",
@@ -307,7 +311,9 @@
     "on": "zapnuto",
     "off": "vypnuto",
     "auto": "automaticky",
-    "sources": "Zdroje"
+    "sources": "Zdroje",
+    "toBeamTab": "Přepnuto na záložku Jeden paprsek",
+    "toScatteringTab": "Přepnuto na záložku Rozptyl světla"
   },
   "units": {
     "km": "km",
@@ -391,10 +397,6 @@
     },
     "controls": {
       "viewTitle": "Pohled",
-      "viewMacro": "3. Složený paprsek atmosférou",
-      "viewMicro": "2. Mnoho paprsků: srážky zblízka",
-      "viewMacroHelp": "Celá cesta slunečního paprsku všech barev od horní hranice atmosféry (100 km) k pozorovateli na zemi: kolik světla každé barvy se ztratí a kde. Pak záložka Rozptyl světla: celá obloha.",
-      "viewMicroHelp": "Zvětšený kousek vzduchu, který zastupuje celou cestu paprsku: z každé barvy jím bez srážky projde stejný podíl, jaký dorazí k pozorovateli (praporek D v obrázku 3). Terč částice ukazuje, jak pravděpodobná je srážka; pro modrou jsou terče molekul větší.",
       "bundle": "Všechny paprsky",
       "single": "Jen vybraný paprsek",
       "singleHelp": "Jen vybraný paprsek; čárkované kroužky ukazují, jak velký terč má každá částice pro jeho barvu. Paprsek vybereš v panelu vpravo.",
@@ -413,10 +415,22 @@
       "aerosol": "Množství aerosolu",
       "aerosolHelp": "Násobí množství prachu a kapiček zvoleného druhu.",
       "exponent": "Exponent vlnové délky n",
-      "exponentHelp": "Rozptyl na molekulách je úměrný 1/λⁿ; n = 4 odpovídá skutečnému vzduchu. Při n = 0 molekuly rozptylují všechny barvy stejně.",
+      "exponentHelp": "Rozptyl na molekulách je úměrný 1/λⁿ. Hodnota 4 plyne z teorie: kmitající elektrony v molekule vyzařují výkon úměrný čtvrté mocnině frekvence (Rayleigh, 1871). Měření skutečného vzduchu dávají o málo víc, asi 4,09, protože index lomu vzduchu k modré mírně roste (Bodhaine a kol. 1999). Simulace tuto opravu počítá vždy, takže n = 4 je skutečný vzduch. Jiné hodnoty jsou myšlenkový pokus: při n = 0 rozptylují molekuly všechny barvy stejně a obloha ztratí barvu.",
       "bundleHelp": "Každá barva vyšle stejný počet paprsků ve stejných výškách. Kliknutím na paprsek ho vybereš; panel vpravo popíše každou jeho srážku.",
-      "viewParticle": "1. Jeden paprsek, jedna částice",
-      "viewParticleHelp": "Jeden paprsek světla potká jednu částici libovolné velikosti, od molekuly vzduchu po kapku mraku: kam odchází rozptýlené světlo a jak často se jednotlivé barvy vůbec rozptýlí. Pak obrázek 2: mnoho paprsků v kousku vzduchu."
+      "view": {
+        "particle": "1. Jeden paprsek, jedna částice",
+        "crowd": "2. Mnoho molekul: proč vzduch rozptyluje",
+        "micro": "3. Mnoho paprsků: srážky zblízka",
+        "macro": "4. Složený paprsek atmosférou",
+        "sightline": "5. Jeden směr oblohy"
+      },
+      "viewHelp": {
+        "particle": "Jeden paprsek světla potká jednu částici, od molekuly vzduchu po kapku mraku: kam rozptýlené světlo odchází a jak často se která barva rozptýlí. Pak obrázek 2: mnoho molekul spolu.",
+        "crowd": "Stejný počet molekul rozmístěných pravidelně (jako ve skle) a náhodně (jako ve vzduchu). Sečteme vlny, které posílají do strany: proč vzduch rozptyluje a sklo skoro ne. Pak obrázek 3: paprsky v kousku vzduchu.",
+        "micro": "Zvětšený kousek vzduchu, který zastupuje celou cestu paprsku: z každé barvy jím bez srážky projde stejný podíl, jaký dorazí k pozorovateli (praporek D v obrázku 4). Terč částice ukazuje, jak pravděpodobná je srážka; pro modrou jsou terče molekul větší.",
+        "macro": "Celá cesta slunečního paprsku všech barev od horní hranice atmosféry (100 km) k pozorovateli: kolik světla každé barvy se ztratí a kde. Pak obrázek 5: jeden směr oblohy.",
+        "sightline": "Díváš se jedním směrem na oblohu. Každý kousek vzduchu na tvé linii pohledu je osvětlený Sluncem a část světla pošle k tobě; jejich součet je barva oblohy v tom směru. Směr měníš i tažením myší v obrázku. Pak záložka Rozptyl světla: celá obloha."
+      }
     },
     "panel": {
       "arrivesTitle": "Co dorazí k pozorovateli",
@@ -439,7 +453,7 @@
       "refractionTitle": "Lom a disperze",
       "refractionText": "Lom zvedá Slunce o {arcmin}′. Modrý obraz je přitom o {arcsec}″ výš než červený, protože index lomu vzduchu je pro modrou asi o 1,5 % větší. Pro srovnání: Slunce má průměr asi 32′.",
       "sources": "Zdroje:",
-      "toScattering": "Dál: 4. Celá atmosféra, Rozptyl světla →",
+      "toScattering": "Dál: 6. Celá obloha, záložka Rozptyl světla →",
       "principlesTitle": "Co vzduch dělá se světlem",
       "principles": {
         "samePath": {
@@ -467,13 +481,19 @@
           "text": "Vzduch světlo také láme, modré asi o 1,5 % víc než červené. U obzoru tak zvedá Slunce asi o půl stupně a dává mu barevné okraje a zelený záblesk. Červenou barvu zapadajícího Slunce nezpůsobuje: tu dělá rozptyl."
         },
         "views": {
-          "lead": "Čtyři obrázky.",
-          "text": "Čtyři obrázky od malého k velkému. 1: jeden paprsek a jedna částice, jejíž velikost rozhoduje, kam světlo odejde. 2: mnoho paprsků v kousku vzduchu: paprsek, který na nic nenarazí, zůstane ve slunečním svazku, rozptýlený se stane světlem oblohy, pohlcený zanikne. 3: složený paprsek všech barev po celé cestě a kolik které barvy kde ubude. 4 (záložka Rozptyl světla): celá obloha, kterou toto rozptýlené světlo tvoří."
+          "lead": "Šest obrázků.",
+          "text": "Šest obrázků od malého k velkému. 1: jedna částice a kam rozptýlí světlo. 2: mnoho molekul spolu a proč vzduch rozptyluje, ale sklo ne. 3: paprsky v kousku vzduchu: kdo na nic nenarazí, zůstane ve slunečním svazku, rozptýlený se stane světlem oblohy. 4: složený paprsek po celé cestě. 5: jeden směr oblohy a odkud jeho světlo přichází. 6 (záložka Rozptyl světla): celá obloha."
+        },
+        "limits": {
+          "lead": "Co simulace nepočítá.",
+          "text": "Každý paprsek se tu rozptýlí jen jednou (v obrázku 3 nejvýš několikrát). Pro jasnou oblohu to stačí. V mracích, mlze a za soumraku se světlo rozptýlí mnohokrát a skutečnost je jasnější a bělejší, než ukazuje model."
         }
       },
       "next": {
-        "micro": "Dál: 2. Mnoho paprsků, srážky zblízka →",
-        "macro": "Dál: 3. Složený paprsek atmosférou →"
+        "crowd": "Dál: 2. Mnoho molekul →",
+        "micro": "Dál: 3. Srážky zblízka →",
+        "macro": "Dál: 4. Složený paprsek atmosférou →",
+        "sightline": "Dál: 5. Jeden směr oblohy →"
       }
     },
     "sources": {
@@ -607,13 +627,13 @@
       },
       "tableNote": "Parametr velikosti porovnává částici s vlnovou délkou. Na něm, ne na samotné velikosti, závisí, kam světlo odchází a jak často se rozptýlí.",
       "explain": {
-        "small": "Částice ({d}) je tak malá, že všechny její části kmitají současně a jejich vlny se sečtou v každém směru. Světlo odchází dopředu i dozadu a tvar je pro všechny barvy stejný: typické stočení je {mS}° pro {nmS} nm i {mL}° pro {nmL} nm. Barva mění jen to, jak často k rozptylu dojde, a to jako 1/λ⁴: terč je pro {nmS} nm {ratio}× větší. Takhle molekuly vzduchu barví oblohu do modra.",
+        "small": "Částice ({d}) je tak malá, že všechny její části kmitají současně a jejich vlny se sečtou v každém směru. Světlo odchází dopředu i dozadu a tvar je pro všechny barvy stejný: typické stočení je {mS}° pro {nmS} nm i {mL}° pro {nmL} nm. Barva mění jen to, jak často k rozptylu dojde, a to jako {law}: terč je pro {nmS} nm {ratio}× větší. {closing}",
         "comparable": "Částice ({d}) je velká zhruba jako vlnová délka. Vlny z její přední a zadní části se do stran a dozadu ruší a sečtou se dopředu: dopředu jde {fS} světla {nmS} nm a {fL} světla {nmL} nm. Pro kratší vlnovou délku je částice „větší“, a proto světlo stočí méně: typicky o {mS}° proti {mL}°. Terč na barvě ještě závisí, ale mnohem méně než u molekuly ({ratio}×). Takový je opar a kouř: bělavá obloha a jasná záře kolem Slunce.",
         "large": "Částice ({d}) je mnohokrát větší než vlnová délka. Mimo úzký kužel dopředu se vlny ruší: světlo se stočí jen asi o {mS}° ({nmS} nm) či {mL}° ({nmL} nm) a terč je pro všechny barvy prakticky stejný ({ratio}×). Všechny barvy se rozptylují stejně, proto jsou mraky a mlha bílé."
       },
       "tryTitle": "Vyzkoušej",
       "try": {
-        "one": "Posuň velikost od molekuly ke kapce mraku a sleduj tvar: z „dopředu i dozadu“ se stane úzký kužel dopředu.",
+        "one": "Začni u molekuly a posuň exponent n z 4 na 0: sloupce terče se srovnají, šipky ani graf jasu se nezmění. Pak vrať n = 4 a posuň velikost ke kapce mraku: tvar se stočí do úzkého kužele dopředu.",
         "two": "Sleduj sloupce terče: u molekuly prudce klesají (modrá daleko před červenou), pak se srovnávají a u kapky mraku jsou stejné.",
         "three": "Kolem 0,3–1 µm se plný a čárkovaný tvar liší nejvíc: tady barva mění nejen to, jak často se světlo rozptýlí, ale i kam odejde."
       },
@@ -626,14 +646,122 @@
       "graphNote": "Nejsilnější směr sahá k vnější kružnici. Není to tvar částice.",
       "graphNoteLog": "Každá kružnice: desetkrát méně světla. Není to tvar částice.",
       "kindsLegend": "V měřítku: skutečná velikost proti vlně · Paprsky: kudy světlo letí · Grafy: kolik světla, {nm} nm plně, {nmC} nm čárkovaně.",
-      "angleNote": "Proč se šipky (2) a graf (3) liší: graf ukazuje jas v jednom směru, šipky skutečné úhly, o které se světlo stočí. Stočení o 90° může mířit kamkoli po celém kruhu směrů kolem paprsku, stočení o 0° jen jedním směrem. Proto se u molekuly šipky hromadí kolem 90°, i když její graf je nejjasnější dopředu a dozadu."
+      "angleNote": "Proč se šipky (2) a graf (3) liší: graf ukazuje jas v jednom směru, šipky skutečné úhly, o které se světlo stočí. Stočení o 90° může mířit kamkoli po celém kruhu směrů kolem paprsku, stočení o 0° jen jedním směrem. Proto se u molekuly šipky hromadí kolem 90°, i když její graf je nejjasnější dopředu a dozadu.",
+      "exponentHelp": "Jak silně rozptyl molekuly závisí na barvě: 1/λⁿ. Skutečný vzduch má n = 4; jiné hodnoty jsou myšlenkový pokus. Stejné n platí i v dalších obrázcích.",
+      "lawN": "1/λⁿ s n = {n} (myšlenkový pokus; skutečný vzduch má n = 4)",
+      "targetNoteMolecule": "Jak často se světlo vůbec rozptýlí, 1/λⁿ s n = {n}. {nm} nm proti {nmC} nm: {ratio}×.",
+      "exponentTitle": "Proč právě 1/λ⁴: exponent n",
+      "exponentText": {
+        "theory": "Molekula je tisíckrát menší než vlnová délka, takže elektrické pole světla rozkmitá celý její elektronový obal najednou: molekula se stane malým kmitajícím dipólem. Rozkmit je pro všechny viditelné barvy skoro stejný, protože vlastní frekvence molekuly leží v ultrafialové oblasti. Kmitající dipól vyzařuje výkon úměrný čtvrté mocnině frekvence, a frekvence je nepřímo úměrná vlnové délce, takže rozptyl roste jako 1/λ⁴ (Rayleigh, 1871). Exponent 4 je výsledek teorie.",
+        "measured": "Měření skutečného vzduchu dávají o málo víc, asi 4,09: index lomu vzduchu k modré mírně roste a molekuly N₂ a O₂ nejsou kulaté (Bodhaine a kol. 1999). Modrá 450 nm se tak rozptyluje asi 4,5× silněji než červená 650 nm, ne 4,4×. Laboratorní měření rozptylu na jednotlivých plynech s tím souhlasí asi na 1 % (Sneep a Ubachs 2005). Simulace tuto opravu počítá vždy, takže n = 4 je skutečný vzduch.",
+        "slider": "Posuvník n je myšlenkový pokus. Sleduj, co se mění: sloupce terče ano, šipky a graf jasu ne. Exponent určuje, jak často se která barva rozptýlí, ne kam světlo odejde. Při n = 0 by molekuly rozptylovaly všechny barvy stejně a obloha by byla bílá. U větších částic toto číslo (Ångströmův exponent) samo klesá k nule: posuň průměr k oparu."
+      },
+      "exponentSources": {
+        "rayleigh": "Rayleighův rozptyl (Wikipedie)",
+        "bodhaine": "Bodhaine a kol. 1999",
+        "sneep": "Sneep a Ubachs 2005"
+      },
+      "closingBlue": "Takhle molekuly vzduchu barví oblohu do modra.",
+      "closingNotBlue": "S tak slabou závislostí na barvě by obloha modrá nebyla.",
+      "polar": "Ukázat polarizaci",
+      "polarHelp": "Rozloží graf jasu na světlo kmitající kolmo k rovině rozptylu a v ní; místo typického stočení ukáže, jak moc je světlo polarizované.",
+      "polarNote": "Plná bílá: kmit kolmo k rovině rozptylu; tečkovaně: kmit v rovině. Jejich součet je graf.",
+      "polarTitle": "Jak moc je světlo polarizované, podle úhlu",
+      "polarNoteChart": "Při 90° {p} %. Plně zvolená barva, čárkovaně druhá."
     },
     "kinds": {
       "scale": "v měřítku",
       "rays": "paprsky",
       "graph": "graf jasu",
       "sum": "součet vln",
-      "tooSmall": "ve skutečnosti mnohem menší"
+      "tooSmall": "ve skutečnosti mnohem menší",
+      "scheme": "schéma"
+    },
+    "crowd": {
+      "header": "{n} molekul ve čtverci {size} × {size} vlnových délek",
+      "subheader": "Každá molekula pošle malou vlnu. Kruhy sčítají vlny všech molekul do strany a dozadu; číslo říká, kolik světla tam jde, v násobcích jedné molekuly.",
+      "title": {
+        "even": "Pravidelně a natěsno (sklo, voda)",
+        "random": "Náhodně (vzduch)"
+      },
+      "crests": "čáry: hřebeny vlny, jedna vlnová délka od sebe",
+      "dir": {
+        "side": "do strany 90°",
+        "back": "dozadu 180°"
+      },
+      "forward": "Dopředu jsou všechny vlny ve fázi: světlo pokračuje dál.",
+      "chartTitle": "Světlo rozptýlené do strany, v násobcích jedné molekuly",
+      "rowEven": "pravidelně",
+      "rowRandom": "náhodně, toto rozmístění",
+      "rowAverage": "náhodně, průměr {m} rozmístění",
+      "controlsTitle": "Molekuly",
+      "count": "Počet molekul",
+      "countHelp": "Větší čtverec, víc molekul (4 na vlnovou délku v každém směru).",
+      "reshuffle": "Jiné náhodné rozmístění",
+      "reshuffleHelp": "Každé náhodné rozmístění dá jiné číslo, v průměru ale vždy asi N.",
+      "panelTitle": "Proč vzduch rozptyluje a sklo skoro ne",
+      "text": {
+        "even": "Pravidelně: ke každé molekule se najde jiná, jejíž vlna dorazí do strany o půl kmitu později. Vlny se po dvojicích zruší, a tak do strany ani dozadu nejde nic. Dopředu jsou všechny vlny ve fázi a světlo pokračuje dál: proto je čisté sklo i voda průhledné.",
+        "random": "Náhodně: vlny do strany mají náhodné fáze a jejich součet je jako náhodná procházka, dlouhý asi √N vln. Jas je druhá mocnina, tedy asi N: každá molekula přidá svůj díl. Proto vzduch rozptyluje tím víc, čím víc je v něm molekul.",
+        "numbers": "Tady: {n} molekul. Do strany jde pravidelně {even}× tolik světla co od jedné molekuly, náhodně {random}× (průměr mnoha rozmístění {average}×, tedy asi N).",
+        "real": "Ve skutečnosti jsou molekuly mnohem blíž u sebe, ve skle asi 1500 na jednu vlnovou délku, a ve skle ani ve vodě nesedí dokonale pravidelně. Proto také trochu rozptylují, ale na jednu molekulu několikrát méně než plyn. Obrázek je schéma, ne měřítko."
+      }
+    },
+    "sight": {
+      "header": "Díváš se {where} · Slunce {sun}° nad obzorem",
+      "zenith": "přímo vzhůru",
+      "towardsSun": "{deg}° nad obzor směrem ke Slunci",
+      "awayFromSun": "{deg}° nad obzor zády ke Slunci",
+      "subheader": "Sluneční světlo se tu musí stočit o {angle}°, aby k tobě doletělo.",
+      "you": "ty",
+      "scaleTrue": "výšky a vzdálenosti ve stejném měřítku",
+      "scaleStretched": "výšky ×{m}",
+      "legend": "Čáry: sluneční světlo v barvě, kterou na tom místě ještě má · kuličky: kolik světla ten kousek vzduchu pošle k tobě a v jaké barvě.",
+      "colourTitle": "Barva oblohy v tomto směru",
+      "colourHill": "Barva hory i se vzduchem před ní",
+      "brightness": "jas {ratio}× zenit",
+      "polarization": "polarizace {p} %",
+      "chartTitle": "Odkud světlo přichází",
+      "chartAxis": "vzdálenost od tebe: 0 až {km} km",
+      "half": "polovina z prvních {km} km",
+      "spectrumTitle": "Spektrum, které k tobě dorazí",
+      "controlsTitle": "Kam se díváš",
+      "view": "Směr pohledu",
+      "viewHelp": "Záporné hodnoty míří ke Slunci, kladné od něj. Směr nastavíš i tažením myší v obrázku.",
+      "zenithShort": "zenit",
+      "towardsShort": "{deg}° nad obzor, ke Slunci",
+      "awayShort": "{deg}° nad obzor, od Slunce",
+      "quick": {
+        "-85": "obzor pod Sluncem",
+        "-45": "45° ke Slunci",
+        "0": "zenit",
+        "45": "45° od Slunce",
+        "85": "obzor naproti"
+      },
+      "hill": "Hora na obzoru",
+      "hillHelp": "Díváš se skoro vodorovně na tmavou zalesněnou horu ve zvolené vzdálenosti. Vzduch před ní přidá vlastní světlo.",
+      "panelTitle": "Jak vzniká barva oblohy v jednom směru",
+      "text": {
+        "sum": "Každý kousek vzduchu na tvé linii pohledu je osvětlený Sluncem a malou část světla rozptýlí k tobě. Cestou k tobě se z ní zase něco ztratí. Barva oblohy v tomto směru je součet všech těchto příspěvků.",
+        "numbers": "Tady: polovina světla přichází z prvních {half} km, světlo se stáčí o {angle}°, obloha je {ratio}× tak jasná jako zenit a světlo je polarizované asi z {p} %.",
+        "horizon": "U obzoru je před tebou mnohem víc vzduchu, proto je tam obloha jasnější. Je ale bledší: modré světlo ze vzdálených kousků vzduchu se cestou k tobě znovu rozptýlí pryč, kdežto červené většinou projde, a barvy se vyrovnají.",
+        "nearSun": "Blízko Slunce je obloha bělejší a jasnější: kapičky a prach rozptylují hlavně dopředu a všechny barvy podobně.",
+        "lowSun": "Když je Slunce nízko, dorazí ke vzduchu před tebou už jen žlutavé až červené světlo. Proto je obloha kolem zapadajícího Slunce oranžová, zatímco vysoko nad hlavou zůstává modrá.",
+        "hill": "Mezi tebou a horou je vzduch, který také posílá k tobě modré světlo, a světlo hory cestou slábne. Čím je hora dál, tím víc jejího obrazu tvoří světlo vzduchu: nejdřív zmodrá, ve velké dálce zbledne skoro do barvy oblohy.",
+        "limits": "Počítá se jen jeden rozptyl. Pro jasnou oblohu to stačí; u obzoru a za soumraku přidává skutečná obloha ještě světlo rozptýlené víckrát."
+      }
+    },
+    "polar": {
+      "title": "Polarizace rozptýleného světla",
+      "what": "Světlo je vlnění, jehož elektrické pole kmitá napříč směrem letu. Molekula vyzařuje nejvíc kolmo ke směru, kterým kmitá, a ve směru kmitu nic. Proto světlo rozptýlené o 90° kmitá jen jedním směrem: je polarizované. Zapni Ukázat polarizaci: graf se rozloží na kruh (kmit kolmo k rovině rozptylu) a osmičku (kmit v rovině); jejich součet je tvar 1 + cos²θ.",
+      "sky": "Na obloze je proto nejvíc polarizované světlo 90° od Slunce: podle teorie až asi 95 %, ve skutečnosti kolem 75 %, protože se část světla rozptýlí víckrát a přidá se světlo od země a z oparu. Opar a mraky polarizují málo: kapky různých velikostí polarizují každá jinak a v mraku se světlo rozptýlí mnohokrát.",
+      "home": "Vyzkoušej: dívej se na modrou oblohu 90° od Slunce přes polarizační sluneční brýle a otáčej jimi. Obloha bude střídavě tmavnout a světlat. Podle polarizace oblohy se orientují i včely."
+    },
+    "distance": {
+      "title": "Jak daleko světlo doletí",
+      "text": "U země uletí světlo v průměru, než narazí na molekulu: asi {mblue} km modré (450 nm), {mgreen} km zelené a {mred} km červené. S oparem v tomto vzduchu jen {blue}, {green} a {red} km.",
+      "why": "Molekul je přitom obrovské množství, asi {count} v každém krychlovém metru. Každá je ale nepatrný terč, asi {sigma} m² pro zelené světlo. Proto vzduch v místnosti vypadá průhledně a modrou barvu má až vrstva dlouhá kilometry.",
+      "hills": "Proto jsou vzdálené kopce namodralé a bledé: vzduch před nimi přidá vlastní světlo. Vyzkoušej to v obrázku 5 s horou na obzoru."
     }
   }
 }

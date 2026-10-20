@@ -1,0 +1,111 @@
+{
+  "id": "eye-colour",
+  "order": 9,
+  "icon": "eye",
+  "title": {
+    "cs": "Jak oko vidí barvu oblohy?",
+    "en": "How does the eye see the colour of the sky?"
+  },
+  "summary": {
+    "cs": "Spektrum oblohy je nejvyšší ve fialové, a přesto ji vidíme modrou. Ukážeme, jak oko ze spektra udělá barvu a proč může Slunce vypadat tmavé, i když si drží odstín.",
+    "en": "The sky’s spectrum is highest in the violet, yet we see it blue. We show how the eye makes a colour out of a spectrum, and why the Sun can look dark although it keeps its hue."
+  },
+  "goal": {
+    "cs": "Vysvětlit, že barvu určuje, jak světlo podráždí tři druhy čípků, ne vlnová délka s nejvyšší hodnotou, a odlišit odstín od jasu.",
+    "en": "Explain that colour is set by how light stimulates three kinds of cones, not by the wavelength where the spectrum is highest, and tell hue apart from brightness."
+  },
+  "steps": [
+    {
+      "title": {
+        "cs": "Spektrum a barva",
+        "en": "Spectrum and colour"
+      },
+      "text": {
+        "cs": "Záložka Rozptyl světla, Slunce 60° nad obzorem, pohled do zenitu. V grafu Spektrum sleduj křivku Rozptýlené světlo (obloha).",
+        "en": "Light scattering tab, the Sun 60° above the horizon, looking at the zenith. In the Spectrum chart, follow the curve Scattered light (the sky)."
+      },
+      "observe": {
+        "cs": "Křivka je nejvyšší u nejkratších vlnových délek, ve fialové. Pole Co vidíš je přesto modré.",
+        "en": "The curve is highest at the shortest wavelengths, in the violet. Yet the What you see box is blue."
+      },
+      "state": {
+        "star": {
+          "presetId": "sun-5800k",
+          "temperatureK": 5800,
+          "elevationDeg": 60
+        },
+        "atmosphere": {
+          "presetId": "earth"
+        },
+        "observer": {
+          "z": 0,
+          "viewZenithDeg": 0
+        }
+      }
+    },
+    {
+      "title": {
+        "cs": "Tři druhy čípků",
+        "en": "Three kinds of cones"
+      },
+      "text": {
+        "cs": "Oko nerozezná jednotlivé vlnové délky. Má tři druhy čípků, citlivé hlavně na krátké, střední a dlouhé vlnové délky. Barvu určuje, jak silně světlo podráždí každý z nich. Podrobněji: panel Vnímaná barva, Jak se ze spektra stane barva.",
+        "en": "The eye cannot tell single wavelengths apart. It has three kinds of cones, sensitive mainly to short, medium and long wavelengths. The colour is set by how strongly the light stimulates each of them. More: the Perceived colour panel, How a spectrum becomes a colour."
+      },
+      "observe": {
+        "cs": "Fialové světlo dráždí čípky slabě, a Slunce ho navíc vyzařuje méně než modrého. Směs krátkých vlnových délek s trochou ostatních proto vidíme jako modrou. Simulace počítá barvu stejně, podle křivek citlivosti oka CIE 1931.",
+        "en": "Violet light stimulates the cones weakly, and the Sun also emits less of it than blue. So a mixture of short wavelengths with a little of the rest looks blue. The simulation works out colour the same way, from the CIE 1931 sensitivity curves."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "Čípky a barevné vidění (Wikipedie, Cone cell)",
+            "en": "Cones and colour vision (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Cone_cell"
+        },
+        {
+          "label": {
+            "cs": "Barevný prostor CIE 1931 (Wikipedie)",
+            "en": "The CIE 1931 colour space (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/CIE_1931_color_space"
+        }
+      ]
+    },
+    {
+      "title": {
+        "cs": "Odstín a jas",
+        "en": "Hue and brightness"
+      },
+      "text": {
+        "cs": "Záložka Jeden paprsek, obrázek 4: Slunce 1° nad obzorem. V panelu Co dorazí k pozorovateli porovnej políčka Dorazí (skutečný jas) a Dorazí (jen odstín).",
+        "en": "Single beam tab, picture 4: the Sun 1° above the horizon. In the panel What reaches the observer, compare the boxes Arrives (true brightness) and Arrives (hue only)."
+      },
+      "observe": {
+        "cs": "Dorazí jen asi 0,7 % světla: políčko se skutečným jasem je skoro černé, políčko s odstínem je oranžovočervené. Barva a jas jsou dvě různé věci: Slunce u obzoru je tmavé a oranžové zároveň a oko se tmě částečně přizpůsobí.",
+        "en": "Only about 0.7 % of the light arrives: the true-brightness box is almost black, the hue box orange-red. Colour and brightness are two different things: the Sun on the horizon is dark and orange at once, and the eye partly adapts to the dark."
+      },
+      "tab": "beam",
+      "beam": {
+        "viewType": "macro",
+        "elevationDeg": 1,
+        "densityScale": 1,
+        "aerosolScale": 1,
+        "aerosolPresetId": null,
+        "rayleighExponent": 4
+      }
+    },
+    {
+      "title": {
+        "cs": "Shrnutí: jak to vysvětlit",
+        "en": "Summary: how to explain it"
+      },
+      "text": {
+        "cs": "1) Oko má tři druhy čípků a barvu určuje, jak silně světlo podráždí každý z nich. 2) Proto barva nemusí odpovídat vrcholu spektra: obloha má nejvíc fialové, ale vidíme ji modrou. 3) Odstín a jas jsou dvě různé vlastnosti: zeslabené Slunce u obzoru je tmavé, a přesto oranžové.",
+        "en": "1) The eye has three kinds of cones, and the colour is set by how strongly the light stimulates each. 2) So a colour need not match the peak of the spectrum: the sky has the most violet, but we see it blue. 3) Hue and brightness are two different properties: the dimmed Sun on the horizon is dark and yet orange."
+      },
+      "tab": "beam"
+    }
+  ]
+}

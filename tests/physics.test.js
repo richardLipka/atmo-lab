@@ -20,7 +20,9 @@ import {
   AIR_DISPERSION_FACTOR, ANGSTROM_SPLIT_NM,
 } from '../js/physics/scattering.js';
 import { createAtmosphere, DOBSON_UNIT_PER_M2 } from '../js/physics/atmosphere.js';
-import { guideSituation, DESCRIBED_PATHS } from '../js/ui/experiments.js';
+import { guideSituation, DESCRIBED_PATHS, guideTab, guideBeamSituation, BEAM_DESCRIBED_PATHS } from '../js/ui/experiments.js';
+import { crowdPositions, crowdSum } from '../js/physics/crowd.js';
+import { traceSightline } from '../js/physics/sightline.js';
 import { createSimulation } from '../js/simulation.js';
 import {
   OVERHEAD_STAR, starIlluminanceRelativeToSun, coneSolidAngle,
@@ -52,8 +54,8 @@ import {
   traceBeam, airRefractivity, refractionArcmin, singleColourSpectrum,
   createChamber, traceChamberBundle,
 } from '../js/physics/beam.js';
-import { resolveSelection, chosenScatterEvent, nearMisses } from '../js/render/beam-canvas.js';
-import { mie, particlePattern, dropletPattern, phasorChain, sampleTurnDeg, sizeRegime } from '../js/physics/mie.js';
+import { resolveSelection, chosenScatterEvent, nearMisses, buildBeamModel } from '../js/render/beam-canvas.js';
+import { mie, particlePattern, dropletPattern, phasorChain, sampleTurnDeg, sizeRegime, moleculeCrossSection } from '../js/physics/mie.js';
 
 const INDEX = (nm) => Math.round((nm - SPECTRUM_MIN_NM) / SPECTRUM_STEP_NM);
 
@@ -2172,6 +2174,58 @@ export function registerTests({ group, test, assert }, config) {
       }
     });
 
+    test('guide steps in the Single beam tab set only settings with a named control', () => {
+      const allowed = new Set(BEAM_DESCRIBED_PATHS);
+      for (const [id, guide] of Object.entries(config.experiments)) {
+        for (const [i, step] of guide.steps.entries()) {
+          assert.ok(step.tab === undefined || step.tab === 'beam' || step.tab === 'scattering', `${id} step ${i + 1}: tab`);
+          for (const key of Object.keys(step.beam ?? {})) assert.ok(allowed.has(key), `${id} step ${i + 1} sets beam ${key}`);
+          if (step.beam) assert.equal(guideTab(guide, i), 'beam', `${id} step ${i + 1}: beam settings in the beam tab`);
+        }
+      }
+    });
+
+    test('the new guides quote what the pictures show', () => {
+      const cfg = {
+        atmospheres: asMap(config.atmospheres), stars: asMap(config.stars), scattering: asMap(config.scattering),
+      };
+      const sight = (id, i) => {
+        const beam = guideBeamSituation(config.experiments[id], i);
+        const model = buildBeamModel(beam, { config: cfg, colorimetry });
+        const line = (viewDeg) => traceSightline({
+          atmosphere: model.atmosphere, source: model.source, wavelengths: WAVELENGTHS_NM,
+          sunElevationDeg: beam.elevationDeg, viewDeg, hillKm: beam.sightHillKm,
+        });
+        const r = line(beam.sightViewDeg), z = line(0);
+        const total = r.samples.reduce((a, p) => a + p.total, 0);
+        let run = 0, half = 0;
+        for (const p of r.samples) { run += p.total; if (run >= total / 2) { half = p.t / 1000; break; } }
+        return { r, half, ratio: colorimetry.luminance(r.spectrum) / colorimetry.luminance(z.spectrum), xy: xy(r.spectrum) };
+      };
+      const zen = sight('sky-direction', 0);
+      assert.close(zen.half, 1.6, 0.15);
+      const horizon = sight('sky-direction', 1);
+      assert.close(horizon.half, 20, 0.15); assert.close(horizon.ratio, 1.2, 0.1);
+      assert.close(sight('sky-direction', 2).ratio, 4, 0.1);
+      const sunsetSky = sight('sky-direction', 3);
+      assert.greater(sunsetSky.xy[0], 0.4, 'orange round the setting Sun');
+      const overhead = sight('sky-direction', 4);
+      assert.less(overhead.xy[0], 0.29, 'blue overhead at sunset');
+      assert.close(overhead.r.polarization, 0.86, 0.03);
+      assert.close(sight('polarization', 2).r.polarization, 0.83, 0.03);
+      // Picture 2 in the first guide: 149 and 526 times one molecule.
+      const crowd = (id, i) => {
+        const b = guideBeamSituation(config.experiments[id], i);
+        return crowdSum(crowdPositions('random', b.crowdSize, b.crowdSeed), 90).intensity;
+      };
+      assert.close(crowd('why-air-scatters', 2), 149, 0.02);
+      assert.close(crowd('why-air-scatters', 3), 526, 0.02);
+      // The hills: dark green near, bluer at 10 km.
+      const [x2, y2] = sight('distant-hills', 1).xy, [x10, y10] = sight('distant-hills', 2).xy;
+      assert.greater(y2, x2 + 0.03, 'green');
+      assert.less(y10 - x10, y2 - x2, 'less green, bluer');
+    });
+
     test('every setting a guide changes is one the reader can find by name', () => {
       const allowed = new Set(DESCRIBED_PATHS);
       const leaves = (object, prefix = '') => Object.entries(object).flatMap(([k, v]) =>
@@ -2729,6 +2783,68 @@ export function registerTests({ group, test, assert }, config) {
       });
       assert.greater(found, 5);
       assert.greater(checked, 3);
+    });
+
+    test('the exponent n: the molecule of picture 1 follows the same law as the air, for any n', () => {
+      assert.close(moleculeCrossSection(448), particlePattern('molecule', 448).crossSection, 1e-12);
+      for (const n of [0, 2, 4, 6]) {
+        const air = createAtmosphere(config.atmospheres.earth, { rayleighExponent: n });
+        const fromAir = air.rayleighBeta0[INDEX(450)] / air.rayleighBeta0[INDEX(650)];
+        assert.close(moleculeCrossSection(450, n) / moleculeCrossSection(650, n), fromAir, 1e-9, `n = ${n}`);
+      }
+      // n = 4 is real air: 4.5 times, an effective exponent of about 4.09.
+      const real = moleculeCrossSection(450) / moleculeCrossSection(650);
+      assert.close(Math.log(real) / Math.log(650 / 450), 4.09, 0.01);
+    });
+
+    test('many molecules: evenly spaced they cancel sideways, at random they add up to about N', () => {
+      for (const size of [1, 3, 5]) {
+        const even = crowdPositions('even', size);
+        const n = even.length;
+        assert.close(crowdSum(even, 0).intensity, n * n, 1e-6, 'forwards all in step');
+        assert.less(crowdSum(even, 90).intensity, 1e-6);
+        assert.less(crowdSum(even, 180).intensity, 1e-6);
+        let sum = 0;
+        for (let seed = 1; seed <= 60; seed++) sum += crowdSum(crowdPositions('random', size, seed), 90).intensity;
+        assert.close(sum / 60 / n, 1, 0.3, `random sideways about N for N = ${n}`);
+      }
+    });
+
+    test('polarisation: a molecule is 95 % polarised at 90 degrees, and the two parts add up to the pattern', () => {
+      const m = particlePattern('molecule', 550);
+      assert.close(m.polarization[360], (1 - 0.0279) / (1 + 0.0279), 1e-6);
+      assert.close(m.polarization[0], 0, 1e-9);
+      for (const j of [0, 100, 360, 600]) assert.close(m.perpendicular[j] + m.parallel[j], m.pattern[j], 1e-9);
+      const haze = particlePattern('haze', 550);
+      for (const j of [0, 200, 500]) assert.close(haze.perpendicular[j] + haze.parallel[j], haze.pattern[j], 1e-9);
+    });
+
+    test('one direction of the sky: the line-of-sight sum is the sky model own radiance', () => {
+      for (const [e, v, az] of [[60, 0, 0], [60, 30, Math.PI], [60, -30, 0], [5, -60, 0]]) {
+        const scene = buildScene({
+          atmosphere: earth, sourceSpectrum: sunSpectrum, sunDirection: sunDirectionFromElevation(e),
+          sunElevationDeg: e, observerZ: 0, well: { enabled: false, radius_m: 1 },
+        });
+        const sky = computeViewRadiance(scene, directionFromAngles(Math.abs(v) * Math.PI / 180, az), QUALITY_PRESETS.high);
+        const line = traceSightline({ atmosphere: earth, source: sunSpectrum, wavelengths: WAVELENGTHS_NM, sunElevationDeg: e, viewDeg: v, samples: 400 });
+        assert.close(colorimetry.luminance(line.spectrum), colorimetry.luminance(sky.scattered), 0.01, `sun ${e}, view ${v}`);
+      }
+      // Polarisation is greatest about 90 degrees from the Sun, nothing next to it.
+      const at = (v) => traceSightline({ atmosphere: earth, source: sunSpectrum, wavelengths: WAVELENGTHS_NM, sunElevationDeg: 5, viewDeg: v }).polarization;
+      assert.greater(at(0), 0.75);
+      assert.less(at(-80), 0.05);
+    });
+
+    test('distant hills: the further the hill, the more of its light comes from the air in front', () => {
+      const hill = (km) => traceSightline({ atmosphere: earth, source: sunSpectrum, wavelengths: WAVELENGTHS_NM, sunElevationDeg: 30, viewDeg: 90, hillKm: km });
+      const share = (r) => colorimetry.luminance(r.airSpectrum) / colorimetry.luminance(r.spectrum);
+      const near = hill(2), mid = hill(10), far = hill(50);
+      assert.less(share(near), share(mid));
+      assert.less(share(mid), share(far));
+      assert.greater(share(far), 0.95);
+      assert.equal(near.endsOn, 'hill');
+      // A hill does not stop a line of sight that looks up into the sky.
+      assert.equal(traceSightline({ atmosphere: earth, source: sunSpectrum, wavelengths: WAVELENGTHS_NM, sunElevationDeg: 30, viewDeg: 45, hillKm: 2 }).endsOn, 'space');
     });
 
     test('the wave strip explains the collision asked for, or else the first scattering', () => {

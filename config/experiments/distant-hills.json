@@ -1,0 +1,113 @@
+{
+  "id": "distant-hills",
+  "order": 7,
+  "icon": "hills",
+  "title": {
+    "cs": "Proč jsou vzdálené kopce modré?",
+    "en": "Why are distant hills blue?"
+  },
+  "summary": {
+    "cs": "Tmavý les na blízké hoře je zelený, na vzdálené modrý a ve velké dálce skoro splyne s oblohou. Ukážeme, že to dělá vzduch mezi námi a horou.",
+    "en": "A dark forest on a nearby hill is green, on a distant one blue, and very far away it almost merges with the sky. We show that the air between us and the hill does it."
+  },
+  "goal": {
+    "cs": "Vysvětlit, že vzduch mezi pozorovatelem a horou přidává vlastní rozptýlené světlo a světlo hory zeslabuje; čím dál je hora, tím víc jejího obrazu tvoří světlo vzduchu.",
+    "en": "Explain that the air between the observer and a hill adds its own scattered light and dims the hill’s light; the further the hill, the more of its image is light from the air."
+  },
+  "steps": [
+    {
+      "title": {
+        "cs": "Jak daleko světlo doletí",
+        "en": "How far light gets"
+      },
+      "text": {
+        "cs": "Záložka Jeden paprsek, obrázek 5. Vpravo v panelu Jak daleko světlo doletí: u země uletí modré světlo asi 38 km, než narazí na molekulu, s oparem jen asi 11 km.",
+        "en": "Single beam tab, picture 5. On the right, in the panel How far light gets: near the ground blue light travels about 38 km before it meets a molecule, with haze only about 11 km."
+      },
+      "observe": {
+        "cs": "Na pár metrech v místnosti se tedy skoro nic nerozptýlí, ale na kilometrech už ano. Barvu vzduchu uvidíš až na velké vzdálenosti.",
+        "en": "So over a few metres in a room almost nothing is scattered, but over kilometres it is. The colour of air only shows over long distances."
+      },
+      "tab": "beam",
+      "beam": {
+        "viewType": "sightline",
+        "elevationDeg": 30,
+        "sightViewDeg": 90,
+        "sightHillKm": 2,
+        "densityScale": 1,
+        "aerosolScale": 1,
+        "aerosolPresetId": null
+      }
+    },
+    {
+      "title": {
+        "cs": "Hora 2 km daleko",
+        "en": "A hill 2 km away"
+      },
+      "text": {
+        "cs": "Díváš se vodorovně na tmavou zalesněnou horu 2 km daleko. Slunce je 30° nad obzorem za tebou.",
+        "en": "You look horizontally at a dark wooded hill 2 km away. The Sun is 30° above the horizon behind you."
+      },
+      "observe": {
+        "cs": "Hora je tmavě zelená. Vzduch před ní je krátký a přidá jen málo světla.",
+        "en": "The hill is dark green. The air in front of it is short and adds only a little light."
+      }
+    },
+    {
+      "title": {
+        "cs": "Hora 10 km daleko",
+        "en": "A hill 10 km away"
+      },
+      "text": {
+        "cs": "Posunuli jsme horu na 10 km.",
+        "en": "We have moved the hill to 10 km."
+      },
+      "observe": {
+        "cs": "Hora zmodrala a zesvětlala. Vzduch před ní rozptyluje k tobě sluneční světlo, hlavně modré, a zelené světlo lesa cestou slábne.",
+        "en": "The hill has turned bluer and lighter. The air in front of it scatters sunlight towards you, mainly blue, and the green light of the forest fades on the way."
+      },
+      "tab": "beam",
+      "beam": {
+        "sightHillKm": 10
+      }
+    },
+    {
+      "title": {
+        "cs": "Hora 50 km daleko",
+        "en": "A hill 50 km away"
+      },
+      "text": {
+        "cs": "Hora je 50 km daleko.",
+        "en": "The hill is 50 km away."
+      },
+      "observe": {
+        "cs": "Hora je skoro tak světlá jako obloha nad obzorem a šedomodrá. Většinu jejího obrazu tvoří světlo vzduchu před ní. Malíři tomu říkají vzdušná perspektiva: vzdálené věci kreslí světlejší a modřejší.",
+        "en": "The hill is almost as light as the sky above the horizon, and grey-blue. Most of its image is light from the air in front of it. Painters call this aerial perspective: they paint distant things lighter and bluer."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "Vzdušná perspektiva (Wikipedie, Aerial perspective)",
+            "en": "Aerial perspective (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Aerial_perspective"
+        }
+      ],
+      "tab": "beam",
+      "beam": {
+        "sightHillKm": 50
+      }
+    },
+    {
+      "title": {
+        "cs": "Shrnutí: jak to vysvětlit",
+        "en": "Summary: how to explain it"
+      },
+      "text": {
+        "cs": "1) Světlo uletí ve vzduchu desítky kilometrů, než se rozptýlí; v místnosti proto vzduch vypadá průhledně. 2) Vzduch mezi tebou a horou je osvětlený Sluncem a rozptyluje k tobě hlavně modré světlo. 3) Světlo hory cestou slábne. 4) Čím je hora dál, tím víc jejího obrazu tvoří světlo vzduchu: nejdřív zmodrá, ve velké dálce zbledne skoro do barvy oblohy.",
+        "en": "1) Light travels tens of kilometres in air before it is scattered; that is why air looks clear in a room. 2) The air between you and a hill is lit by the Sun and scatters mainly blue light towards you. 3) The hill’s light fades on the way. 4) The further the hill, the more of its image is light from the air: first it turns blue, and very far away it fades almost to the colour of the sky."
+      },
+      "tab": "beam"
+    }
+  ]
+}

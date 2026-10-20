@@ -9,8 +9,10 @@
  */
 
 import { RAY_BANDS } from '../physics/spectrum.js';
-import { particlePattern, dropletPattern, sizeRegime, CHAMBER_SAMPLE } from '../physics/mie.js';
+import { particlePattern, dropletPattern, sizeRegime, moleculeCrossSection, MOLECULE_LIMIT_UM, CHAMBER_SAMPLE } from '../physics/mie.js';
 import { diameterText, particleContrast } from '../render/particle-view.js';
+import { PER_WAVELENGTH } from '../physics/crowd.js';
+import { averageSideways } from '../render/crowd-view.js';
 import { chosenScatterEvent, contrastBand, rayleighBandRatio, nearMisses } from '../render/beam-canvas.js';
 
 const SOURCES = [
@@ -34,7 +36,10 @@ const fromSlider = (v) => PARTICLE_MIN_UM * (PARTICLE_MAX_UM / PARTICLE_MIN_UM) 
 const PARTICLE_STOPS = [['molecule', 0.0003], ['fine', 0.1], ['haze', 0.5], ['dust', 2], ['cloud', 10]];
 
 /** What the air does to light, in the order the panel lists it. */
-const PRINCIPLES = ['samePath', 'molecules', 'haze', 'absorption', 'path', 'refraction', 'views'];
+/** The pictures of the Single beam tab, in the order they are meant to be seen. */
+const VIEWS = ['particle', 'crowd', 'micro', 'macro', 'sightline'];
+
+const PRINCIPLES = ['samePath', 'molecules', 'haze', 'absorption', 'path', 'refraction', 'views', 'limits'];
 
 /** Colours for the parts of the light budget. */
 const BUDGET_COLOURS = {
@@ -65,6 +70,12 @@ export function createBeamUI({
     const text = p >= 10 ? p.toFixed(0) : p >= 1 ? p.toFixed(1) : p >= 0.01 ? p.toFixed(2) : p > 0 ? p.toExponential(0) : '0';
     return `${i18n.getLanguage() === 'cs' ? text.replace('.', ',') : text} %`;
   };
+
+  /** A number with the decimal mark of the language: a comma in Czech. */
+  function decimal(v, digits) {
+    const text = v.toFixed(digits);
+    return i18n.getLanguage() === 'cs' ? text.replace('.', ',') : text;
+  }
 
   function emit(patch) {
     Object.assign(state, patch);
@@ -118,13 +129,12 @@ export function createBeamUI({
 
     const view = section('beam.controls.viewTitle',
       // From the smallest scale to the largest: one ray at one particle, many
-      // rays in a piece of air, the whole beam through the air - and then the
-      // whole sky, in the other tab.
-      segmented([['particle', 'beam.controls.viewParticle'], ['micro', 'beam.controls.viewMicro'], ['macro', 'beam.controls.viewMacro']],
+      // molecules together, many rays in a piece of air, the whole beam
+      // through the air, one direction of the sky - and then the whole sky,
+      // in the other tab.
+      segmented(VIEWS.map((v) => [v, `beam.controls.view.${v}`]),
         state.viewType, (v) => { emit({ viewType: v }); renderLeft(); }, 'beam-view-picker'),
-      el('p', { className: 'field-help', text: t({
-        macro: 'beam.controls.viewMacroHelp', micro: 'beam.controls.viewMicroHelp', particle: 'beam.controls.viewParticleHelp',
-      }[state.viewType] ?? 'beam.controls.viewMacroHelp') }));
+      el('p', { className: 'field-help', text: t(`beam.controls.viewHelp.${state.viewType}`) }));
 
     // One particle: its size and the colour; the Sun and the air play no part.
     if (state.viewType === 'particle') {
@@ -148,7 +158,20 @@ export function createBeamUI({
         ]),
         el('div', { className: 'field field-check' }, [log,
           el('label', { className: 'field-label', for: 'beam-particle-log', text: t('beam.particle.log') })]),
-        el('p', { className: 'field-help', text: t('beam.particle.logHelp') }));
+        el('p', { className: 'field-help', text: t('beam.particle.logHelp') }),
+        checkbox('beam-particle-polar', 'beam.particle.polar', 'beam.particle.polarHelp', state.particlePolar,
+          (v) => emit({ particlePolar: v })));
+      // For a molecule: how strongly its scattering depends on colour, the
+      // exponent n of 1/lambda^n. The same setting the later pictures use.
+      if (state.particleDiameterUm < MOLECULE_LIMIT_UM) {
+        particle.append(
+          range({
+            id: 'beam-particle-exponent', labelKey: 'beam.controls.exponent', helpKey: 'beam.particle.exponentHelp',
+            min: 0, max: 6, step: 0.1, value: state.rayleighExponent, format: (v) => `n = ${decimal(Number(v), 1)}`,
+            onInput: (v) => emit({ rayleighExponent: v }),
+          }),
+          quick([4, 2, 0], state.rayleighExponent, (v) => `n = ${v}`, (v) => { emit({ rayleighExponent: v }); renderLeft(); }));
+      }
       leftContainer.append(view, particle);
       return;
     }
@@ -156,6 +179,26 @@ export function createBeamUI({
       view.append(segmented([['bundle', 'beam.controls.bundle'], ['single', 'beam.controls.single']],
         state.bundleMode, (v) => { emit({ bundleMode: v }); renderLeft(); }));
       view.append(el('p', { className: 'field-help', text: t(state.bundleMode === 'single' ? 'beam.controls.singleHelp' : 'beam.controls.bundleHelp') }));
+    }
+
+    // Many molecules together: how many, which colour, another random arrangement.
+    if (state.viewType === 'crowd') {
+      const crowd = section('beam.crowd.controlsTitle',
+        el('div', { className: 'field' }, [
+          el('span', { className: 'field-label', text: t('beam.crowd.count') }),
+          quick([1, 2, 3, 4, 5], state.crowdSize, (v) => `N = ${(PER_WAVELENGTH * v) ** 2}`,
+            (v) => { emit({ crowdSize: v }); renderLeft(); }),
+          el('p', { className: 'field-help', text: t('beam.crowd.countHelp') }),
+        ]),
+        el('div', { className: 'field' }, [
+          el('span', { className: 'field-label', text: t('beam.particle.colour') }),
+          quick(RAY_BANDS.map((_, b) => b), state.particleBand, (b) => `${Math.round(RAY_BANDS[b].centreNm)}`,
+            (b) => { emit({ particleBand: b }); renderLeft(); }, (b) => RAY_BANDS[b].css),
+        ]),
+        button('beam.crowd.reshuffle', () => emit({ crowdSeed: (state.crowdSeed ?? 1) + 1 })),
+        el('p', { className: 'field-help', text: t('beam.crowd.reshuffleHelp') }));
+      leftContainer.append(view, crowd);
+      return;
     }
 
     const sun = section('beam.controls.sunTitle',
@@ -205,11 +248,52 @@ export function createBeamUI({
       }),
       range({
         id: 'beam-exponent', labelKey: 'beam.controls.exponent', helpKey: 'beam.controls.exponentHelp',
-        min: 0, max: 6, step: 0.1, value: state.rayleighExponent, format: (v) => `n = ${Number(v).toFixed(1)}`,
+        min: 0, max: 6, step: 0.1, value: state.rayleighExponent, format: (v) => `n = ${decimal(Number(v), 1)}`,
         onInput: (v) => emit({ rayleighExponent: v }),
       }));
 
+    // One direction of the sky: where you look, and a hill on the horizon.
+    if (state.viewType === 'sightline') {
+      const hillOn = state.sightHillKm != null;
+      const sight = section('beam.sight.controlsTitle',
+        range({
+          id: 'beam-sight-view', labelKey: 'beam.sight.view', helpKey: 'beam.sight.viewHelp',
+          min: -90, max: 90, step: 1, value: state.sightViewDeg,
+          format: (v) => {
+            const a = Number(v);
+            if (Math.abs(a) < 1) return t('beam.sight.zenithShort');
+            return t(a < 0 ? 'beam.sight.towardsShort' : 'beam.sight.awayShort', { deg: Math.round(90 - Math.abs(a)) });
+          },
+          onInput: (v) => emit({ sightViewDeg: v }),
+        }),
+        quick([-85, -45, 0, 45, 85], state.sightViewDeg, (v) => t(`beam.sight.quick.${v}`),
+          (v) => { emit({ sightViewDeg: v }); renderLeft(); }),
+        checkbox('beam-sight-hill', 'beam.sight.hill', 'beam.sight.hillHelp', hillOn,
+          (v) => { emit({ sightHillKm: v ? 20 : null, ...(v ? { sightViewDeg: 90 } : {}) }); renderLeft(); }));
+      if (hillOn) {
+        sight.append(quick([2, 10, 20, 50, 100], state.sightHillKm, (v) => `${v} km`,
+          (v) => { emit({ sightHillKm: v, sightViewDeg: 90 }); renderLeft(); }));
+      }
+      leftContainer.append(view, sight, sun, air);
+      return;
+    }
+
     leftContainer.append(view, sun, light, air);
+  }
+
+  function checkbox(id, labelKey, helpKey, checked, onChange) {
+    const input = el('input', { type: 'checkbox', id, checked });
+    input.addEventListener('change', () => onChange(input.checked));
+    return el('div', { className: 'field' }, [
+      el('div', { className: 'field field-check' }, [input, el('label', { className: 'field-label', for: id, text: t(labelKey) })]),
+      helpKey ? el('p', { className: 'field-help', text: t(helpKey) }) : null,
+    ]);
+  }
+
+  function button(labelKey, onClick) {
+    const b = el('button', { type: 'button', className: 'ghost-button small', text: t(labelKey) });
+    b.addEventListener('click', onClick);
+    return el('div', { className: 'beam-quick' }, [b]);
   }
 
   /* ---------------------------------------------------------------- */
@@ -241,7 +325,7 @@ export function createBeamUI({
       if (i) sources.append(' · ');
       sources.append(el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: t(key) }));
     });
-    const next = { particle: 'micro', micro: 'macro' }[viewType];
+    const next = { particle: 'crowd', crowd: 'micro', micro: 'macro', macro: 'sightline' }[viewType];
     const go = el('button', {
       type: 'button', className: 'primary-button beam-go',
       text: t(next ? `beam.panel.next.${next}` : 'beam.panel.toScattering'),
@@ -267,8 +351,14 @@ export function createBeamUI({
     const lp = dropletPattern(st.particleDiameterUm, RAY_BANDS[longBand].centreNm);
     const chosen = band === shortBand ? sp : lp;
     const regime = sizeRegime(chosen.sizeParameter);
-    const ratio = sp.crossSection / lp.crossSection;
+    const molecule = st.particleDiameterUm < MOLECULE_LIMIT_UM;
+    const n = st.rayleighExponent ?? 4;
+    const ratio = molecule
+      ? moleculeCrossSection(RAY_BANDS[shortBand].centreNm, n) / moleculeCrossSection(RAY_BANDS[longBand].centreNm, n)
+      : sp.crossSection / lp.crossSection;
     const params = {
+      law: Math.abs(n - 4) < 0.05 ? '1/λ⁴' : t('beam.particle.lawN', { n: num(n, 1) }),
+      closing: t(n >= 3 ? 'beam.particle.closingBlue' : 'beam.particle.closingNotBlue'),
       d: diameterText(st.particleDiameterUm, lang),
       nmS: Math.round(RAY_BANDS[shortBand].centreNm), nmL: Math.round(RAY_BANDS[longBand].centreNm),
       mS: turn(sp.medianTurnDeg), mL: turn(lp.medianTurnDeg),
@@ -300,11 +390,119 @@ export function createBeamUI({
         el('h2', { text: t(`beam.particle.regime.${regime}`) }),
         el('p', { className: 'note', text: t(`beam.particle.explain.${regime}`, params) }),
       ]),
+      molecule ? exponentSection() : null,
       el('section', { className: 'panel-section' }, [
         el('h2', { text: t('beam.particle.tryTitle') }),
         el('ul', { className: 'beam-principles' }, ['one', 'two', 'three'].map((k) => el('li', { text: t(`beam.particle.try.${k}`) }))),
       ]),
+    ].filter(Boolean);
+  }
+
+  function paragraphs(titleKey, keys, params = {}) {
+    return el('section', { className: 'panel-section' }, [
+      el('h2', { text: t(titleKey) }),
+      ...keys.map((k) => el('p', { className: 'note', text: t(k, params) })),
+    ]);
+  }
+
+  /** Polarisation: what the switch in picture 1 shows, and how to see it in the sky. */
+  function polarizationSection(st) {
+    return paragraphs('beam.polar.title', ['beam.polar.what', 'beam.polar.sky', 'beam.polar.home']);
+  }
+
+  /** Picture 2: why air scatters and glass hardly does, with this picture's numbers. */
+  function crowdSection(result) {
+    const st = result.state;
+    const n = (PER_WAVELENGTH * st.crowdSize) ** 2;
+    const crowd = result.crowd;
+    const num = (v) => (v >= 10 ? String(Math.round(v)) : v < 0.05 ? '0' : decimal(v, 1));
+    const params = {
+      n,
+      even: crowd ? num(crowd.even.side) : '0',
+      random: crowd ? num(crowd.random.side) : '-',
+      average: num(averageSideways(st.crowdSize)),
+    };
+    return paragraphs('beam.crowd.panelTitle',
+      ['beam.crowd.text.even', 'beam.crowd.text.random', 'beam.crowd.text.numbers', 'beam.crowd.text.real'], params);
+  }
+
+  /** Picture 5: where this direction's light comes from, in this situation's numbers. */
+  function sightSections(result) {
+    const sight = result.sight;
+    if (!sight) return [];
+    const r = sight.result;
+    const samples = r.samples;
+    const total = samples.reduce((a, p) => a + p.total, 0) || 1;
+    let run = 0, halfKm = 0;
+    for (const p of samples) { run += p.total; if (run >= 0.5 * total) { halfKm = p.t / 1000; break; } }
+    const lum = colorimetry.luminance(r.spectrum);
+    const zen = colorimetry.luminance(sight.zenith.spectrum) || 1;
+    const params = {
+      half: decimal(halfKm, halfKm < 10 ? 1 : 0),
+      angle: Math.round(r.scatteringAngleDeg),
+      ratio: decimal(lum / zen, lum / zen < 10 ? 1 : 0),
+      p: Math.round(r.polarization * 100),
+    };
+    const keys = ['beam.sight.text.sum', 'beam.sight.text.numbers'];
+    const view = Math.abs(result.state.sightViewDeg);
+    if (r.endsOn === 'hill') keys.push('beam.sight.text.hill');
+    else if (view > 70) keys.push('beam.sight.text.horizon');
+    if (r.scatteringAngleDeg < 30) keys.push('beam.sight.text.nearSun');
+    if (result.state.elevationDeg < 8) keys.push('beam.sight.text.lowSun');
+    keys.push('beam.sight.text.limits');
+    return [paragraphs('beam.sight.panelTitle', keys, params)];
+  }
+
+  /**
+   * How far light gets before it meets a molecule or a grain, at the ground in
+   * this air: one over the extinction coefficient, colour by colour.
+   */
+  function distanceSection(result) {
+    const atm = result.model?.atmosphere;
+    if (!atm) return null;
+    const local = atm.segmentColumns(0, 0, 1);
+    const reach = (nm, withHaze = true) => {
+      const i = Math.round((nm - 380) / 10);
+      const beta = atm.rayleighBeta0[i] * local.r
+        + (withHaze ? atm.aerosolExt0[i] * local.a : 0)
+        + (atm.ozoneAbsorption0 ? atm.ozoneAbsorption0[i] * local.o : 0);
+      return beta > 0 ? 1 / beta / 1000 : Infinity;
+    };
+    const km = (v) => (Number.isFinite(v) ? decimal(v, v < 10 ? 1 : 0) : '∞');
+    // Molecules per cubic metre at sea level (Loschmidt's number at 15 °C), times the density setting.
+    const perCubicMetre = 2.55e25 * (result.state.densityScale ?? 1);
+    const i550 = Math.round((550 - 380) / 10);
+    const sigma = perCubicMetre > 0 ? atm.rayleighBeta0[i550] * local.r / perCubicMetre : 0;
+    const sci = (v) => {
+      if (!(v > 0)) return '0';
+      const exp = Math.floor(Math.log10(v));
+      const mant = v / 10 ** exp;
+      return `${decimal(mant, 1)}·10${String(exp).replace('-', '⁻').replace(/\d/g, (d) => '⁰¹²³⁴⁵⁶⁷⁸⁹'[d])}`;
+    };
+    return paragraphs('beam.distance.title', ['beam.distance.text', 'beam.distance.why', 'beam.distance.hills'], {
+      blue: km(reach(450)), green: km(reach(550)), red: km(reach(650)),
+      mblue: km(reach(450, false)), mgreen: km(reach(550, false)), mred: km(reach(650, false)),
+      count: sci(perCubicMetre), sigma: sci(sigma),
+    });
+  }
+
+  /** Why a molecule scatters as 1/lambda^4, and where the exponent of real air comes from. */
+  function exponentSection() {
+    const links = [
+      ['beam.particle.exponentSources.rayleigh', 'https://en.wikipedia.org/wiki/Rayleigh_scattering'],
+      ['beam.particle.exponentSources.bodhaine', 'https://doi.org/10.1175/1520-0426(1999)016%3C1854:ORODC%3E2.0.CO;2'],
+      ['beam.particle.exponentSources.sneep', 'https://doi.org/10.1016/j.jqsrt.2004.07.025'],
     ];
+    const sources = el('p', { className: 'note beam-sources' }, [t('beam.panel.sources'), ' ']);
+    links.forEach(([key, url], i) => {
+      if (i) sources.append(' · ');
+      sources.append(el('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: t(key) }));
+    });
+    return el('section', { className: 'panel-section' }, [
+      el('h2', { text: t('beam.particle.exponentTitle') }),
+      ...['theory', 'measured', 'slider'].map((k) => el('p', { className: 'note', text: t(`beam.particle.exponentText.${k}`) })),
+      sources,
+    ]);
   }
 
   function renderRight(result) {
@@ -313,7 +511,17 @@ export function createBeamUI({
     const trace = model.trace;
     rightContainer.textContent = '';
     if (result.state.viewType === 'particle') {
-      rightContainer.append(...particleSections(result.state), principlesSection(), sourcesSection('particle'));
+      rightContainer.append(...particleSections(result.state), polarizationSection(result.state),
+        principlesSection(), sourcesSection('particle'));
+      return;
+    }
+    if (result.state.viewType === 'crowd') {
+      rightContainer.append(crowdSection(result), principlesSection(), sourcesSection('crowd'));
+      return;
+    }
+    if (result.state.viewType === 'sightline') {
+      rightContainer.append(...sightSections(result), distanceSection(result), principlesSection(),
+        sourcesSection('sightline'));
       return;
     }
 
@@ -373,6 +581,7 @@ export function createBeamUI({
       rightContainer.append(chosenRaySection(result), sizeSection(result));
     }
 
+    rightContainer.append(distanceSection(result));
     rightContainer.append(principlesSection());
 
     // The chamber's own count, beside what the path says.

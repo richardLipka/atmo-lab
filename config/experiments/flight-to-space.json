@@ -1,6 +1,6 @@
 {
   "id": "flight-to-space",
-  "order": 4,
+  "order": 10,
   "icon": "rocket",
   "title": { "cs": "Let do vesmíru", "en": "Flight into space" },
   "summary": {

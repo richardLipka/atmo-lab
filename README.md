@@ -39,11 +39,12 @@ every colour's losses as scattered by molecules, scattered by haze, absorbed by 
 absorbed by ozone — for every colour these and the transmitted share sum to one, and the
 light that arrives is the direct beam the sky model computes, to 0.2 %.
 
-The tab has three pictures, from the smallest scale to the largest, and the **Light
-scattering** tab is the fourth: 1 — one ray meets one particle; 2 — many rays cross a
-piece of air (collisions up close); 3 — the composite beam of all colours along its whole
-path; 4 — the whole sky. Each panel ends with a button to the next. The tab opens on
-picture 1.
+The tab has five pictures, from the smallest scale to the largest, and the **Light
+scattering** tab is the sixth: 1 — one ray meets one particle; 2 — many molecules
+together, and why air scatters but glass does not; 3 — many rays cross a piece of air
+(collisions up close); 4 — the composite beam of all colours along its whole path; 5 —
+one direction of the sky and where its light comes from; 6 — the whole sky. Each panel
+ends with a button to the next. The tab opens on picture 1, with an air molecule.
 
 **What differs between colours, and what does not.** Scattering by a molecule turns blue
 and red light by the same angles — the pattern is the same for every colour — and only how
@@ -107,7 +108,42 @@ to about 34 at the horizon.
   outline is not the particle's shape and its size says nothing about how much is
   scattered) and **waves added** (the dials). The test bench is all graphs; the wave strip
   is a to-scale picture beside the dials.
-- *1. One ray, one particle* is the first picture: a single water droplet of any diameter,
+- *2. Many molecules* (`physics/crowd.js`) puts the same number of molecules evenly
+  spaced, four to a wavelength (like glass or water), beside the same number placed at
+  random (like air), and adds up the waves they send sideways and backwards on dials.
+  Evenly spaced they cancel exactly; at random they add like a random walk to about √N, so
+  the light is about N times one molecule's — the average of 24 arrangements is shown
+  beside this one. Forwards all N are in step: the light goes on. A button reshuffles the
+  random arrangement. The drawing is a scheme: real molecules sit some 1500 to a
+  wavelength in glass, which only makes the cancelling more complete.
+- *5. One direction of the sky* (`physics/sightline.js`) follows the observer's line of
+  sight through the air: every step is lit by sunlight that has crossed its own path from
+  the Sun, scatters towards the observer (molecules with air's depolarisation, haze by
+  Henyey–Greenstein) and is dimmed again on the way; the sum matches the sky model's own
+  radiance to within 1 % (tested). The picture shows the sunlight arriving in the colour it
+  has there and beads as large as each step's contribution; beside it the colour and
+  brightness against the zenith, where half the light comes from, the spectrum, and the
+  polarisation of the molecular light. The direction is set by the slider or by dragging in
+  the picture. An optional hill on the horizon ends a level line of sight on a dark
+  wooded face: the air in front adds its own light, so the hill turns bluer and then
+  paler with distance — aerial perspective.
+- *Polarisation* is a switch in picture 1. The brightness graph splits into the light
+  oscillating across the scattering plane and in it (for a molecule a circle and a figure
+  of eight, whose sum is 1 + cos²θ; for droplets from the Mie amplitudes S1 and S2), and the
+  second graph becomes the degree of polarisation against angle: 95 % at 90° for air.
+- *How far light gets* closes pictures 3, 4 and 5: the mean free path near the ground for
+  blue, green and red, with molecules alone (about 38, 88 and 173 km) and with the haze of
+  the chosen air, the number of molecules in a cubic metre and the target of each.
+- *What the simulation leaves out* is stated in the principles and under the explanation
+  in the Light scattering tab: each ray is scattered once (in picture 3 a few times), so
+  clouds, fog and twilight are brighter and whiter in reality.
+- *1. One ray, one particle* is the first picture, and it opens on an air molecule. For a
+  molecule it carries the exponent n of 1/λⁿ — the same setting pictures 2 and 3 use — with
+  a panel section on where 4 comes from (the oscillating dipole's ω⁴, Rayleigh 1871) and
+  why real air gives about 4.09 (Bodhaine et al. 1999, confirmed in the laboratory by Sneep
+  & Ubachs 2005). Moving n changes the target bars and leaves the arrows and the brightness
+  graph alone: the exponent decides how often a colour is scattered, not where it goes.
+  The size slider then grows the particle: a single water droplet of any diameter,
   from 2 nm (below that it is computed as an air molecule) to 20 µm, on a logarithmic
   slider with named stops. Three boxes keep three things apart: the particle drawn to scale
   against the wave crests; the light's paths (a parallel beam arriving from the left and 24
@@ -149,12 +185,25 @@ the step, so the list cannot drift from what the step really does.
 | guide | the problem it shows | how the steps get there |
 |---|---|---|
 | **Why is the sky blue?** | white sunlight and colourless air give a blue sky | the sky spectrum against the source → molecules only (haze off), with their size against the wavelength and why haze is white → what scattering is: oscillating electrons re-radiate, power ∝ 1/λ⁴ → n = 0, the sky turns grey with the same amount of light → n = 4 again, the blue missing from the direct beam is the sky → towards the horizon, paler → why not violet: the Sun's spectrum and the eye → summary as an exam answer, with the common mistakes (refraction, the sea) |
+| **Why does air scatter light and glass does not?** | glass and water are molecules too, yet transparent | one molecule scatters everywhere (picture 1) → 144 molecules evenly spaced: sideways and back the waves cancel to 0 (picture 2) → the same at random: about N = 149 times one molecule → 400 molecules: 0 and 526 → summary, with why deep water is blue for another reason |
+| **How is the colour of the sky in one direction made?** | the step from "the beam loses blue" to the sky you see | zenith at noon: half the light from the first 1.6 km (picture 5) → towards the horizon: 20 km, brighter but paler → near the Sun: 4× the zenith, whiter → round the setting Sun: orange → overhead at sunset: blue and 86 % polarised → the whole sky in the Light scattering tab → summary |
+| **Why is skylight polarised?** | the experimental proof of the dipole picture | the two polarisations of a molecule (picture 1) → 95 % at 90° → the zenith with the Sun low: 83 % in single scattering, about 75 % in the real sky (picture 5) → try it with polarising sunglasses → summary |
 | **Why is the setting Sun red?** | the same white star turns red near the horizon | 60° → 20° → 5° → 0° with the 400 km chord in view, reading the air mass and the direct-beam transmission at 450 and 650 nm → control: n = 0 and no haze at 5°, the beam only dims → summary as an exam answer: slant path, 1/λ⁴, I = I₀·e^(−τ), the same scattering as the blue sky; refraction does not redden the Sun |
 | **Can the midday Sun be green or red?** | what the atmosphere's make-up can and cannot do to the colour of the Sun | noon on Earth, reading the direct-beam transmission at 450, 550 and 650 nm → CO₂ (2.4× the scattering of air, the same 1/λ⁴, Sneep & Ubachs 2005): the order of the colours is unchanged → ten times the gas on the same path: an orange Sun at noon → wildfire smoke (Ångström ≈ 2, Eck et al. 1999): orange-red → uniform 1.0 µm droplets: a blue Sun (Canada, September 1950) → uniform 1.4 µm droplets: a green Sun (Krakatoa 1883) → absorbing gases (ozone, NO₂, methane) and why they are too scarce on Earth → summary |
+| **Why are distant hills blue?** | aerial perspective | how far light gets before it is scattered → a dark wooded hill 2 km away: dark green → 10 km: bluer → 50 km: almost the sky's grey-blue → summary |
+| **Why are clouds white, and sometimes grey?** | white from equal scattering, grey from many scatterings; where the model stops | a 10 µm droplet: level target bars → mostly forwards: the silver lining → many scatterings, which the simulation does not do → why the bottom of a thick cloud is grey → summary |
+| **How does the eye see the colour of the sky?** | a spectrum is not a colour | the sky's spectrum peaks in the violet, yet looks blue → three kinds of cones → hue against brightness: the Sun on the horizon is dark and orange (picture 4) → summary |
 | **Flight into space** | the sky darkens to black while the Sun keeps shining | surface → 5 km → 20 km → 100 km, reading the share of the air column left and the sky radiance → control: the airless Moon at noon |
 | **The well paradox** | climbing and descending both darken your surroundings, for different reasons | surface → 10 km up (the sky itself dims) → 10 km down a shaft (the patch of sky is unchanged, the illuminance falls eight orders of magnitude) → both side by side → a shaft full of air |
 | **Stars by day: from a well and on the Moon** | Aristotle's claim that stars can be seen by day from a deep well | Vega against the 1′ of sky around it at noon: 1.4 % → the same at the bottom of a 50 m well → and of a 10 km shaft (Hynek and Winsor's chimney) → dusk, where the sky darkens and the star wins → the Moon: a black sky, and only glare from the ground in the way → summary |
 | **Alien skies** | the colour of a sky depends on the star and on what scatters | Sun on Earth → a 3000 K star gives a beige sky, still bluer than its star → a 12 000 K star → Mars, where dust scatters → Mars without the dust → Titan under its haze |
+
+**A step can take place in either tab.** A step that says `"tab": "beam"` shows the Single
+beam tab and sets its pictures with a `"beam"` patch, rebuilt from that tab's defaults like
+the rest; a step that names no tab stays in the previous step's tab, and
+`"tab": "scattering"` goes back. The guide bar stays visible in both tabs, and its
+"Changed" line names the switch of tab and every Single beam setting by its control's
+label, so a test can hold every guide to settings the reader can find.
 
 **A step is rebuilt, not applied on top.** It is the guide's starting situation plus every
 step up to it, so going back, jumping ahead with the progress dots, or returning after
@@ -275,6 +324,12 @@ multiplies by each world's true insolation (Earth 1.00, Mars 0.431, Titan 0.011,
 "flight into space" experiment in one line.
 
 - Rayleigh: β(λ) = β(550)·(550/λ)ⁿ·D(λ), n = 4 by default and adjustable from 0 to 6.
+  The 4 is theory: a molecule far smaller than the wavelength is a dipole driven by the
+  light's field, its polarisability hardly changes across the visible (its resonances lie
+  in the ultraviolet), and a dipole radiates power in proportion to ω⁴, so ∝ 1/λ⁴ (Rayleigh
+  1871; the same follows from dimensional analysis). The slider changes only this ideal
+  part, as a thought experiment; the measured correction below stays applied, so n = 4 is
+  real air. Both slider helps and the blue-sky guide say where the value comes from.
   D(λ) is how far real air departs from an ideal dipole — its refractive index and its
   King factor both rise towards the blue — taken from the fit of **Bodhaine et al. (1999)**,
   Eq. (29); it steepens the law to λ^−4.09 between 450 and 650 nm. Earth's strength is
@@ -1022,7 +1077,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **171 tests** covering:
+`node tests/run-tests.js` runs **178 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine

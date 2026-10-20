@@ -1,0 +1,123 @@
+{
+  "id": "why-air-scatters",
+  "order": 2,
+  "icon": "molecule",
+  "title": {
+    "cs": "Proč vzduch rozptyluje a sklo ne?",
+    "en": "Why does air scatter light and glass does not?"
+  },
+  "summary": {
+    "cs": "Sklo i voda jsou z molekul jako vzduch, a přesto světlo do stran skoro nerozptylují. Ukážeme, že rozhoduje, jak molekuly sedí: pravidelně, nebo náhodně.",
+    "en": "Glass and water are made of molecules just like air, yet they hardly scatter light sideways. We show that what matters is how the molecules sit: evenly or at random."
+  },
+  "goal": {
+    "cs": "Vysvětlit, že každá molekula vyšle vlastní vlnu, ale do strany se vlny sečtou jen tehdy, když molekuly sedí náhodně (plyn). Při pravidelném a těsném uspořádání (sklo, voda) se zruší a světlo jde jen dopředu.",
+    "en": "Explain that every molecule sends out its own wave, but sideways the waves add up only when the molecules sit at random (a gas). When they are packed evenly and tightly (glass, water) they cancel and the light only goes forwards."
+  },
+  "steps": [
+    {
+      "title": {
+        "cs": "Jedna molekula",
+        "en": "One molecule"
+      },
+      "text": {
+        "cs": "Začneme jednou molekulou vzduchu v záložce Jeden paprsek, obrázek 1. Molekula zasažená světlem vyšle vlastní malou vlnu.",
+        "en": "We start with one air molecule in the Single beam tab, picture 1. A molecule hit by light sends out a small wave of its own."
+      },
+      "observe": {
+        "cs": "Šipky míří všemi směry, dopředu, do stran i dozadu: osamělá molekula rozptyluje světlo všude kolem.",
+        "en": "The arrows point in every direction, forwards, sideways and back: a lone molecule scatters light all around."
+      },
+      "tab": "beam",
+      "beam": {
+        "viewType": "particle",
+        "particleDiameterUm": 0.0003,
+        "rayleighExponent": 4,
+        "particlePolar": false
+      }
+    },
+    {
+      "title": {
+        "cs": "Mnoho molekul pravidelně",
+        "en": "Many molecules, evenly placed"
+      },
+      "text": {
+        "cs": "Obrázek 2: 144 molekul vedle sebe, vlevo pravidelně a natěsno jako ve skle, vpravo náhodně jako ve vzduchu. Kruhy sčítají vlny, které molekuly posílají do strany a dozadu.",
+        "en": "Picture 2: 144 molecules side by side, on the left evenly and tightly packed as in glass, on the right at random as in air. The dials add up the waves the molecules send sideways and backwards."
+      },
+      "observe": {
+        "cs": "Vlevo se vlny do strany i dozadu zruší, číslo je 0. Pravidelně uspořádaná látka proto světlo do stran nerozptyluje a propouští ho dopředu: je průhledná.",
+        "en": "On the left the waves cancel sideways and backwards; the number is 0. An evenly arranged material therefore does not scatter light sideways and lets it through forwards: it is transparent."
+      },
+      "tab": "beam",
+      "beam": {
+        "viewType": "crowd",
+        "crowdSize": 3
+      }
+    },
+    {
+      "title": {
+        "cs": "Náhodně jako ve vzduchu",
+        "en": "At random, as in air"
+      },
+      "text": {
+        "cs": "Teď sleduj pravou polovinu: stejný počet molekul, ale rozmístěných náhodně.",
+        "en": "Now watch the right half: the same number of molecules, but placed at random."
+      },
+      "observe": {
+        "cs": "Do strany jde asi 149× tolik světla co od jedné molekuly, tedy asi tolik, kolik je molekul (N = 144). Vlny s náhodnými fázemi se nezruší a jejich jasy se sčítají. Tlačítko Jiné náhodné rozmístění dá jiné číslo, v průměru ale vždy asi N.",
+        "en": "About 149 times one molecule’s light goes sideways, about as many as there are molecules (N = 144). Waves with random phases do not cancel, and their brightnesses add up. The Another random arrangement button gives a different number, but always about N on average."
+      },
+      "tab": "beam"
+    },
+    {
+      "title": {
+        "cs": "Víc molekul",
+        "en": "More molecules"
+      },
+      "text": {
+        "cs": "Zvětšili jsme čtverec na 400 molekul.",
+        "en": "We have enlarged the square to 400 molecules."
+      },
+      "observe": {
+        "cs": "Pravidelně je to pořád 0. Náhodně teď do strany jde asi 526× tolik světla (průměr mnoha rozmístění asi 400×). Rozptýlené světlo roste s počtem molekul: dvakrát hustší vzduch rozptýlí dvakrát víc.",
+        "en": "Evenly it is still 0. At random about 526 times one molecule’s light now goes sideways (the average of many arrangements about 400). Scattered light grows with the number of molecules: air twice as dense scatters twice as much."
+      },
+      "tab": "beam",
+      "beam": {
+        "crowdSize": 5
+      }
+    },
+    {
+      "title": {
+        "cs": "Shrnutí: jak to vysvětlit",
+        "en": "Summary: how to explain it"
+      },
+      "text": {
+        "cs": "1) Každá molekula zasažená světlem vyšle vlastní malou vlnu. 2) Když molekuly sedí pravidelně a natěsno (sklo, voda), vlny do stran se navzájem zruší a světlo jde jen dopředu: látka je průhledná. 3) V plynu sedí molekuly náhodně, vlny do stran se nezruší a jejich jasy se sčítají: rozptýlené světlo roste s počtem molekul. 4) Proto je vzduch v silné vrstvě modrý, ale sklo ani čistá voda ne.",
+        "en": "1) Every molecule hit by light sends out a small wave of its own. 2) When molecules sit evenly and tightly (glass, water), the sideways waves cancel and the light only goes forwards: the material is transparent. 3) In a gas the molecules sit at random, the sideways waves do not cancel and their brightnesses add up: scattered light grows with the number of molecules. 4) That is why a thick layer of air is blue but glass and clean water are not."
+      },
+      "observe": {
+        "cs": "Sklo a voda trochu rozptylují, protože jejich molekuly nesedí dokonale pravidelně, ale na jednu molekulu několikrát méně než plyn. Modrá barva hluboké vody má jinou příčinu: voda pohlcuje červené světlo.",
+        "en": "Glass and water scatter a little, because their molecules are not perfectly even, but several times less per molecule than a gas. The blue of deep water has another cause: water absorbs red light."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "R. Feynman: Feynmanovy přednášky z fyziky I, kap. 32: rozptyl světla a proč je obloha modrá",
+            "en": "R. Feynman: The Feynman Lectures on Physics I, ch. 32: light scattering and why the sky is blue"
+          },
+          "url": "https://www.feynmanlectures.caltech.edu/I_32.html"
+        },
+        {
+          "label": {
+            "cs": "C. L. Braun a S. N. Smirnov (1993): Proč je voda modrá? (pohlcování červené)",
+            "en": "C. L. Braun and S. N. Smirnov (1993): Why is water blue? (absorption of red)"
+          },
+          "url": "https://doi.org/10.1021/ed070p612"
+        }
+      ],
+      "tab": "beam"
+    }
+  ]
+}

@@ -58,9 +58,10 @@ function patternPath(ctx, pattern, cx, cy, radius) {
  * What kind of picture a box holds, as a small tag in its top right corner,
  * the same in every view: 'scale' (particle and wave drawn to scale), 'rays'
  * (where the light goes), 'graph' (how much light goes which way), 'sum'
- * (the waves from a particle's parts added up).
+ * (the waves from a particle's parts added up), 'scheme' (a drawing that is
+ * not to scale).
  */
-const KIND_COLOURS = { scale: '#d9b77a', rays: '#ffffff', graph: '#8fe3c4', sum: '#c9a8ff' };
+const KIND_COLOURS = { scale: '#d9b77a', rays: '#ffffff', graph: '#8fe3c4', sum: '#c9a8ff', scheme: '#aab4c8' };
 
 export function drawKindTag(ctx, box, kind, t, corner = 'top-right') {
   ctx.save();

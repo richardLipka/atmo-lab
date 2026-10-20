@@ -49,7 +49,7 @@
       "aerosolNative": "As the chosen world has it",
       "aerosolTypeHelp": "Replaces the particles in the air with another kind (smog, desert dust, volcanic ash), keeping the same gas. The values follow aerosol types from the OPAC database.",
       "exponent": "Wavelength exponent n",
-      "exponentHelp": "Scattering on molecules goes as 1/λⁿ. n = 4 is real air. At n = 0 the molecules scatter every colour equally and the sky loses its colour.",
+      "exponentHelp": "Scattering by molecules is proportional to 1/λⁿ. The value 4 comes from theory: the oscillating electrons in a molecule radiate power proportional to the fourth power of the frequency (Rayleigh, 1871). Measurements on real air give slightly more, about 4.09, because the refractive index of air rises a little towards blue (Bodhaine et al. 1999). The simulation always includes this correction, so n = 4 is real air. Other values are a thought experiment: at n = 0 the molecules scatter every colour equally and the sky loses its colour.",
       "surfacePressure": "Surface pressure",
       "composition": "Composition",
       "presetHelp": "Chooses a planet or moon with its atmosphere. Resets density, aerosol and the exponent to that world’s values."
@@ -184,7 +184,10 @@
     "starVisible": "Neither the sky behind it nor the lit surroundings outshine it, so it can be seen.",
     "starBorderline": "It is at the edge of visibility: only an experienced observer who knows where to look will find it.",
     "starLost": "The sky behind it is far brighter, so the star is lost in it.",
-    "starGlare": "The sky behind it will not hide it, but the sunlit ground around you is brighter: an eye adjusted to it and to the Sun will not catch the star. From a shadow, where you see neither the sunlit ground nor the Sun, it would be visible."
+    "starGlare": "The sky behind it will not hide it, but the sunlit ground around you is brighter: an eye adjusted to it and to the Sun will not catch the star. From a shadow, where you see neither the sunlit ground nor the Sun, it would be visible.",
+    "howTitle": "How a spectrum becomes a colour",
+    "howEye": "The eye cannot tell single wavelengths apart. It has three kinds of cones, sensitive mainly to short, medium and long wavelengths, and the colour is set by how strongly the light stimulates each of them. The simulation works out colour the same way, from the eye’s sensitivity curves (CIE 1931).",
+    "howSky": "That is why a colour has a different “peak” from its spectrum: the sky’s spectrum is highest in the violet, but violet light stimulates the cones weakly and a mixture of short wavelengths looks blue. And that is why the Sun can look dark: the “Star as seen” box shows true brightness, so a dimmed Sun is dark even though it keeps its hue."
   },
   "data": {
     "title": "Physical quantities",
@@ -290,7 +293,8 @@
         "see": "The Sun is orange and dimmer even high in the sky. Its light takes a path as long as usual, but meets far more gas molecules on it.",
         "why": "Along the path the optical depth is τ = {tau450} at 450 nm but only {tau650} at 650 nm, so by T = e^(−τ) blue is lost much faster than red. The amount of gas changed the colour, not a different kind of scattering: the molecules still scatter as 1/λ⁴. All the colours travel the same path; they differ only in how much of each is lost on the way."
       }
-    }
+    },
+    "limits": "The model’s limit: each ray is scattered at most once here. That is enough for a clear sky; in clouds, fog and twilight light is scattered many times, and reality is brighter and whiter."
   },
   "experiment": {
     "step": "Step {n} of {total}",
@@ -307,7 +311,9 @@
     "on": "on",
     "off": "off",
     "auto": "automatic",
-    "sources": "Sources"
+    "sources": "Sources",
+    "toBeamTab": "Switched to the Single beam tab",
+    "toScatteringTab": "Switched to the Light scattering tab"
   },
   "units": {
     "km": "km",
@@ -391,10 +397,6 @@
     },
     "controls": {
       "viewTitle": "View",
-      "viewMacro": "3. The composite beam through the air",
-      "viewMicro": "2. Many rays: collisions up close",
-      "viewMacroHelp": "The whole path of a sunbeam of all colours from the top of the atmosphere (100 km) to an observer on the ground: how much of each colour is lost, and where. Then the Light scattering tab: the whole sky.",
-      "viewMicroHelp": "A magnified piece of air standing for the beam’s whole path: of each colour, the same share crosses it without a collision as reaches the observer (flag D in picture 3). A particle’s target shows how likely a collision is; for blue the molecules’ targets are larger.",
       "bundle": "All rays",
       "single": "Only the chosen ray",
       "singleHelp": "Only the chosen ray, with dashed rings showing how big a target each particle is for its colour. Choose the ray in the panel on the right.",
@@ -413,10 +415,22 @@
       "aerosol": "Aerosol amount",
       "aerosolHelp": "Multiplies the amount of dust and droplets of the chosen kind.",
       "exponent": "Wavelength exponent n",
-      "exponentHelp": "Scattering on molecules goes as 1/λⁿ; n = 4 is real air. At n = 0 the molecules scatter every colour equally.",
+      "exponentHelp": "Scattering by molecules is proportional to 1/λⁿ. The value 4 comes from theory: the oscillating electrons in a molecule radiate power proportional to the fourth power of the frequency (Rayleigh, 1871). Measurements on real air give slightly more, about 4.09, because the refractive index of air rises a little towards blue (Bodhaine et al. 1999). The simulation always includes this correction, so n = 4 is real air. Other values are a thought experiment: at n = 0 the molecules scatter every colour equally and the sky loses its colour.",
       "bundleHelp": "Every colour sends the same number of rays at the same heights. Click a ray to follow it; the panel on the right explains each of its collisions.",
-      "viewParticle": "1. One ray, one particle",
-      "viewParticleHelp": "One ray of light meets one particle of any size, from an air molecule to a cloud droplet: where the scattered light goes, and how often each colour is scattered at all. Then picture 2: many rays in a piece of air."
+      "view": {
+        "particle": "1. One ray, one particle",
+        "crowd": "2. Many molecules: why air scatters",
+        "micro": "3. Many rays: collisions up close",
+        "macro": "4. The composite beam through the air",
+        "sightline": "5. One direction of the sky"
+      },
+      "viewHelp": {
+        "particle": "One ray of light meets one particle, from an air molecule to a cloud droplet: where the scattered light goes, and how often each colour is scattered. Then picture 2: many molecules together.",
+        "crowd": "The same number of molecules placed evenly (as in glass) and at random (as in air). We add up the waves they send sideways: why air scatters and glass hardly does. Then picture 3: rays in a piece of air.",
+        "micro": "A magnified piece of air standing for the beam’s whole path: of each colour, the same share crosses it without a collision as reaches the observer (flag D in picture 4). A particle’s target shows how likely a collision is; for blue the molecules’ targets are larger.",
+        "macro": "The whole path of a sunbeam of all colours from the top of the atmosphere (100 km) to an observer: how much of each colour is lost, and where. Then picture 5: one direction of the sky.",
+        "sightline": "You look at the sky in one direction. Every bit of air on your line of sight is lit by the Sun and sends part of that light to you; together they make the colour of the sky in that direction. Drag in the picture to change the direction. Then the Light scattering tab: the whole sky."
+      }
     },
     "panel": {
       "arrivesTitle": "What reaches the observer",
@@ -439,7 +453,7 @@
       "refractionTitle": "Refraction and dispersion",
       "refractionText": "Refraction lifts the Sun by {arcmin}′. Its blue image sits {arcsec}″ above its red one, because the refractive index of air is about 1.5 % larger for blue. For comparison: the Sun is about 32′ across.",
       "sources": "Sources:",
-      "toScattering": "Next: 4. The whole atmosphere, Light scattering →",
+      "toScattering": "Next: 6. The whole sky, Light scattering tab →",
       "principlesTitle": "What the air does to light",
       "principles": {
         "samePath": {
@@ -467,13 +481,19 @@
           "text": "Air also bends light, blue about 1.5 % more than red. Near the horizon this lifts the Sun by about half a degree and gives it coloured rims and the green flash. It does not make the setting Sun red: scattering does."
         },
         "views": {
-          "lead": "Four pictures.",
-          "text": "Four pictures, from small to large. 1: one ray at one particle, whose size decides where the light goes. 2: many rays in a piece of air: a ray that meets nothing stays in the Sun’s beam, a scattered one becomes light of the sky, an absorbed one is gone. 3: the composite beam of all colours along its whole path, and how much of each colour is lost where. 4 (Light scattering tab): the whole sky that this scattered light makes."
+          "lead": "Six pictures.",
+          "text": "Six pictures, from small to large. 1: one particle and where it sends light. 2: many molecules together, and why air scatters but glass does not. 3: rays in a piece of air: one that meets nothing stays in the Sun’s beam, a scattered one becomes light of the sky. 4: the composite beam along its whole path. 5: one direction of the sky and where its light comes from. 6 (Light scattering tab): the whole sky."
+        },
+        "limits": {
+          "lead": "What the simulation leaves out.",
+          "text": "Each ray is scattered only once here (in picture 3 at most a few times). That is enough for a clear sky. In clouds, fog and twilight light is scattered many times, and reality is brighter and whiter than the model."
         }
       },
       "next": {
-        "micro": "Next: 2. Many rays, collisions up close →",
-        "macro": "Next: 3. The composite beam through the air →"
+        "crowd": "Next: 2. Many molecules →",
+        "micro": "Next: 3. Collisions up close →",
+        "macro": "Next: 4. The composite beam →",
+        "sightline": "Next: 5. One direction of the sky →"
       }
     },
     "sources": {
@@ -607,13 +627,13 @@
       },
       "tableNote": "The size parameter compares the particle with the wavelength. Where the light goes and how often it is scattered depend on it, not on the size alone.",
       "explain": {
-        "small": "The particle ({d}) is so small that all its parts oscillate together, and their waves add up in every direction. The light goes forwards and backwards alike, and the shape is the same for every colour: the typical turn is {mS}° for {nmS} nm and {mL}° for {nmL} nm. Colour changes only how often scattering happens, as 1/λ⁴: the target is {ratio}× larger for {nmS} nm. This is how air molecules make the sky blue.",
+        "small": "The particle ({d}) is so small that all its parts oscillate together, and their waves add up in every direction. The light goes forwards and backwards alike, and the shape is the same for every colour: the typical turn is {mS}° for {nmS} nm and {mL}° for {nmL} nm. Colour changes only how often scattering happens, as {law}: the target is {ratio}× larger for {nmS} nm. {closing}",
         "comparable": "The particle ({d}) is about as large as the wavelength. The waves from its front and back cancel sideways and backwards and add up forwards: {fS} of the {nmS} nm light and {fL} of the {nmL} nm light goes forward. For the shorter wavelength the particle is “larger”, so it turns the light less: typically {mS}° against {mL}°. The target still depends on colour, but much less than for a molecule ({ratio}×). This is haze and smoke: a whitish sky and a bright glow round the Sun.",
         "large": "The particle ({d}) is many times larger than the wavelength. Outside a narrow forward cone the waves cancel: the light turns by only about {mS}° ({nmS} nm) or {mL}° ({nmL} nm), and the target is practically the same for every colour ({ratio}×). Every colour is scattered alike, which is why clouds and fog are white."
       },
       "tryTitle": "Try",
       "try": {
-        "one": "Move the slider from the molecule to the cloud droplet and watch the shape: from forwards-and-backwards to a narrow forward cone.",
+        "one": "Start with the molecule and move the exponent n from 4 to 0: the target bars level out, while the arrows and the brightness graph do not change. Then put n back to 4 and move the size towards a cloud droplet: the shape turns into a narrow forward cone.",
         "two": "Watch the target bars: steep for a molecule (blue far ahead of red), then flatter, and level for a cloud droplet.",
         "three": "Around 0.3–1 µm the filled and dashed shapes differ most: here colour changes not only how often light is scattered but also where it goes."
       },
@@ -626,14 +646,122 @@
       "graphNote": "The strongest direction reaches the outer ring. Not the particle’s shape.",
       "graphNoteLog": "Each ring: ten times less light. Not the particle’s shape.",
       "kindsLegend": "To scale: the real size against the wave · Light paths: where the light flies · Graphs: how much light, {nm} nm filled, {nmC} nm dashed.",
-      "angleNote": "Why the arrows (2) and the graph (3) differ: the graph is the brightness in one direction; the arrows are the angles light actually turns by. A turn of 90° can go anywhere round a whole circle of directions about the ray, a turn of 0° in one direction only. So a molecule’s arrows crowd round 90° although its graph is brightest forwards and backwards."
+      "angleNote": "Why the arrows (2) and the graph (3) differ: the graph is the brightness in one direction; the arrows are the angles light actually turns by. A turn of 90° can go anywhere round a whole circle of directions about the ray, a turn of 0° in one direction only. So a molecule’s arrows crowd round 90° although its graph is brightest forwards and backwards.",
+      "exponentHelp": "How strongly a molecule’s scattering depends on colour: 1/λⁿ. Real air has n = 4; other values are a thought experiment. The same n applies in the later pictures.",
+      "lawN": "1/λⁿ with n = {n} (a thought experiment; real air has n = 4)",
+      "targetNoteMolecule": "How often light is scattered at all, 1/λⁿ with n = {n}. {nm} nm against {nmC} nm: {ratio}×.",
+      "exponentTitle": "Why 1/λ⁴: the exponent n",
+      "exponentText": {
+        "theory": "A molecule is a thousand times smaller than the wavelength, so the light’s electric field shakes its whole electron cloud at once: the molecule becomes a tiny oscillating dipole. It is shaken about equally by every visible colour, because the molecule’s own frequencies lie in the ultraviolet. An oscillating dipole radiates power proportional to the fourth power of its frequency, and the frequency is inversely proportional to the wavelength, so scattering grows as 1/λ⁴ (Rayleigh, 1871). The exponent 4 is a result of theory.",
+        "measured": "Measurements on real air give slightly more, about 4.09: the refractive index of air rises a little towards blue, and N₂ and O₂ molecules are not round (Bodhaine et al. 1999). So blue at 450 nm is scattered about 4.5 times as strongly as red at 650 nm, not 4.4 times. Laboratory measurements of scattering by single gases agree with this to about 1 % (Sneep and Ubachs 2005). The simulation always includes this correction, so n = 4 is real air.",
+        "slider": "The n slider is a thought experiment. Watch what changes: the target bars do, the arrows and the brightness graph do not. The exponent decides how often each colour is scattered, not where the light goes. At n = 0 the molecules would scatter every colour equally and the sky would be white. For larger particles this number (the Ångström exponent) falls towards zero by itself: move the diameter towards haze."
+      },
+      "exponentSources": {
+        "rayleigh": "Rayleigh scattering (Wikipedia)",
+        "bodhaine": "Bodhaine et al. 1999",
+        "sneep": "Sneep and Ubachs 2005"
+      },
+      "closingBlue": "This is how air molecules make the sky blue.",
+      "closingNotBlue": "With so weak a dependence on colour the sky would not be blue.",
+      "polar": "Show polarisation",
+      "polarHelp": "Splits the brightness graph into light oscillating across the scattering plane and in it; instead of the typical turn, shows how strongly the light is polarised.",
+      "polarNote": "Solid white: oscillating across the scattering plane; dotted: in the plane. Their sum is the graph.",
+      "polarTitle": "How strongly the light is polarised, by angle",
+      "polarNoteChart": "At 90°: {p} %. Solid: the chosen colour; dashed: the other."
     },
     "kinds": {
       "scale": "to scale",
       "rays": "light paths",
       "graph": "brightness graph",
       "sum": "waves added",
-      "tooSmall": "far smaller than drawn"
+      "tooSmall": "far smaller than drawn",
+      "scheme": "scheme"
+    },
+    "crowd": {
+      "header": "{n} molecules in a square {size} × {size} wavelengths",
+      "subheader": "Each molecule sends out a small wave. The dials add up the waves of all the molecules sideways and backwards; the number says how much light goes there, in units of one molecule.",
+      "title": {
+        "even": "Evenly and tightly packed (glass, water)",
+        "random": "At random (air)"
+      },
+      "crests": "lines: wave crests, one wavelength apart",
+      "dir": {
+        "side": "sideways 90°",
+        "back": "back 180°"
+      },
+      "forward": "Forwards all the waves are in step: the light goes on.",
+      "chartTitle": "Light scattered sideways, in units of one molecule",
+      "rowEven": "evenly",
+      "rowRandom": "at random, this arrangement",
+      "rowAverage": "at random, average of {m} arrangements",
+      "controlsTitle": "Molecules",
+      "count": "Number of molecules",
+      "countHelp": "A larger square, more molecules (4 per wavelength each way).",
+      "reshuffle": "Another random arrangement",
+      "reshuffleHelp": "Every random arrangement gives a different number, but on average always about N.",
+      "panelTitle": "Why air scatters and glass hardly does",
+      "text": {
+        "even": "Evenly: for every molecule there is another whose wave arrives sideways half a period later. The waves cancel in pairs, so nothing goes sideways or backwards. Forwards all the waves are in step and the light goes on: that is why clean glass and water are transparent.",
+        "random": "At random: the sideways waves have random phases, and their sum is like a random walk, about √N waves long. Brightness is its square, so about N: every molecule adds its share. That is why air scatters more the more molecules it holds.",
+        "numbers": "Here: {n} molecules. Sideways, evenly placed ones send {even} times one molecule’s light, randomly placed ones {random} times (the average of many arrangements {average} times, so about N).",
+        "real": "Real molecules sit far closer, in glass some 1500 to a wavelength, and in glass or water they are not perfectly even. So these scatter a little too, but several times less per molecule than a gas. The picture is a scheme, not to scale."
+      }
+    },
+    "sight": {
+      "header": "You look {where} · the Sun {sun}° above the horizon",
+      "zenith": "straight up",
+      "towardsSun": "{deg}° above the horizon towards the Sun",
+      "awayFromSun": "{deg}° above the horizon with the Sun behind you",
+      "subheader": "Sunlight has to turn by {angle}° here to reach you.",
+      "you": "you",
+      "scaleTrue": "heights and distances to the same scale",
+      "scaleStretched": "heights ×{m}",
+      "legend": "Lines: sunlight in the colour it still has there · beads: how much light that bit of air sends you, and in what colour.",
+      "colourTitle": "The colour of the sky in this direction",
+      "colourHill": "The colour of the hill, with the air in front of it",
+      "brightness": "brightness {ratio}× zenith",
+      "polarization": "polarised {p} %",
+      "chartTitle": "Where the light comes from",
+      "chartAxis": "distance from you: 0 to {km} km",
+      "half": "half from the first {km} km",
+      "spectrumTitle": "The spectrum that reaches you",
+      "controlsTitle": "Where you look",
+      "view": "Direction of view",
+      "viewHelp": "Negative values point towards the Sun, positive away from it. You can also set the direction by dragging in the picture.",
+      "zenithShort": "zenith",
+      "towardsShort": "{deg}° up, towards the Sun",
+      "awayShort": "{deg}° up, away from the Sun",
+      "quick": {
+        "-85": "horizon below the Sun",
+        "-45": "45° towards the Sun",
+        "0": "zenith",
+        "45": "45° away",
+        "85": "opposite horizon"
+      },
+      "hill": "A hill on the horizon",
+      "hillHelp": "You look almost horizontally at a dark wooded hill at the chosen distance. The air in front of it adds its own light.",
+      "panelTitle": "How the colour of the sky in one direction is made",
+      "text": {
+        "sum": "Every bit of air on your line of sight is lit by the Sun and scatters a little of that light towards you. On the way to you some of it is lost again. The colour of the sky in this direction is the sum of all these contributions.",
+        "numbers": "Here: half the light comes from the first {half} km, the light turns by {angle}°, the sky is {ratio} times as bright as the zenith, and the light is about {p} % polarised.",
+        "horizon": "Towards the horizon there is far more air in front of you, so the sky is brighter there. But it is paler: blue light from distant air is scattered away again on its way to you, while most of the red gets through, and the colours even out.",
+        "nearSun": "Near the Sun the sky is whiter and brighter: droplets and dust scatter mostly forwards, and all colours alike.",
+        "lowSun": "When the Sun is low, only yellowish to red light still reaches the air in front of you. That is why the sky around the setting Sun is orange while high overhead it stays blue.",
+        "hill": "Between you and the hill there is air, which also sends blue light towards you, while the hill’s own light fades on the way. The further the hill, the more of its image is light from the air: first it turns blue, and very far away it fades almost to the colour of the sky.",
+        "limits": "Only one scattering is counted. That is enough for a clear sky; near the horizon and at twilight the real sky adds light scattered more than once."
+      }
+    },
+    "polar": {
+      "title": "Polarisation of scattered light",
+      "what": "Light is a wave whose electric field oscillates across its direction of travel. A molecule radiates most at right angles to the direction it oscillates in, and nothing along it. So light scattered by 90° oscillates in one direction only: it is polarised. Switch on Show polarisation: the graph splits into a circle (oscillating across the scattering plane) and a figure of eight (oscillating in it); their sum is the 1 + cos²θ shape.",
+      "sky": "In the sky, light 90° from the Sun is therefore polarised most: in theory up to about 95 %, in reality about 75 %, because part of the light is scattered more than once and light from the ground and from haze is added. Haze and clouds polarise little: droplets of different sizes each polarise differently, and in a cloud light is scattered many times.",
+      "home": "Try it: look at the blue sky 90° from the Sun through polarising sunglasses and turn them. The sky darkens and brightens in turn. Bees find their way by the polarisation of the sky too."
+    },
+    "distance": {
+      "title": "How far light gets",
+      "text": "Near the ground light travels on average, before it meets a molecule: about {mblue} km for blue (450 nm), {mgreen} km for green and {mred} km for red. With the haze of this air only {blue}, {green} and {red} km.",
+      "why": "There are an enormous number of molecules, about {count} in every cubic metre. But each is a tiny target, about {sigma} m² for green light. That is why the air in a room looks clear and only a layer kilometres long looks blue.",
+      "hills": "That is why distant hills look bluish and pale: the air in front of them adds its own light. Try it in picture 5 with a hill on the horizon."
     }
   }
 }

@@ -1,0 +1,164 @@
+{
+  "id": "sky-direction",
+  "order": 3,
+  "icon": "eye",
+  "title": {
+    "cs": "Jak vzniká barva oblohy v jednom směru?",
+    "en": "How is the colour of the sky in one direction made?"
+  },
+  "summary": {
+    "cs": "Díváme se jedním směrem a skládáme světlo, které k nám pošle každý kousek vzduchu na linii pohledu. Vysvětlíme, proč je zenit modrý, obzor bledý, okolí Slunce bílé a obloha u zapadajícího Slunce oranžová.",
+    "en": "We look in one direction and add up the light that every bit of air on the line of sight sends us. We explain why the zenith is blue, the horizon pale, the sky round the Sun white and the sky round the setting Sun orange."
+  },
+  "goal": {
+    "cs": "Vysvětlit, že barva oblohy v daném směru je součet světla, které k pozorovateli rozptýlí všechny kousky vzduchu na linii pohledu, a že o ní rozhoduje, jaké světlo k nim dorazí, kolik vzduchu je před námi a o jaký úhel se světlo stáčí.",
+    "en": "Explain that the colour of the sky in a direction is the sum of the light scattered to the observer by every bit of air on the line of sight, and that it depends on what light reaches that air, how much air lies in front of us, and the angle the light turns through."
+  },
+  "steps": [
+    {
+      "title": {
+        "cs": "Pohled do zenitu",
+        "en": "Looking at the zenith"
+      },
+      "text": {
+        "cs": "Záložka Jeden paprsek, obrázek 5. Slunce je 60° nad obzorem a díváš se přímo vzhůru. Kuličky na linii pohledu ukazují, kolik světla ti pošle který kousek vzduchu.",
+        "en": "Single beam tab, picture 5. The Sun is 60° above the horizon and you look straight up. The beads on the line of sight show how much light each bit of air sends you."
+      },
+      "observe": {
+        "cs": "Největší kuličky jsou dole, kde je vzduch nejhustší: polovina světla přichází z prvních 1,6 km. Obloha je modrá, protože molekuly k tobě rozptylují hlavně krátké vlnové délky.",
+        "en": "The largest beads are low down, where the air is densest: half the light comes from the first 1.6 km. The sky is blue because the molecules send you mainly short wavelengths."
+      },
+      "tab": "beam",
+      "beam": {
+        "viewType": "sightline",
+        "elevationDeg": 60,
+        "sightViewDeg": 0,
+        "sightHillKm": null,
+        "densityScale": 1,
+        "aerosolScale": 1,
+        "aerosolPresetId": null,
+        "rayleighExponent": 4
+      }
+    },
+    {
+      "title": {
+        "cs": "Pohled k obzoru",
+        "en": "Looking towards the horizon"
+      },
+      "text": {
+        "cs": "Sklonili jsme pohled k obzoru, 5° nad něj, zády ke Slunci.",
+        "en": "We have lowered the view to the horizon, 5° above it, with the Sun behind you."
+      },
+      "observe": {
+        "cs": "Polovina světla teď přichází z prvních 20 km a obloha je asi 1,2× jasnější než zenit, ale bledší. Modré světlo ze vzdáleného vzduchu se cestou k tobě znovu rozptýlí pryč, kdežto červené většinou projde.",
+        "en": "Half the light now comes from the first 20 km, and the sky is about 1.2 times as bright as the zenith, but paler. Blue light from the distant air is scattered away again on its way to you, while most of the red gets through."
+      },
+      "question": {
+        "cs": "Proč je obloha u obzoru bělejší než nad hlavou?",
+        "en": "Why is the sky whiter at the horizon than overhead?"
+      },
+      "tab": "beam",
+      "beam": {
+        "sightViewDeg": 85
+      }
+    },
+    {
+      "title": {
+        "cs": "Blízko Slunce",
+        "en": "Near the Sun"
+      },
+      "text": {
+        "cs": "Otočili jsme pohled ke Slunci, jen 10° od něj.",
+        "en": "We have turned the view towards the Sun, only 10° from it."
+      },
+      "observe": {
+        "cs": "Obloha je asi 4× jasnější než zenit a bělejší. Světlo se tu stáčí jen o 10° a tak málo stáčí hlavně kapičky a prach, které rozptylují všechny barvy podobně.",
+        "en": "The sky is about 4 times as bright as the zenith, and whiter. Light turns only 10° here, and so small a turn comes mostly from droplets and dust, which scatter all colours alike."
+      },
+      "tab": "beam",
+      "beam": {
+        "sightViewDeg": -40
+      }
+    },
+    {
+      "title": {
+        "cs": "Kolem zapadajícího Slunce",
+        "en": "Round the setting Sun"
+      },
+      "text": {
+        "cs": "Slunce je 3° nad obzorem a díváš se kousek nad něj.",
+        "en": "The Sun is 3° above the horizon and you look just above it."
+      },
+      "observe": {
+        "cs": "Obloha kolem Slunce je oranžová. Sluneční světlo, které k tomuto vzduchu dorazí, už prošlo dlouhou cestou a ztratilo modrou; čáry v obrázku mají jeho barvu.",
+        "en": "The sky round the Sun is orange. The sunlight reaching this air has already crossed a long path and lost its blue; the lines in the picture have its colour."
+      },
+      "tab": "beam",
+      "beam": {
+        "elevationDeg": 3,
+        "sightViewDeg": -80
+      }
+    },
+    {
+      "title": {
+        "cs": "Nad hlavou při západu",
+        "en": "Overhead at sunset"
+      },
+      "text": {
+        "cs": "Slunce je pořád 3° nad obzorem, ale díváš se přímo vzhůru.",
+        "en": "The Sun is still 3° above the horizon, but you look straight up."
+      },
+      "observe": {
+        "cs": "Zenit zůstal modrý. Vysoko nad tebou svítí Slunce na vzduch kratší cestou než nízko u obzoru, a to světlo ještě modrou má. Je odtud také silně polarizované, asi z 86 %, protože se stáčí skoro o 90°.",
+        "en": "The zenith has stayed blue. High above you sunlight reaches the air by a shorter path than near the horizon, and that light still has its blue. It is also strongly polarised, about 86 %, because it turns by almost 90°."
+      },
+      "tab": "beam",
+      "beam": {
+        "sightViewDeg": 0
+      }
+    },
+    {
+      "title": {
+        "cs": "Celá obloha najednou",
+        "en": "The whole sky at once"
+      },
+      "text": {
+        "cs": "Záložka Rozptyl světla skládá stejné součty pro všechny směry. Slunce je 3° nad obzorem. Táhni myší v pásu Co pozorovatel vidí nebo v obrázku a sleduj, jak se barva mění od obzoru k obzoru.",
+        "en": "The Light scattering tab adds up the same sums for every direction. The Sun is 3° above the horizon. Drag in the strip What the observer sees, or in the picture, and watch the colour change from horizon to horizon."
+      },
+      "observe": {
+        "cs": "Pás je oranžový u obzoru pod Sluncem, modrý nad hlavou a bledší na protějším obzoru: přesně jako v obrázku 5.",
+        "en": "The strip is orange at the horizon below the Sun, blue overhead and paler at the opposite horizon: just as in picture 5."
+      },
+      "tab": "scattering",
+      "state": {
+        "star": {
+          "presetId": "sun-5800k",
+          "temperatureK": 5800,
+          "elevationDeg": 3
+        },
+        "atmosphere": {
+          "presetId": "earth"
+        },
+        "observer": {
+          "z": 0,
+          "viewZenithDeg": 0
+        }
+      }
+    },
+    {
+      "title": {
+        "cs": "Shrnutí: jak to vysvětlit",
+        "en": "Summary: how to explain it"
+      },
+      "text": {
+        "cs": "1) Barva oblohy v jednom směru je součet světla, které k tobě rozptýlí všechny kousky vzduchu na linii pohledu. 2) Nad hlavou rozptylují hlavně molekuly a ty posílají hlavně modrou. 3) U obzoru je vzduchu víc: obloha je jasnější, ale modrá z dálky se cestou znovu ztratí a barvy se vyrovnají. 4) Blízko Slunce přidávají kapičky a prach bělavé světlo rozptýlené dopředu. 5) Při západu dorazí ke vzduchu u obzoru už jen oranžové světlo, a tak je oranžová i obloha kolem Slunce.",
+        "en": "1) The colour of the sky in one direction is the sum of the light scattered to you by every bit of air on the line of sight. 2) Overhead mainly molecules scatter, and they send mainly blue. 3) At the horizon there is more air: the sky is brighter, but the blue from far away is lost again on the way and the colours even out. 4) Near the Sun droplets and dust add whitish light scattered forwards. 5) At sunset only orange light still reaches the air near the horizon, so the sky round the Sun is orange too."
+      },
+      "observe": {
+        "cs": "Simulace počítá jen jeden rozptyl. Skutečná obloha u obzoru a za soumraku je proto o něco jasnější a bělejší.",
+        "en": "The simulation counts only one scattering. The real sky near the horizon and at twilight is therefore a little brighter and whiter."
+      }
+    }
+  ]
+}

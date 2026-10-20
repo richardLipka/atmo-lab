@@ -30,9 +30,12 @@ import {
   traceBeam, singleColourSpectrum, createChamber, traceChamberBundle,
 } from '../physics/beam.js';
 import { createAtmosphere } from '../physics/atmosphere.js';
-import { CHAMBER_SAMPLE, particlePattern } from '../physics/mie.js';
+import { CHAMBER_SAMPLE, particlePattern, moleculeCrossSection } from '../physics/mie.js';
 import { drawTestBench, drawWaveStrip } from './particle-strips.js';
 import { drawParticleView } from './particle-view.js';
+import { drawCrowdView } from './crowd-view.js';
+import { drawSightlineView } from './sightline-view.js';
+import { traceSightline } from '../physics/sightline.js';
 import { makeBlackbodySpectrum, RAY_BANDS, BAND_OF_BIN, WAVELENGTHS_NM, SPECTRUM_BINS } from '../physics/spectrum.js';
 
 /** The sun's temperature for the white beam, as in the rest of the simulator. */
@@ -63,9 +66,14 @@ export const DEFAULT_BEAM_STATE = {
   selectedBand: null,
   selectedRay: null,
   selectedEvent: null,
-  particleDiameterUm: 0.5,
+  particleDiameterUm: 0.0003,
   particleBand: 1,
   particleLog: false,
+  particlePolar: false,
+  crowdSize: 3,
+  crowdSeed: 1,
+  sightViewDeg: 0,
+  sightHillKm: null,
 };
 
 /** The bands a source actually contains. */
@@ -94,7 +102,7 @@ export function buildBeamModel(state, { config, colorimetry }) {
     colorimetry.normalizeToLuminance(source, 1);
   }
   const trace = traceBeam({ atmosphere, source, elevationDeg: state.elevationDeg });
-  return { atmosphere, source, trace, bands: bandsOf(source) };
+  return { atmosphere, source, trace, bands: bandsOf(source), exponent: state.rayleighExponent };
 }
 
 /**
@@ -176,10 +184,11 @@ export function chosenScatterEvent(ray, wanted) {
  * band and differ from this by a couple of per cent.)
  */
 export function rayleighBandRatio(model, a, b) {
-  // At the bands' centre wavelengths, with the real air's law (Bodhaine et
-  // al. 1999) - the same numbers the test bench and the one-particle view use.
-  const cs = (band) => particlePattern('molecule', RAY_BANDS[band].centreNm).crossSection;
-  return cs(a) / cs(b);
+  // At the bands' centre wavelengths, with the real air's law (Bodhaine et al.
+  // 1999) and the exponent n set by the slider - the same numbers the test
+  // bench and the one-particle view use.
+  const n = model.exponent ?? 4;
+  return moleculeCrossSection(RAY_BANDS[a].centreNm, n) / moleculeCrossSection(RAY_BANDS[b].centreNm, n);
 }
 
 /** In white light, the colour set beside the chosen one: red, or blue for red itself. */
@@ -290,18 +299,70 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
     return tagSpots.find((spot) => Math.hypot(spot.x - px, spot.y - py) <= 10) ?? null;
   }
 
+  /* Picture 5: aiming the line of sight with the pointer. */
+  let sightLayout = null;
+  let sightAiming = false;
+  function sightAngleAt(event) {
+    if (state.viewType !== 'sightline' || !sightLayout) return null;
+    const box = canvas.getBoundingClientRect();
+    const px = event.clientX - box.left, py = event.clientY - box.top;
+    const pic = sightLayout.picture;
+    if (px < pic.x || px > pic.x + pic.w || py < pic.y || py > pic.y + pic.h) return null;
+    // Back from the stretched picture to true directions.
+    const dx = (px - sightLayout.observer.x) / sightLayout.sx;
+    const up = (sightLayout.observer.y - py) / sightLayout.sy;
+    if (Math.hypot(px - sightLayout.observer.x, py - sightLayout.observer.y) < 6) return null;
+    let angle = Math.atan2(dx, up) * 180 / Math.PI;
+    angle = Math.max(-90, Math.min(90, angle));
+    return Math.round(angle);
+  }
+
   canvas.addEventListener('pointerdown', (event) => {
+    const aim = sightAngleAt(event);
+    if (aim !== null) {
+      sightAiming = true;
+      try { canvas.setPointerCapture(event.pointerId); } catch { /* not an active pointer */ }
+      onPick?.({ sightViewDeg: aim });
+      return;
+    }
     const tag = tagNear(event);
     if (tag) { onPick?.({ selectedEvent: tag.index }); return; }
     const ray = rayNear(event);
     if (ray) onPick?.({ selectedBand: ray.band, selectedRay: ray.index, selectedEvent: null });
   });
   canvas.addEventListener('pointermove', (event) => {
+    if (state.viewType === 'sightline') {
+      const aim = sightAngleAt(event);
+      canvas.style.cursor = aim !== null ? 'crosshair' : '';
+      if (sightAiming && aim !== null && aim !== state.sightViewDeg) onPick?.({ sightViewDeg: aim });
+      return;
+    }
     canvas.style.cursor = tagNear(event) || rayNear(event) ? 'pointer' : '';
   });
+  canvas.addEventListener('pointerup', () => { sightAiming = false; });
+  canvas.addEventListener('pointercancel', () => { sightAiming = false; });
 
   // A new size makes a new chamber, so the panel describing its rays is redone too.
   window.addEventListener('resize', () => { if (model) { recompute(); draw(); onPick?.({}); } });
+
+  let crowdResult = null;
+  let sightCache = null;
+  /** The line of sight of picture 5, and the zenith for comparison, recomputed only when they change. */
+  function sightlineResult() {
+    const key = `${state.elevationDeg}|${state.sightViewDeg}|${state.sightHillKm}|${state.densityScale}|${state.aerosolScale}|${state.aerosolPresetId}|${state.rayleighExponent}|${state.mode}|${state.wavelengthNm}`;
+    if (sightCache?.key !== key) {
+      const common = {
+        atmosphere: model.atmosphere, source: model.source, wavelengths: WAVELENGTHS_NM,
+        sunElevationDeg: Math.max(0, state.elevationDeg),
+      };
+      sightCache = {
+        key,
+        result: traceSightline({ ...common, viewDeg: state.sightViewDeg, hillKm: state.sightHillKm }),
+        zenith: traceSightline({ ...common, viewDeg: 0, samples: 80 }),
+      };
+    }
+    return sightCache;
+  }
 
   function draw() {
     // The collision view needs more height for its strips.
@@ -319,6 +380,19 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
       drawParticleView(ctx, {
         w, h, t, lang: i18n.getLanguage?.() ?? 'en',
         diameterUm: state.particleDiameterUm, band: state.particleBand, log: state.particleLog,
+        exponent: state.rayleighExponent, polar: state.particlePolar,
+      });
+    } else if (state.viewType === 'crowd') {
+      crowdResult = drawCrowdView(ctx, {
+        w, h, t, lang: i18n.getLanguage?.() ?? 'en',
+        band: state.particleBand, size: state.crowdSize, seed: state.crowdSeed,
+      });
+    } else if (state.viewType === 'sightline') {
+      const sight = sightlineResult();
+      sightLayout = drawSightlineView(ctx, {
+        w, h, t, lang: i18n.getLanguage?.() ?? 'en', colorimetry,
+        result: sight.result, zenith: sight.zenith,
+        elevationDeg: state.elevationDeg, viewDeg: state.sightViewDeg, hillKm: state.sightHillKm,
       });
     } else drawMacro(w, h);
   }
@@ -1065,7 +1139,11 @@ export function createBeamCanvas(canvas, { i18n, colorimetry, config, onPick }) 
   return {
     update,
     draw,
-    getTraceResult: () => ({ model, bundle, selection, chamber, state: { ...state } }),
+    getTraceResult: () => ({
+      model, bundle, selection, chamber, state: { ...state },
+      crowd: crowdResult,
+      sight: state.viewType === 'sightline' && model ? sightlineResult() : null,
+    }),
   };
 }
 
