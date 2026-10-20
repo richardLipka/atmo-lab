@@ -216,7 +216,7 @@
     "states": {
       "daySky": {
         "see": "The sky glows blue in every direction away from the star, while the star itself still looks close to white. Nothing here is painted blue: you are looking at sunlight that has been knocked sideways out of the beam by air molecules.",
-        "why": "Air molecules scatter light more strongly the shorter its wavelength, roughly as 1/λ⁴: about {ratio} times more strongly at 450 nm than at 650 nm. So the light reaching your eye from the sky is mostly blue. The direct beam keeps almost all of its red, which is why the Sun looks warm white."
+        "why": "Air molecules scatter light more strongly the shorter its wavelength, roughly as 1/λ⁴: about {ratio} times more strongly at 450 nm than at 650 nm. So the light reaching your eye from the sky is mostly blue. The direct beam keeps almost all of its red, which is why the Sun looks warm white. Blue and red light are turned into the same directions when they meet a molecule; blue is only scattered more often."
       },
       "greySky": {
         "see": "The sky is greyish white, not blue, although roughly as much light comes from it.",
@@ -224,7 +224,7 @@
       },
       "sunset": {
         "see": "The star has dropped low, turned orange to red, and dimmed sharply. The colour change is not in the star but in the path its light takes through the air: {airmass} times longer than straight up.",
-        "why": "The share of light that gets through the air is T = e^(−τ), where the optical depth τ grows with the amount of air on the way. Along this path τ = {tau450} at 450 nm but only {tau650} at 650 nm, so blue is filtered out almost completely while red gets through. What you see is the leftover of the beam, not new red light."
+        "why": "The share of light that gets through the air is T = e^(−τ), where the optical depth τ grows with the amount of air on the way. Along this path τ = {tau450} at 450 nm but only {tau650} at 650 nm, so blue is filtered out almost completely while red gets through. What you see is the leftover of the beam, not new red light. All the colours travel the same path; they differ only in how much of each is lost on the way."
       },
       "greySunset": {
         "see": "The star has dropped low and dimmed sharply, but it has not turned red. Its light crosses {airmass} times more air than straight up, but the air now takes away every colour almost equally.",
@@ -259,8 +259,8 @@
         "why": "Radiance in the open direction is unchanged, but the illuminance follows the visible solid angle: E/E_open = sin²(θ_max) = {ratio}. Compare this with climbing: at {z} up, the sky itself would be dimmer because the air column really did shrink."
       },
       "dusty": {
-        "see": "The sky is pale ochre rather than blue, and the light is soft and diffuse. Larger particles are doing the scattering here, and they treat every colour almost alike.",
-        "why": "Aerosols scatter with only a weak wavelength dependence (roughly 1/λ⁰ to 1/λ¹) and a strongly forward-peaked Henyey-Greenstein lobe with g = {g}. Where the dust also absorbs blue more than red, as on Mars, the sky turns warm."
+        "see": "The sky is pale, whitish to yellowish rather than deep blue, and the light is soft and diffuse. Dust and droplets do most of the scattering here, and they tell the colours apart far less than molecules do.",
+        "why": "These particles scatter with only a weak wavelength dependence (Angstrom exponent {alpha}; for molecules it is 4) and mostly forwards (asymmetry parameter g = {g}). Where the dust also absorbs blue more than red, as on Mars, the sky turns warm, towards ochre."
       },
       "denseAtmosphere": {
         "see": "The light down here is dim and heavily tinted. Very little of the original spectrum survives the journey to the surface.",
@@ -273,6 +273,22 @@
       "hotStar": {
         "see": "The star is blue-white and the sky is an intense deep blue, noticeably stronger than under a Sun-like star.",
         "why": "A hot black body emits far more short-wavelength light, and the 1/λ⁴ law then amplifies that excess. Source spectrum and scattering law multiply together."
+      },
+      "smoky": {
+        "see": "The Sun is orange to red and faint even high in the sky, and the sky is murky. The air is full of small particles of smoke or smog.",
+        "why": "Small particles (tenths of a micrometre, of many sizes) scatter blue more than red (Angstrom exponent {alpha}), and there are a great many of them. Along the path the optical depth is τ = {tau450} at 450 nm but only {tau650} at 650 nm, so by T = e^(−τ) mostly red gets through. All the colours travel the same path; they differ only in how much of each is lost on the way."
+      },
+      "blueSun": {
+        "see": "The Sun is bluish, although it is high. The air holds droplets that are nearly all the same size.",
+        "why": "A droplet about 1 µm across dims longer wavelengths more than shorter ones: along the path τ = {tau450} at 450 nm but {tau650} at 650 nm. So more blue than red gets through. What decides it is the droplet’s size compared with the wavelength (Mie scattering); in a mixture of sizes the effect is lost."
+      },
+      "greenSun": {
+        "see": "The Sun is greenish. The air holds droplets that are nearly all the same size.",
+        "why": "These droplets dim green least: along the path τ = {tau450} at 450 nm, {tau550beam} at 550 nm and {tau650} at 650 nm. Blue and red are both lost faster, and mostly green is left. Such a Sun is rare, because it needs droplets of nearly one size."
+      },
+      "thickAir": {
+        "see": "The Sun is orange and dimmer even high in the sky. Its light takes a path as long as usual, but meets far more gas molecules on it.",
+        "why": "Along the path the optical depth is τ = {tau450} at 450 nm but only {tau650} at 650 nm, so by T = e^(−τ) blue is lost much faster than red. The amount of gas changed the colour, not a different kind of scattering: the molecules still scatter as 1/λ⁴. All the colours travel the same path; they differ only in how much of each is lost on the way."
       }
     }
   },
@@ -426,6 +442,10 @@
       "toScattering": "Next: 4. The whole atmosphere, Light scattering →",
       "principlesTitle": "What the air does to light",
       "principles": {
+        "samePath": {
+          "lead": "The same path, different odds.",
+          "text": "All the colours of a sunbeam travel the same path: a molecule turns blue and red into the same directions, and refraction separates them by only tens of metres over hundreds of kilometres. They differ only in how often each colour is scattered on the way. Blue is scattered more often, and because the losses multiply with every kilometre of air, it is mainly the amount of air on the way that decides the colour of the Sun."
+        },
         "molecules": {
           "lead": "Scattering by molecules.",
           "text": "The light's electric field sets the electrons in an air molecule oscillating, and the molecule sends out light of the same colour in new directions. The light is not lost; it changes direction. Molecules (about 0.3 nm) are far smaller than the wavelength of light (400–700 nm), and for such small particles scattering grows as 1/λ⁴: blue (450 nm) is scattered about 4.5 times as strongly as red (650 nm)."

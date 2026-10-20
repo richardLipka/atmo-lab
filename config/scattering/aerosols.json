@@ -37,11 +37,29 @@
       "name": { "cs": "Sopečný popel", "en": "Volcanic ash" },
       "beta550_perM": 3.0e-4, "scaleHeight_m": 6000, "angstromExponent": 0.5,
       "asymmetry_g": 0.65, "singleScatteringAlbedo": 0.85
+    },
+    "wildfire-smoke": {
+      "name": { "cs": "Kouř z lesních požárů", "en": "Wildfire smoke" },
+      "beta550_perM": 5.0e-4, "scaleHeight_m": 2000,
+      "angstromExponent": { "short": 2.0, "long": 1.8 },
+      "asymmetry_g": 0.62, "singleScatteringAlbedo": 0.9
+    },
+    "droplets-1um": {
+      "name": { "cs": "Stejné kapičky 1,0 µm", "en": "Uniform 1.0 µm droplets" },
+      "beta550_perM": 5.0e-4, "scaleHeight_m": 2000,
+      "angstromExponent": { "short": -2.07, "long": -0.86 },
+      "asymmetry_g": 0.73, "singleScatteringAlbedo": 0.99
+    },
+    "droplets-1-4um": {
+      "name": { "cs": "Stejné kapky 1,4 µm", "en": "Uniform 1.4 µm droplets" },
+      "beta550_perM": 5.0e-4, "scaleHeight_m": 2000,
+      "angstromExponent": { "short": 1.68, "long": -1.51 },
+      "asymmetry_g": 0.54, "singleScatteringAlbedo": 0.99
     }
   },
   "source": {
-    "cs": "Čistý vzduch, venkovský, městský a pouštní aerosol odpovídají typům OPAC čistý kontinentální, průměrný kontinentální, městský a pouštní (Hess, Koepke a Schult 1998, Bull. Amer. Meteor. Soc. 79, 831, tab. 3): optická tloušťka, albedo jednoho rozptylu, parametr asymetrie a Ångströmův exponent zvlášť pro 350–500 nm a 500–800 nm. Tvar spektrálního albeda pouštního prachu (pohlcování v modré oblasti oxidy železa) je ilustrativní, ukotvený na hodnotu OPAC při 550 nm. Sopečný popel v OPAC není a jeho hodnoty jsou ilustrativní.",
-    "en": "Clean air, rural, urban and desert correspond to the OPAC types continental clean, continental average, urban and desert (Hess, Koepke & Schult 1998, Bull. Amer. Meteor. Soc. 79, 831, Table 3): optical depth, single-scattering albedo, asymmetry parameter, and the Angstrom exponent separately for 350-500 nm and 500-800 nm. The spectral shape of the desert-dust albedo (blue absorption by iron oxides) is illustrative, anchored to OPAC's value at 550 nm. OPAC has no volcanic type, so those values are illustrative."
+    "cs": "Čistý vzduch, venkovský, městský a pouštní aerosol odpovídají typům OPAC čistý kontinentální, průměrný kontinentální, městský a pouštní (Hess, Koepke a Schult 1998, Bull. Amer. Meteor. Soc. 79, 831, tab. 3): optická tloušťka, albedo jednoho rozptylu, parametr asymetrie a Ångströmův exponent zvlášť pro 350–500 nm a 500–800 nm. Tvar spektrálního albeda pouštního prachu (pohlcování v modré oblasti oxidy železa) je ilustrativní, ukotvený na hodnotu OPAC při 550 nm. Sopečný popel v OPAC není a jeho hodnoty jsou ilustrativní. Kouř z lesních požárů: Ångströmův exponent kolem 2 a albedo kolem 0,9 podle měření AERONET (Eck a kol. 1999, J. Geophys. Res. 104, 31333); optická tloušťka 1 při 1× je ilustrativní. Stejně velké kapičky 1,0 µm a 1,4 µm: exponenty a g spočtené Mieovou teorií (algoritmus Bohrena a Huffmana) pro kapičky s indexem lomu 1,45 a úzkým rozdělením velikostí (±6 %); takové kapičky způsobily modré Slunce a Měsíc po kanadských požárech v září 1950 (Wilson 1951, Mon. Not. R. Astron. Soc. 111, 478).",
+    "en": "Clean air, rural, urban and desert correspond to the OPAC types continental clean, continental average, urban and desert (Hess, Koepke & Schult 1998, Bull. Amer. Meteor. Soc. 79, 831, Table 3): optical depth, single-scattering albedo, asymmetry parameter, and the Angstrom exponent separately for 350-500 nm and 500-800 nm. The spectral shape of the desert-dust albedo (blue absorption by iron oxides) is illustrative, anchored to OPAC's value at 550 nm. OPAC has no volcanic type, so those values are illustrative. Wildfire smoke: Angstrom exponent about 2 and albedo about 0.9 from AERONET measurements (Eck et al. 1999, J. Geophys. Res. 104, 31333); an optical depth of 1 at 1x is illustrative. Uniform 1.0 um and 1.4 um droplets: exponents and g computed with Mie theory (the Bohren-Huffman algorithm) for droplets of refractive index 1.45 with a narrow size spread (+-6 %); such droplets made the Sun and Moon blue after the Canadian forest fires of September 1950 (Wilson 1951, Mon. Not. R. Astron. Soc. 111, 478)."
   },
   "notes": {
     "cs": "Skutečný Mieův rozptyl vyžaduje řešení Maxwellových rovnic pro kulovou částici. Zde nahrazujeme výsledek dvěma parametry: mocninou vlnové délky a součinitelem asymetrie g.",

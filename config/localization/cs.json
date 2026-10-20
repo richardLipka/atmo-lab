@@ -216,7 +216,7 @@
     "states": {
       "daySky": {
         "see": "Obloha svítí modře ve všech směrech mimo hvězdu, zatímco hvězda sama vypadá stále skoro bílá. Nic tu není namalované modře: díváš se na sluneční světlo, které molekuly vzduchu vyrazily bokem ze svazku.",
-        "why": "Molekuly vzduchu rozptylují světlo tím silněji, čím kratší je jeho vlnová délka, zhruba podle 1/λ⁴: při 450 nm asi {ratio}krát silněji než při 650 nm. Do tvého oka proto přichází z oblohy hlavně modré světlo. Přímému svazku zůstane skoro všechna červená, a proto Slunce vypadá teple bílé."
+        "why": "Molekuly vzduchu rozptylují světlo tím silněji, čím kratší je jeho vlnová délka, zhruba podle 1/λ⁴: při 450 nm asi {ratio}krát silněji než při 650 nm. Do tvého oka proto přichází z oblohy hlavně modré světlo. Přímému svazku zůstane skoro všechna červená, a proto Slunce vypadá teple bílé. Modré a červené světlo se při srážce s molekulou stáčí do stejných směrů; modré se jen rozptyluje častěji."
       },
       "greySky": {
         "see": "Obloha je šedobílá, ne modrá, ačkoli z ní přichází přibližně stejně světla.",
@@ -224,7 +224,7 @@
       },
       "sunset": {
         "see": "Hvězda klesla nízko, zbarvila se do oranžova až červena a výrazně zeslábla. Změna barvy není ve hvězdě, ale v dráze, kterou její světlo urazí vzduchem: je {airmass}krát delší než kolmo vzhůru.",
-        "why": "Podíl světla, který projde vzduchem, je T = e^(−τ), kde optická tloušťka τ roste s množstvím vzduchu na cestě. Podél této dráhy je τ = {tau450} při 450 nm, ale jen {tau650} při 650 nm, takže modrá se odfiltruje skoro úplně a červená projde. Vidíš zbytek svazku, ne nově vzniklé červené světlo."
+        "why": "Podíl světla, který projde vzduchem, je T = e^(−τ), kde optická tloušťka τ roste s množstvím vzduchu na cestě. Podél této dráhy je τ = {tau450} při 450 nm, ale jen {tau650} při 650 nm, takže modrá se odfiltruje skoro úplně a červená projde. Vidíš zbytek svazku, ne nově vzniklé červené světlo. Všechny barvy letí stejnou cestou; liší se jen tím, kolik z nich cestou ubude."
       },
       "greySunset": {
         "see": "Hvězda klesla nízko a výrazně zeslábla, ale nezčervenala. Její světlo urazí vzduchem {airmass}krát delší dráhu než kolmo vzhůru, jenže vzduch teď ubírá všechny barvy skoro stejně.",
@@ -259,8 +259,8 @@
         "why": "Zář v nezakrytém směru se nezměnila, ale osvětlenost sleduje viditelný prostorový úhel: E/E_volné = sin²(θ_max) = {ratio}. Porovnej to se stoupáním: ve výšce {z} by byla tmavší sama obloha, protože sloupec vzduchu se opravdu zmenšil."
       },
       "dusty": {
-        "see": "Obloha je bledě okrová místo modré a světlo je měkké a rozptýlené. Rozptyl tu obstarávají větší částice a ty zacházejí se všemi barvami skoro stejně.",
-        "why": "Aerosoly rozptylují jen se slabou závislostí na vlnové délce (přibližně 1/λ⁰ až 1/λ¹) a s výrazně dopředu vytaženou Henyeyovou-Greensteinovou fázovou funkcí s g = {g}. Tam, kde prach navíc pohlcuje modrou víc než červenou, jako na Marsu, obloha zteplá."
+        "see": "Obloha je bledá, bělavá až nažloutlá místo sytě modré a světlo je měkké a rozptýlené. Rozptyl tu obstarávají hlavně částice prachu a kapiček; ty rozlišují barvy mnohem méně než molekuly.",
+        "why": "Tyto částice rozptylují se slabou závislostí na vlnové délce (Ångströmův exponent {alpha}, u molekul je to 4) a hlavně dopředu (parametr asymetrie g = {g}). Kde prach navíc pohlcuje modrou víc než červenou, jako na Marsu, obloha zteplá do okrova."
       },
       "denseAtmosphere": {
         "see": "Světlo je tady dole slabé a silně zbarvené. K povrchu se z původního spektra dostane jen málo.",
@@ -273,6 +273,22 @@
       "hotStar": {
         "see": "Hvězda je modrobílá a obloha sytě tmavě modrá, znatelně výrazněji než pod hvězdou slunečního typu.",
         "why": "Horké černé těleso vyzařuje mnohem více krátkovlnného světla a zákon 1/λ⁴ tento přebytek ještě zesílí. Spektrum zdroje a rozptylový zákon se násobí."
+      },
+      "smoky": {
+        "see": "Slunce je i vysoko na obloze oranžové až červené a slabé a obloha je zakalená. Vzduch je plný drobných částic kouře nebo smogu.",
+        "why": "Drobné částice (desetiny mikrometru, různých velikostí) rozptylují modrou víc než červenou (Ångströmův exponent {alpha}) a je jich hodně. Podél cesty je optická tloušťka τ = {tau450} při 450 nm, ale jen {tau650} při 650 nm, takže podle T = e^(−τ) projde hlavně červená. Všechny barvy přitom letí stejnou cestou; liší se jen tím, kolik z nich cestou ubude."
+      },
+      "blueSun": {
+        "see": "Slunce je namodralé, i když je vysoko. Vzduch obsahuje kapičky, které jsou skoro všechny stejně velké.",
+        "why": "Kapička velká asi 1 µm zeslabuje delší vlnové délky víc než kratší: podél cesty je τ = {tau450} při 450 nm, ale {tau650} při 650 nm. Projde tedy víc modré než červené. Rozhoduje poměr velikosti kapky a vlnové délky (Mieův rozptyl); ve směsi různých velikostí se tento jev ztratí."
+      },
+      "greenSun": {
+        "see": "Slunce je nazelenalé. Vzduch obsahuje kapky, které jsou skoro všechny stejně velké.",
+        "why": "Tyto kapky zeslabují nejméně zelenou: podél cesty je τ = {tau450} při 450 nm, {tau550beam} při 550 nm a {tau650} při 650 nm. Modrá i červená ubývají rychleji a zbude hlavně zelená. Takové Slunce je vzácné, protože vyžaduje kapky téměř stejné velikosti."
+      },
+      "thickAir": {
+        "see": "Slunce je i vysoko na obloze oranžové a slabší. Jeho světlo jde stejně dlouhou cestou jako obvykle, ale potká na ní mnohem víc molekul plynu.",
+        "why": "Podél cesty je optická tloušťka τ = {tau450} při 450 nm, ale jen {tau650} při 650 nm, takže podle T = e^(−τ) modrá ubývá mnohem rychleji než červená. Barvu změnilo množství plynu, ne jiný druh rozptylu: molekuly pořád rozptylují podle 1/λ⁴. Všechny barvy přitom letí stejnou cestou; liší se jen tím, kolik z nich cestou ubude."
       }
     }
   },
@@ -426,6 +442,10 @@
       "toScattering": "Dál: 4. Celá atmosféra, Rozptyl světla →",
       "principlesTitle": "Co vzduch dělá se světlem",
       "principles": {
+        "samePath": {
+          "lead": "Stejná cesta, jiná šance.",
+          "text": "Všechny barvy slunečního paprsku letí stejnou cestou: molekula stáčí modrou i červenou do stejných směrů a lom je rozdělí jen o desítky metrů na stovkách kilometrů. Liší se jen tím, jak často se která barva cestou rozptýlí. Modrá častěji, a protože se ztráty s každým kilometrem vzduchu násobí, rozhoduje o barvě Slunce hlavně množství vzduchu na cestě."
+        },
         "molecules": {
           "lead": "Rozptyl na molekulách.",
           "text": "Elektrické pole světla rozkmitá elektrony v molekule vzduchu a molekula vyzáří světlo stejné barvy do nových směrů. Světlo se neztrácí, mění jen směr. Molekuly (asi 0,3 nm) jsou mnohem menší než vlnová délka světla (400–700 nm) a pro tak malé částice roste rozptyl jako 1/λ⁴: modrá (450 nm) se rozptyluje asi 4,5× silněji než červená (650 nm)."

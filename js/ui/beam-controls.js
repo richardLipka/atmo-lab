@@ -34,7 +34,7 @@ const fromSlider = (v) => PARTICLE_MIN_UM * (PARTICLE_MAX_UM / PARTICLE_MIN_UM) 
 const PARTICLE_STOPS = [['molecule', 0.0003], ['fine', 0.1], ['haze', 0.5], ['dust', 2], ['cloud', 10]];
 
 /** What the air does to light, in the order the panel lists it. */
-const PRINCIPLES = ['molecules', 'haze', 'absorption', 'path', 'refraction', 'views'];
+const PRINCIPLES = ['samePath', 'molecules', 'haze', 'absorption', 'path', 'refraction', 'views'];
 
 /** Colours for the parts of the light budget. */
 const BUDGET_COLOURS = {

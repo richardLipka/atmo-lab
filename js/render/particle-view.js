@@ -150,7 +150,7 @@ export function drawParticleView(ctx, o) {
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(t('beam.particle.raysNote', { n: fan }), rays.x + 5, rays.y + rays.h - 4);
+  boxNote(ctx, t('beam.particle.raysNote', { n: fan }), rays);
   drawKindTag(ctx, rays, 'rays', t);
 
   // 3. Brightness graph.
@@ -198,7 +198,7 @@ export function drawParticleView(ctx, o) {
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(t(log ? 'beam.particle.graphNoteLog' : 'beam.particle.graphNote'), graph.x + 5, graph.y + graph.h - 4);
+  boxNote(ctx, t(log ? 'beam.particle.graphNoteLog' : 'beam.particle.graphNote'), graph);
   drawKindTag(ctx, graph, 'graph', t);
 
   // Row 2: by colour band, the target and the typical turn - graphs too.
@@ -236,6 +236,24 @@ export function drawParticleView(ctx, o) {
   ctx.fillText(t('beam.particle.kindsLegend', {
     nm: Math.round(RAY_BANDS[band].centreNm), nmC: Math.round(RAY_BANDS[contrast].centreNm),
   }), 14, h - 10);
+  ctx.restore();
+}
+
+/** A note at the bottom of a box, wrapped onto as many lines as the box is narrow. */
+function boxNote(ctx, text, box) {
+  ctx.save();
+  ctx.font = '9.5px system-ui, sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  const lines = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    const tryLine = line ? `${line} ${word}` : word;
+    if (ctx.measureText(tryLine).width > box.w - 10 && line) { lines.push(line); line = word; } else line = tryLine;
+  }
+  if (line) lines.push(line);
+  lines.forEach((l, k) => ctx.fillText(l, box.x + 5, box.y + box.h - 4 - (lines.length - 1 - k) * 11));
   ctx.restore();
 }
 

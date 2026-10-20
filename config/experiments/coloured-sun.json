@@ -1,0 +1,193 @@
+{
+  "id": "coloured-sun",
+  "order": 3,
+  "icon": "sun",
+  "title": { "cs": "Může být polední Slunce zelené nebo červené?", "en": "Can the midday Sun be green or red?" },
+  "summary": {
+    "cs": "Měníme složení atmosféry: jiný plyn, víc plynu, kouř a kapičky různé velikosti. Ukážeme, co barvu poledního Slunce změní a co ne.",
+    "en": "We change what the atmosphere is made of: another gas, more gas, smoke, and droplets of different sizes. We show what changes the colour of the midday Sun and what does not."
+  },
+  "goal": {
+    "cs": "Vysvětlit, že jiný plyn pořadí barev nezmění (každá malá molekula rozptyluje modrou víc než červenou), barvu mění jen množství plynu a částice. Červené Slunce v poledne dá hustý kouř; modré nebo zelené jen kapičky téměř stejné velikosti kolem 1 µm.",
+    "en": "Explain that another gas does not change the order of the colours (every small molecule scatters blue more than red); only the amount of gas and the particles change the colour. Thick smoke makes the midday Sun red; only droplets of nearly one size, about 1 µm, make it blue or green."
+  },
+  "steps": [
+    {
+      "title": { "cs": "Poledne nad Zemí", "en": "Noon on Earth" },
+      "text": {
+        "cs": "Slunce je 60° nad obzorem a vzduch je jako na Zemi. V tabulce Fyzikální veličiny sleduj propustnost přímého svazku při 450 nm (modrá), 550 nm (zelená) a 650 nm (červená): jaká část světla té barvy projde až k tobě.",
+        "en": "The Sun is 60° above the horizon and the air is as on Earth. In the Physical quantities table, follow the direct-beam transmission at 450 nm (blue), 550 nm (green) and 650 nm (red): the share of the light of that colour that gets through to you."
+      },
+      "observe": {
+        "cs": "Projde 70 % modré, 81 % zelené a 87 % červené. Slunce je téměř bílé.",
+        "en": "70 % of the blue gets through, 81 % of the green and 87 % of the red. The Sun is nearly white."
+      },
+      "state": {
+        "star": { "presetId": "sun-5800k", "temperatureK": 5800, "elevationDeg": 60 },
+        "atmosphere": { "presetId": "earth", "densityScale": 1, "aerosolPresetId": null, "aerosolScale": 1 },
+        "observer": { "z": 0, "viewZenithDeg": 30 }
+      }
+    },
+    {
+      "title": { "cs": "Jiný plyn: oxid uhličitý", "en": "Another gas: carbon dioxide" },
+      "text": {
+        "cs": "Molekula CO₂ rozptyluje světlo asi 2,4× silněji než molekula dusíku, ale se stejnou závislostí na vlnové délce, zhruba 1/λ⁴. Atmosféru z CO₂ o stejném tlaku proto napodobíme vzduchem 2,4× hustším.",
+        "en": "A CO₂ molecule scatters light about 2.4 times as strongly as a nitrogen molecule, but with the same dependence on wavelength, roughly 1/λ⁴. So we imitate an atmosphere of CO₂ at the same pressure with air 2.4 times as dense."
+      },
+      "observe": {
+        "cs": "Projde 43 % modré, 60 % zelené a 72 % červené. Slunce trochu zežloutlo a obloha zůstala modrá. Jiný plyn rozptyluje silněji nebo slaběji, ale pořadí barev nezmění: nejvíc se vždy rozptýlí modrá.",
+        "en": "43 % of the blue gets through, 60 % of the green and 72 % of the red. The Sun has turned a little yellower and the sky has stayed blue. Another gas scatters more or less strongly, but it does not change the order of the colours: blue is always scattered most."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "M. Sneep a W. Ubachs (2005): Rayleighův rozptyl na CO₂, N₂, Ar a dalších plynech, měřený přímo",
+            "en": "M. Sneep and W. Ubachs (2005): direct measurement of the Rayleigh scattering of CO₂, N₂, Ar and other gases"
+          },
+          "url": "https://doi.org/10.1016/j.jqsrt.2004.07.025"
+        }
+      ],
+      "state": { "atmosphere": { "densityScale": 2.4 } },
+      "highlight": "ctl-density"
+    },
+    {
+      "title": { "cs": "Mnohem víc plynu", "en": "Much more gas" },
+      "text": {
+        "cs": "Hustotu vzduchu jsme zvýšili na 10×, jako by atmosféra měla tlak 10 barů. Slunce je pořád 60° nad obzorem.",
+        "en": "We have raised the air density to 10 times, as if the atmosphere had a pressure of 10 bar. The Sun is still 60° above the horizon."
+      },
+      "observe": {
+        "cs": "Projde 3 % modré, 12 % zelené a 25 % červené: Slunce je oranžové i v poledne. Vzdušná hmota je pořád 1,15, cesta se nezměnila, je v ní jen víc molekul. Barvu změnilo množství plynu, stejně jako při západu Slunce.",
+        "en": "3 % of the blue gets through, 12 % of the green and 25 % of the red: the Sun is orange even at noon. The air mass is still 1.15: the path has not changed, it just holds more molecules. The amount of gas changed the colour, just as at sunset."
+      },
+      "state": { "atmosphere": { "densityScale": 10 } },
+      "highlight": "ctl-density"
+    },
+    {
+      "title": { "cs": "Kouř z lesních požárů", "en": "Smoke from wildfires" },
+      "text": {
+        "cs": "Vrátili jsme normální vzduch a přidali hustý kouř (Druh aerosolu → Kouř z lesních požárů, množství 2×). Kouř tvoří drobné částice, desetiny mikrometru, různých velikostí. Rozptylují modrou asi 2× silněji než červenou a část světla pohltí.",
+        "en": "We have put the normal air back and added thick smoke (Aerosol type → Wildfire smoke, amount 2×). Smoke is made of small particles, tenths of a micrometre, of many sizes. They scatter blue about twice as strongly as red and absorb part of the light."
+      },
+      "observe": {
+        "cs": "Projde 2,6 % modré, 8,6 % zelené a 17 % červené: polední Slunce je oranžovočervené a slabé. Takové Slunce bývá vidět při velkých požárech, kdy kouř zakryje oblohu.",
+        "en": "2.6 % of the blue gets through, 8.6 % of the green and 17 % of the red: the midday Sun is orange-red and faint. Such a Sun is seen during large fires, when smoke covers the sky."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "T. F. Eck a kol. (1999): závislost optické tloušťky kouře, městského aerosolu a pouštního prachu na vlnové délce (AERONET)",
+            "en": "T. F. Eck et al. (1999): wavelength dependence of the optical depth of biomass burning, urban and desert dust aerosols (AERONET)"
+          },
+          "url": "https://doi.org/10.1029/1999JD900923"
+        }
+      ],
+      "state": { "atmosphere": { "densityScale": 1, "aerosolPresetId": "wildfire-smoke", "aerosolScale": 2 } },
+      "highlight": "ctl-aerosol"
+    },
+    {
+      "title": { "cs": "Stejně velké kapičky 1 µm", "en": "Droplets all 1 µm across" },
+      "text": {
+        "cs": "Teď místo kouře kapičky, které jsou všechny skoro stejně velké, asi 1 µm (Druh aerosolu → Stejné kapičky 1,0 µm). Jak silně kapka zeslabuje světlo, záleží na poměru její velikosti a vlnové délky (záložka Jeden paprsek, obrázek 1). Kapička 1 µm zeslabuje nejvíc červenou a nejméně modrou.",
+        "en": "Instead of smoke, droplets that are all nearly the same size, about 1 µm (Aerosol type → Uniform 1.0 µm droplets). How strongly a droplet weakens light depends on its size compared with the wavelength (Single beam tab, picture 1). A 1 µm droplet weakens red most and blue least."
+      },
+      "observe": {
+        "cs": "Projde 14 % modré, 8,6 % zelené a 6,4 % červené: Slunce je namodralé. Takové kapičky z kouře kanadských lesních požárů obarvily Slunce a Měsíc do modra v září 1950.",
+        "en": "14 % of the blue gets through, 8.6 % of the green and 6.4 % of the red: the Sun is bluish. Droplets like these, in the smoke of Canadian forest fires, turned the Sun and the Moon blue in September 1950."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "R. Wilson (1951): Modré Slunce ze září 1950 (Monthly Notices of the RAS)",
+            "en": "R. Wilson (1951): The blue Sun of 1950 September (Monthly Notices of the RAS)"
+          },
+          "url": "https://doi.org/10.1093/mnras/111.5.478"
+        },
+        {
+          "label": {
+            "cs": "W. M. Porch a kol. (1973): Modrý Měsíc a kapičky jedné velikosti (Applied Optics)",
+            "en": "W. M. Porch et al. (1973): Blue Moon - is this a property of background aerosol? (Applied Optics)"
+          },
+          "url": "https://doi.org/10.1364/AO.12.000034"
+        }
+      ],
+      "state": { "atmosphere": { "aerosolPresetId": "droplets-1um", "aerosolScale": 2 } },
+      "highlight": "ctl-aerosol"
+    },
+    {
+      "title": { "cs": "Stejně velké kapky 1,4 µm", "en": "Droplets all 1.4 µm across" },
+      "text": {
+        "cs": "Kapky o něco větší, všechny asi 1,4 µm (Druh aerosolu → Stejné kapky 1,4 µm). Pro ně leží nejslabší zeslabení uprostřed spektra: modrou i červenou zeslabují víc než zelenou.",
+        "en": "Slightly larger droplets, all about 1.4 µm (Aerosol type → Uniform 1.4 µm droplets). For these the weakest dimming lies in the middle of the spectrum: they weaken both blue and red more than green."
+      },
+      "observe": {
+        "cs": "Projde 7,1 % modré, 8,6 % zelené a 4,7 % červené: Slunce je nazelenalé. Zelené a modré Slunce lidé popisovali po výbuchu sopky Krakatoa roku 1883. Kapky ale musí být téměř stejně velké: ve směsi různých velikostí se tento jev ztratí a Slunce zůstane bílé až oranžové.",
+        "en": "7.1 % of the blue gets through, 8.6 % of the green and 4.7 % of the red: the Sun is greenish. People described green and blue suns after the eruption of Krakatoa in 1883. But the droplets must be nearly all one size: in a mixture of sizes the effect is lost and the Sun stays white to orange."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "Výbuch Krakatoy 1883 a jeho optické jevy (Wikipedie, 1883 eruption of Krakatoa)",
+            "en": "The 1883 eruption of Krakatoa and its optical effects (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/1883_eruption_of_Krakatoa"
+        },
+        {
+          "label": {
+            "cs": "C. F. Bohren a D. R. Huffman (1983): Absorption and Scattering of Light by Small Particles",
+            "en": "C. F. Bohren and D. R. Huffman (1983): Absorption and Scattering of Light by Small Particles"
+          },
+          "url": "https://doi.org/10.1002/9783527618156"
+        }
+      ],
+      "state": { "atmosphere": { "aerosolPresetId": "droplets-1-4um", "aerosolScale": 2 } },
+      "highlight": "ctl-aerosol"
+    },
+    {
+      "title": { "cs": "A co plyny, které pohlcují?", "en": "And gases that absorb?" },
+      "text": {
+        "cs": "Kapky jsme odstranili, vzduch je zase jako na Zemi. Plyn může barvu Slunce změnit ještě jinak: pohlcováním. Ozon pohlcuje žlutou a oranžovou, oxid dusičitý (NO₂) z výfuků modrou, proto je smog hnědý, a metan červenou, proto jsou Uran a Neptun modrozelené.",
+        "en": "We have removed the droplets; the air is as on Earth again. A gas can change the colour of the Sun in another way too: by absorbing. Ozone absorbs yellow and orange, nitrogen dioxide (NO₂) from exhausts absorbs blue, which is why smog is brown, and methane absorbs red, which is why Uranus and Neptune are blue-green."
+      },
+      "observe": {
+        "cs": "Ze pohlcujících plynů simulace počítá s ozonem. V poledne ubere jen asi 4 % světla kolem 600 nm, v grafu Spektrum to skoro nepoznáš. Na Zemi je pohlcujících plynů tak málo, že polední Slunce zeleně ani červeně nezbarví; NO₂ ve smogu ho nanejvýš trochu zažloutí.",
+        "en": "Of the absorbing gases, the simulation includes ozone. At noon it takes only about 4 % of the light around 600 nm, barely visible in the Spectrum chart. On Earth there is so little of the absorbing gases that they cannot make the midday Sun green or red; NO₂ in smog at most makes it a little yellower."
+      },
+      "sources": [
+        {
+          "label": {
+            "cs": "A. Serdyuchenko a kol. (2014): absorpční průřez ozonu (Chappuisův pás)",
+            "en": "A. Serdyuchenko et al. (2014): the absorption cross-section of ozone (the Chappuis band)"
+          },
+          "url": "https://doi.org/10.5194/amt-7-625-2014"
+        },
+        {
+          "label": {
+            "cs": "A. C. Vandaele a kol. (1998): absorpční průřez NO₂ ve viditelném světle",
+            "en": "A. C. Vandaele et al. (1998): the absorption cross-section of NO₂ in visible light"
+          },
+          "url": "https://doi.org/10.1016/S0022-4073(97)00168-4"
+        },
+        {
+          "label": {
+            "cs": "Uran: metan v atmosféře pohlcuje červené světlo (Wikipedie, Uranus)",
+            "en": "Uranus: methane in its atmosphere absorbs red light (Wikipedia)"
+          },
+          "url": "https://en.wikipedia.org/wiki/Uranus"
+        }
+      ],
+      "state": { "atmosphere": { "aerosolPresetId": null, "aerosolScale": 1 } }
+    },
+    {
+      "title": { "cs": "Shrnutí: jak to vysvětlit", "en": "Summary: how to explain it" },
+      "text": {
+        "cs": "1) Jiný plyn pořadí barev nezmění: každá malá molekula rozptyluje modrou víc než červenou (1/λ⁴), jiný plyn jen silněji nebo slaběji. 2) Barvu poledního Slunce mění, kolik světla se cestou rozptýlí: hodně plynu nebo hustý kouř dá oranžové až červené Slunce. 3) Modré nebo zelené Slunce vyžaduje částice téměř stejné velikosti, srovnatelné s vlnovou délkou (asi 1 µm): ty zeslabují delší vlnové délky víc než kratší. 4) Pohlcující plyny (ozon, NO₂, metan) ubírají jen některé barvy; na Zemi je jich na to málo.",
+        "en": "1) Another gas does not change the order of the colours: every small molecule scatters blue more than red (1/λ⁴); another gas only scatters more or less strongly. 2) What changes the colour of the midday Sun is how much light is scattered on the way: a lot of gas or thick smoke makes the Sun orange to red. 3) A blue or green Sun needs particles of nearly one size, comparable with the wavelength (about 1 µm): these weaken longer wavelengths more than shorter ones. 4) Absorbing gases (ozone, NO₂, methane) take away only some colours; on Earth there is too little of them for that."
+      },
+      "observe": {
+        "cs": "Všechny barvy přitom letí stejnou cestou. Liší se jen tím, kolik z nich cestou ubude.",
+        "en": "All the colours travel the same path. They differ only in how much of each is lost on the way."
+      }
+    }
+  ]
+}

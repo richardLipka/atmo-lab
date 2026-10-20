@@ -146,6 +146,7 @@ export function createPanels(root, { i18n, store, spectrumChart, chromaticity, c
       // colour that survives is the sunset, so it is shown as it is.
       { key: 'data.airMass', value: fmt.fixed(m.airMass, 2) },
       { key: 'data.beamTransmissionAt', params: { lambda: 450 }, value: beamShare(evaluation.beam, 7) },
+      { key: 'data.beamTransmissionAt', params: { lambda: 550 }, value: beamShare(evaluation.beam, 17) },
       { key: 'data.beamTransmissionAt', params: { lambda: 650 }, value: beamShare(evaluation.beam, 27) },
       { key: 'data.pathLength', value: fmt.length(m.pathLength), advanced: true },
       { separator: true },

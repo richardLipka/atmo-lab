@@ -150,6 +150,7 @@ the step, so the list cannot drift from what the step really does.
 |---|---|---|
 | **Why is the sky blue?** | white sunlight and colourless air give a blue sky | the sky spectrum against the source → molecules only (haze off), with their size against the wavelength and why haze is white → what scattering is: oscillating electrons re-radiate, power ∝ 1/λ⁴ → n = 0, the sky turns grey with the same amount of light → n = 4 again, the blue missing from the direct beam is the sky → towards the horizon, paler → why not violet: the Sun's spectrum and the eye → summary as an exam answer, with the common mistakes (refraction, the sea) |
 | **Why is the setting Sun red?** | the same white star turns red near the horizon | 60° → 20° → 5° → 0° with the 400 km chord in view, reading the air mass and the direct-beam transmission at 450 and 650 nm → control: n = 0 and no haze at 5°, the beam only dims → summary as an exam answer: slant path, 1/λ⁴, I = I₀·e^(−τ), the same scattering as the blue sky; refraction does not redden the Sun |
+| **Can the midday Sun be green or red?** | what the atmosphere's make-up can and cannot do to the colour of the Sun | noon on Earth, reading the direct-beam transmission at 450, 550 and 650 nm → CO₂ (2.4× the scattering of air, the same 1/λ⁴, Sneep & Ubachs 2005): the order of the colours is unchanged → ten times the gas on the same path: an orange Sun at noon → wildfire smoke (Ångström ≈ 2, Eck et al. 1999): orange-red → uniform 1.0 µm droplets: a blue Sun (Canada, September 1950) → uniform 1.4 µm droplets: a green Sun (Krakatoa 1883) → absorbing gases (ozone, NO₂, methane) and why they are too scarce on Earth → summary |
 | **Flight into space** | the sky darkens to black while the Sun keeps shining | surface → 5 km → 20 km → 100 km, reading the share of the air column left and the sky radiance → control: the airless Moon at noon |
 | **The well paradox** | climbing and descending both darken your surroundings, for different reasons | surface → 10 km up (the sky itself dims) → 10 km down a shaft (the patch of sky is unchanged, the illuminance falls eight orders of magnitude) → both side by side → a shaft full of air |
 | **Stars by day: from a well and on the Moon** | Aristotle's claim that stars can be seen by day from a deep well | Vega against the 1′ of sky around it at noon: 1.4 % → the same at the bottom of a 50 m well → and of a 10 km shaft (Hynek and Winsor's chimney) → dusk, where the sky darkens and the star wins → the Moon: a black sky, and only glare from the ground in the way → summary |
@@ -288,6 +289,13 @@ multiplies by each world's true insolation (Earth 1.00, Mars 0.431, Titan 0.011,
   ω = 0.972, g = 0.709), continental average, urban and desert — each with OPAC's two
   Ångström exponents, one for 350–500 nm and one for 500–800 nm. Martian dust absorbs blue
   about twice as strongly as red, and that — not the CO₂ — is what makes the Martian sky ochre.
+  Three presets go with the guide *Can the midday Sun be green or red?*: wildfire smoke
+  (Ångström ≈ 2, ω = 0.9, from AERONET, Eck et al. 1999) and two of uniform droplets, 1.0 µm
+  and 1.4 µm across (refractive index 1.45, ±6 % in size), whose two Ångström exponents and
+  g were computed with the Mie code: −2.07/−0.86 (red dimmed most: a blue Sun) and
+  +1.68/−1.51 (both ends dimmed more than green: a green Sun). The explanation panel then
+  says which of these the particles are doing (smoky, blue Sun, green Sun, dusty), and a
+  high Sun reddened by gas alone gets its own text instead of the day-sky one.
 - Ozone (Earth): a 300 DU layer, triangular between 10 and 40 km with its peak at 25 km,
   absorbing with the Chappuis-band cross-sections of **Serdyuchenko et al. (2014)** at 233 K.
   Vertically it takes only 4 % at 600 nm, so at noon it barely shows. At sunset the light
@@ -1014,7 +1022,7 @@ lesson:
 
 ## Tests
 
-`node tests/run-tests.js` runs **170 tests** covering:
+`node tests/run-tests.js` runs **171 tests** covering:
 
 - the spectral grid, Planck's law and the Wien peak;
 - σ ∝ λ⁻⁴ compliance to machine precision for the ideal law, Earth's air against Bodhaine

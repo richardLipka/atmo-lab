@@ -56,7 +56,16 @@ export function createExplanation(root, { i18n, store }) {
     if (star.elevationDeg < 10) {
       return m.beamTau[450] > 1.25 * m.beamTau[650] ? 'sunset' : 'greySunset';
     }
+    // Where particles do most of the scattering, what they do to the colours
+    // depends on their sizes: fine smoke takes blue, droplets of one size near
+    // a micrometre can take red, or both ends and leave green.
+    const particles = particleColour(result.atmosphere);
+    if (particles && tau550 <= DENSE_TAU) return particles;
     if (tau550 > DENSE_TAU) return 'denseAtmosphere';
+    // A high Sun that the gas alone has reddened: far more air than usual on
+    // an ordinary path. The day-sky text ("the Sun keeps nearly all its red
+    // and looks warm white") would contradict what is on the screen.
+    if (m.beamTau[450] - m.beamTau[650] > Math.log(3)) return 'thickAir';
 
     // Molecules that scatter every colour alike make a grey sky, and the
     // day-sky text - "the shorter the wavelength, the stronger" - would then
@@ -65,17 +74,35 @@ export function createExplanation(root, { i18n, store }) {
     const i450 = Math.round((450 - 380) / 10), i650 = Math.round((650 - 380) / 10);
     if (beta[i650] > 0 && beta[i450] / beta[i650] < 1.5) return 'greySky';
 
-    // Is the aerosol doing more of the scattering than the gas?
-    const atmosphere = result.atmosphere;
-    const index550 = Math.round((550 - 380) / 10);
-    const gas = atmosphere.rayleighBeta0[index550] * atmosphere.scaleHeightRayleigh;
-    const dust = atmosphere.aerosolSca0[index550] * atmosphere.scaleHeightAerosol;
-    if (dust > gas) return 'dusty';
 
     if (m.atmosphericAltitude > 3000) return 'highAltitude';
     if (star.temperatureK < 4000) return 'coldStar';
     if (star.temperatureK > 9000) return 'hotStar';
     return 'daySky';
+  }
+
+  /**
+   * When the aerosol does more of the scattering than the gas, which of the
+   * aerosol texts fits: 'greenSun' if it dims green least, 'blueSun' if it dims
+   * red clearly more than blue, 'smoky' if it dims blue much more than red
+   * (Angstrom exponent above 1.5), otherwise 'dusty'. Null if the gas dominates.
+   */
+  function particleColour(atmosphere) {
+    const i = (nm) => Math.round((nm - 380) / 10);
+    const gas = atmosphere.rayleighBeta0[i(550)] * atmosphere.scaleHeightRayleigh;
+    const dust = atmosphere.aerosolSca0[i(550)] * atmosphere.scaleHeightAerosol;
+    if (!(dust > gas)) return null;
+    const e = (nm) => atmosphere.aerosolExt0[i(nm)];
+    if (e(550) < e(450) && e(550) < e(650)) return 'greenSun';
+    if (e(450) < 0.9 * e(650)) return 'blueSun';
+    if (angstromOf(atmosphere) > 1.5) return 'smoky';
+    return 'dusty';
+  }
+
+  /** The aerosol's Angstrom exponent between 450 and 650 nm. */
+  function angstromOf(atmosphere) {
+    const e450 = atmosphere.aerosolExt0[7], e650 = atmosphere.aerosolExt0[27];
+    return e450 > 0 && e650 > 0 ? Math.log(e450 / e650) / Math.log(650 / 450) : 0;
   }
 
   /** Numbers the explanation texts can quote. */
@@ -95,6 +122,8 @@ export function createExplanation(root, { i18n, store }) {
       airmass: m.airMass >= 10 ? Math.round(m.airMass) : m.airMass.toFixed(1),
       tau450: formatTau(m.beamTau[450]),
       tau650: formatTau(m.beamTau[650]),
+      tau550beam: formatTau(m.beamTau[550]),
+      alpha: angstromOf(atmosphere).toFixed(1),
       z: formatAltitude(Math.abs(m.z)),
       scaleHeight: formatAltitude(m.scaleHeight),
       columnPercent: m.columnFraction >= 0.01

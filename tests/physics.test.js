@@ -2219,6 +2219,32 @@ export function registerTests({ group, test, assert }, config) {
       assert.greater(T(sunset.a, 650) / T(sunset.a, 450), 10);
     });
 
+    test('coloured suns: another gas keeps the order, smoke reddens, uniform droplets make it blue or green', () => {
+      const step = (i) => replay('coloured-sun', i).a;
+      const t = (e) => [450, 550, 650].map((nm) => T(e, nm));
+      const near = (e, expected, label) => t(e).forEach((v, k) => assert.close(v, expected[k], 0.08, `${label} ${[450, 550, 650][k]} nm`));
+      near(step(0), [0.70, 0.81, 0.87], 'noon');
+      near(step(1), [0.43, 0.60, 0.72], 'CO2');
+      near(step(2), [0.030, 0.115, 0.25], 'ten times the gas');
+      assert.close(step(2).metrics.airMass, step(0).metrics.airMass, 1e-9, 'the same path');
+      near(step(3), [0.026, 0.086, 0.167], 'smoke');
+      near(step(4), [0.14, 0.086, 0.064], '1 um droplets');
+      near(step(5), [0.071, 0.086, 0.047], '1.4 um droplets');
+      // The colours: white, orange, orange-red, blue, green.
+      const xyOf = (e) => xy(e.beam.spectrum);
+      const [x0] = xyOf(step(0));
+      assert.less(x0, 0.35);
+      assert.greater(xyOf(step(3))[0], 0.43, 'smoke: orange-red');
+      const [xb, yb] = xyOf(step(4));
+      assert.less(xb, 0.29); assert.less(yb, 0.30);
+      const [xg, yg] = xyOf(step(5));
+      assert.greater(yg, xg + 0.05, 'green: y above x');
+      const t5 = t(step(5));
+      assert.greater(t5[1], t5[0]); assert.greater(t5[1], t5[2]);
+      // Back to ordinary air for the absorbing gases.
+      near(step(6), [0.70, 0.81, 0.87], 'ordinary air again');
+    });
+
     test('sunset: the numbers the guide quotes', () => {
       const noon = replay('sunset', 0).a, afternoon = replay('sunset', 1).a;
       const low = replay('sunset', 2).a, horizon = replay('sunset', 3).a, control = replay('sunset', 4).a;
